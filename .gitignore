@@ -33,3 +33,9 @@ Homestead.yaml
 # OS files
 .DS_Store
 Thumbs.db
+
+# Local database dumps (repo root only)
+/*.sql
+/*.sql.gz
+/*.dump
+/latsar

@@ -35,6 +35,25 @@ If browser URL becomes `...app.github.dev:8000/...`, fix `.env` APP_URL to:
 If login fails on an existing Codespace, run:
 `php artisan migrate --force && php artisan db:seed --force`.
 
+### Sync MySQL Data to Codespaces
+
+If your source data is from local MySQL (Laragon), use these scripts:
+
+```bash
+bash scripts/codespaces/import-mysql-dump.sh /workspaces/<repo>/latsar.sql
+```
+
+What it does:
+- Installs and starts MariaDB inside Codespaces (if missing)
+- Creates DB/user (`latsar` / `latsar`, password `latsar123`)
+- Updates `.env` to MySQL connection
+- Imports dump file
+- Runs `php artisan migrate --force` and ensures admin seeder
+
+Important:
+- A file in `C:\Users\...\Desktop` is not directly readable by Codespaces.
+- Upload your dump into repo workspace first (drag-and-drop in VS Code Explorer), then run the script.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
