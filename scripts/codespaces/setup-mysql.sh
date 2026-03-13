@@ -59,6 +59,37 @@ has_pdo_mysql() {
   "$PHP_CMD" -m 2>/dev/null | grep -qi "^pdo_mysql$"
 }
 
+enable_existing_pdo_mysql_if_available() {
+  local ext_dir=""
+  local scan_dir=""
+  local ini_file=""
+
+  ext_dir="$("$PHP_CMD" -i 2>/dev/null | awk -F'=> ' '/^extension_dir => / {print $2; exit}' | awk '{print $1}' || true)"
+  if [ -z "$ext_dir" ]; then
+    ext_dir="$("$PHP_CMD" -r 'echo ini_get("extension_dir");' 2>/dev/null || true)"
+  fi
+
+  if [ -z "$ext_dir" ] || [ ! -f "${ext_dir}/pdo_mysql.so" ]; then
+    return 0
+  fi
+
+  scan_dir="$("$PHP_CMD" --ini 2>/dev/null | awk -F': ' '/Scan for additional \.ini files in:/{print $2; exit}' || true)"
+  if [ -z "$scan_dir" ] || [ "$scan_dir" = "(none)" ]; then
+    scan_dir="/usr/local/etc/php/conf.d"
+  fi
+
+  ini_file="${scan_dir}/99-pdo-mysql.ini"
+
+  echo "[codespaces] Found pdo_mysql.so in ${ext_dir}, ensuring ini is enabled..."
+  if [ ! -d "$scan_dir" ]; then
+    sudo mkdir -p "$scan_dir" || mkdir -p "$scan_dir"
+  fi
+
+  if [ ! -f "$ini_file" ] || ! grep -qi "pdo_mysql" "$ini_file"; then
+    (echo "extension=pdo_mysql" | sudo tee "$ini_file" >/dev/null) || echo "extension=pdo_mysql" >"$ini_file"
+  fi
+}
+
 try_install_with_docker_php_ext() {
   local installer=""
   local enabler=""
@@ -101,11 +132,23 @@ if ! command -v mysql >/dev/null 2>&1; then
 fi
 
 if ! has_pdo_mysql; then
+  enable_existing_pdo_mysql_if_available
+fi
+
+if ! has_pdo_mysql; then
   try_install_with_docker_php_ext
 fi
 
 if ! has_pdo_mysql; then
+  enable_existing_pdo_mysql_if_available
+fi
+
+if ! has_pdo_mysql; then
   try_install_with_install_php_extensions
+fi
+
+if ! has_pdo_mysql; then
+  enable_existing_pdo_mysql_if_available
 fi
 
 if ! has_pdo_mysql; then
@@ -154,7 +197,7 @@ if ! has_pdo_mysql; then
   echo "[codespaces] ERROR: pdo_mysql extension is still missing." >&2
   echo "[codespaces] PHP in use: ${PHP_CMD}" >&2
   "$PHP_CMD" --ini >&2 || true
-  "$PHP_CMD" -m | grep -i mysql >&2 || true
+  "$PHP_CMD" -m | grep -Ei '^pdo$|pdo_mysql|mysqli|mysqlnd' >&2 || true
   exit 1
 fi
 

@@ -47,6 +47,7 @@ bash scripts/codespaces/import-mysql-dump.sh /workspaces/<repo>/latsar.sql
 What it does:
 - Installs and starts MariaDB inside Codespaces (if missing)
 - Installs PHP MySQL driver (`pdo_mysql`) if missing
+- Enables `pdo_mysql` ini automatically if module exists but is not loaded
 - Creates DB/user (`latsar` / `latsar`, password `latsar123`)
 - Updates `.env` to MySQL connection
 - Imports dump file (and strips `CREATE DATABASE` / `USE` directives to force import into target DB)
