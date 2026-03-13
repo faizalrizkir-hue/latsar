@@ -104,21 +104,24 @@ enable_existing_pdo_mysql_if_available() {
 try_install_with_docker_php_ext() {
   local installer=""
   local enabler=""
+  local php_ini_dir=""
 
   installer="$(command -v docker-php-ext-install 2>/dev/null || true)"
   enabler="$(command -v docker-php-ext-enable 2>/dev/null || true)"
+  php_ini_dir="$("$PHP_CMD" -i 2>/dev/null | awk -F'=> ' '/^Configuration File \(php\.ini\) Path => / {print $2; exit}' | awk '{print $1}' || true)"
 
   [ -n "$installer" ] || installer="/usr/local/bin/docker-php-ext-install"
   [ -n "$enabler" ] || enabler="/usr/local/bin/docker-php-ext-enable"
+  [ -n "$php_ini_dir" ] || php_ini_dir="/usr/local/etc/php"
 
   if [ -x "$installer" ]; then
     echo "[codespaces] Installing pdo_mysql via docker-php-ext-install..."
-    sudo env PATH="$PATH" "$installer" pdo_mysql || "$installer" pdo_mysql || true
+    sudo env PATH="$PATH" PHP_INI_DIR="$php_ini_dir" "$installer" pdo_mysql || "$installer" pdo_mysql || true
   fi
 
   if [ -x "$enabler" ]; then
     echo "[codespaces] Enabling pdo_mysql via docker-php-ext-enable..."
-    sudo env PATH="$PATH" "$enabler" pdo_mysql || "$enabler" pdo_mysql || true
+    sudo env PATH="$PATH" PHP_INI_DIR="$php_ini_dir" "$enabler" pdo_mysql || "$enabler" pdo_mysql || true
   fi
 }
 
@@ -129,7 +132,7 @@ try_install_with_install_php_extensions() {
 
   if [ -x "$installer" ]; then
     echo "[codespaces] Installing pdo_mysql via install-php-extensions..."
-    sudo env PATH="$PATH" "$installer" pdo_mysql mysqli || "$installer" pdo_mysql mysqli || true
+    sudo env PATH="$PATH" "$installer" pdo_mysql || "$installer" pdo_mysql || true
   fi
 }
 
