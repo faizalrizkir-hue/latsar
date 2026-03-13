@@ -3,7 +3,7 @@
 @section('title', $pageTitle ?? 'Tambah Dokumen')
 
 @push('head')
-    <link rel="stylesheet" href="{{ asset('css/dms.css') }}">
+    <link rel="stylesheet" href="/css/dms.css">
 @endpush
 
 @section('content')

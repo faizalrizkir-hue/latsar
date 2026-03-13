@@ -9,7 +9,7 @@
 
 @push('head')
     @foreach ($summaryStyles as $stylePath)
-        <link rel="stylesheet" href="{{ asset($stylePath) }}">
+        <link rel="stylesheet" href="/{{ ltrim($stylePath, '/') }}">
     @endforeach
 @endpush
 

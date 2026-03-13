@@ -50,7 +50,7 @@
 @endphp
 
 @push('head')
-    <link rel="stylesheet" href="{{ asset('css/dashboard-home.css') }}">
+    <link rel="stylesheet" href="/css/dashboard-home.css">
 @endpush
 
 @section('content')

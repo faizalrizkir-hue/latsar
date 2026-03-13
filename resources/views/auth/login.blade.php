@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Masuk - Dashboard Monitoring</title>
-    <link rel="stylesheet" href="{{ asset('css/login.css') }}">
+    <link rel="stylesheet" href="/css/login.css">
     @php
         $recaptchaSiteKey = config('services.recaptcha.site_key');
         $recaptchaAction = config('services.recaptcha.action', 'login');
@@ -82,8 +82,8 @@
         <section class="card">
             <div class="card-header">
                 <div class="logo">
-                    <img class="logo-light" src="{{ asset('static/logo-sikap-light.png') }}" alt="Logo SIKAP">
-                    <img class="logo-dark" src="{{ asset('static/logo-sikap-dark.png') }}" alt="Logo SIKAP">
+                    <img class="logo-light" src="/static/logo-sikap-light.png" alt="Logo SIKAP">
+                    <img class="logo-dark" src="/static/logo-sikap-dark.png" alt="Logo SIKAP">
                 </div>
                 <p class="eyebrow" style="margin-bottom: 4px;">Self Assessment Kapabilitas APIP</p>
                 <h1>Login Akun</h1>
@@ -147,7 +147,7 @@
                     <div class="quick-link-item">
                         <a href="https://simantab.jakarta.go.id/" class="quick-link-anchor" target="_blank" rel="noopener noreferrer" title="SIMANTAB" aria-label="Buka SIMANTAB">
                             <span class="quick-link-logo">
-                                <img src="{{ asset('static/simantab-logo.png') }}" alt="Logo SIMANTAB" loading="lazy">
+                                <img src="/static/simantab-logo.png" alt="Logo SIMANTAB" loading="lazy">
                             </span>
                         </a>
                         <span class="quick-link-name">SIMANTAB</span>
@@ -155,7 +155,7 @@
                     <div class="quick-link-item">
                         <a href="https://siperisai.jakarta.go.id/" class="quick-link-anchor" target="_blank" rel="noopener noreferrer" title="SIPERISAI" aria-label="Buka SIPERISAI">
                             <span class="quick-link-logo">
-                                <img src="{{ asset('static/siperisai-logo.png') }}" alt="Logo SIPERISAI" loading="lazy">
+                                <img src="/static/siperisai-logo.png" alt="Logo SIPERISAI" loading="lazy">
                             </span>
                         </a>
                         <span class="quick-link-name">SIPERISAI</span>
@@ -163,7 +163,7 @@
                     <div class="quick-link-item">
                         <a href="https://ams.jakarta.go.id/" class="quick-link-anchor" target="_blank" rel="noopener noreferrer" title="AMS" aria-label="Buka AMS">
                             <span class="quick-link-logo">
-                                <img src="{{ asset('static/ams-logo.png') }}" alt="Logo AMS" loading="lazy">
+                                <img src="/static/ams-logo.png" alt="Logo AMS" loading="lazy">
                             </span>
                         </a>
                         <span class="quick-link-name">AMS</span>
@@ -171,7 +171,7 @@
                     <div class="quick-link-item">
                         <a href="https://eklinik.jakarta.go.id/" class="quick-link-anchor" target="_blank" rel="noopener noreferrer" title="E-Klinik" aria-label="Buka E-Klinik">
                             <span class="quick-link-logo">
-                                <img src="{{ asset('static/eklinik-logo.png') }}" alt="Logo E-Klinik" loading="lazy">
+                                <img src="/static/eklinik-logo.png" alt="Logo E-Klinik" loading="lazy">
                             </span>
                         </a>
                         <span class="quick-link-name">E-Klinik</span>
@@ -179,7 +179,7 @@
                     <div class="quick-link-item">
                         <a href="https://sipadu.jakarta.go.id/" class="quick-link-anchor" target="_blank" rel="noopener noreferrer" title="SiPADU" aria-label="Buka SiPADU">
                             <span class="quick-link-logo">
-                                <img src="{{ asset('static/sipadu-logo.png') }}" alt="Logo SiPADU" loading="lazy">
+                                <img src="/static/sipadu-logo.png" alt="Logo SiPADU" loading="lazy">
                             </span>
                         </a>
                         <span class="quick-link-name">SiPADU</span>
@@ -187,7 +187,7 @@
                     <div class="quick-link-item">
                         <a href="https://inspektorat.jakarta.go.id/sepakat/login" class="quick-link-anchor" target="_blank" rel="noopener noreferrer" title="SEPAKAT" aria-label="Buka SEPAKAT">
                             <span class="quick-link-logo">
-                                <img src="{{ asset('static/sepakat-logo.png') }}" alt="Logo SEPAKAT" loading="lazy">
+                                <img src="/static/sepakat-logo.png" alt="Logo SEPAKAT" loading="lazy">
                             </span>
                         </a>
                         <span class="quick-link-name">SEPAKAT</span>
@@ -195,7 +195,7 @@
                     <div class="quick-link-item">
                         <a href="https://cacm.jakarta.go.id/" class="quick-link-anchor" target="_blank" rel="noopener noreferrer" title="CACM" aria-label="Buka CACM">
                             <span class="quick-link-logo">
-                                <img src="{{ asset('static/cacm-logo.png') }}" alt="Logo CACM" loading="lazy">
+                                <img src="/static/cacm-logo.png" alt="Logo CACM" loading="lazy">
                             </span>
                         </a>
                         <span class="quick-link-name">CACM</span>

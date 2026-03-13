@@ -4,7 +4,7 @@
 @endphp
 
 @push('head')
-    <link rel="stylesheet" href="{{ asset('css/element1-kegiatan-asurans.css') }}">
+    <link rel="stylesheet" href="/css/element1-kegiatan-asurans.css">
 @endpush
 
 @section('content')

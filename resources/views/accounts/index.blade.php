@@ -1,7 +1,7 @@
 @extends('layouts.dashboard-shell')
 
 @push('head')
-    <link rel="stylesheet" href="{{ asset('css/accounts.css') }}">
+    <link rel="stylesheet" href="/css/accounts.css">
 @endpush
 
 @section('content')
