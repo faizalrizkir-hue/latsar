@@ -10,6 +10,7 @@ DB_USER="${DB_USER:-latsar}"
 DB_PASSWORD="${DB_PASSWORD:-latsar123}"
 DB_HOST="${DB_HOST:-127.0.0.1}"
 DB_PORT="${DB_PORT:-3306}"
+APT_UPDATED=0
 
 set_env_value() {
   local key="$1"
@@ -22,10 +23,11 @@ set_env_value() {
   fi
 }
 
-echo "[codespaces] Preparing MySQL (MariaDB) service..."
+ensure_apt_update() {
+  if [ "$APT_UPDATED" -eq 1 ]; then
+    return 0
+  fi
 
-if ! command -v mysql >/dev/null 2>&1; then
-  echo "[codespaces] Installing mariadb-server and mariadb-client..."
   if ! sudo apt-get update; then
     echo "[codespaces] apt update failed. Trying to disable broken Yarn repo..."
     if [ -f /etc/apt/sources.list.d/yarn.list ]; then
@@ -33,7 +35,27 @@ if ! command -v mysql >/dev/null 2>&1; then
     fi
     sudo apt-get update
   fi
+
+  APT_UPDATED=1
+}
+
+echo "[codespaces] Preparing MySQL (MariaDB) service..."
+
+if ! command -v mysql >/dev/null 2>&1; then
+  echo "[codespaces] Installing mariadb-server and mariadb-client..."
+  ensure_apt_update
   sudo DEBIAN_FRONTEND=noninteractive apt-get install -y mariadb-server mariadb-client
+fi
+
+if ! php -m | grep -qi "pdo_mysql"; then
+  echo "[codespaces] Installing PHP MySQL extension (pdo_mysql)..."
+  ensure_apt_update
+  if ! sudo DEBIAN_FRONTEND=noninteractive apt-get install -y php8.2-mysql; then
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y php-mysql
+  fi
+  if command -v phpenmod >/dev/null 2>&1; then
+    sudo phpenmod pdo_mysql mysqli mysqlnd >/dev/null 2>&1 || true
+  fi
 fi
 
 if command -v service >/dev/null 2>&1; then
@@ -60,6 +82,12 @@ set_env_value "DB_PASSWORD" "${DB_PASSWORD}"
 
 php artisan config:clear >/dev/null 2>&1 || true
 php artisan cache:clear >/dev/null 2>&1 || true
+
+if ! php -m | grep -qi "pdo_mysql"; then
+  echo "[codespaces] ERROR: pdo_mysql extension is still missing." >&2
+  echo "[codespaces] Run: php -m | grep -i mysql" >&2
+  exit 1
+fi
 
 echo "[codespaces] MySQL ready."
 echo "[codespaces] Database: ${DB_NAME}, User: ${DB_USER}, Host: ${DB_HOST}:${DB_PORT}"
