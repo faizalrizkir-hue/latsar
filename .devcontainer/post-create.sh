@@ -20,6 +20,12 @@ if [ -n "${CODESPACE_NAME:-}" ] && [ -n "${GITHUB_CODESPACES_PORT_FORWARDING_DOM
   else
     echo "APP_URL=${APP_URL_VALUE}" >> .env
   fi
+
+  if grep -q "^ASSET_URL=" .env; then
+    sed -i "s#^ASSET_URL=.*#ASSET_URL=${APP_URL_VALUE}#" .env
+  else
+    echo "ASSET_URL=${APP_URL_VALUE}" >> .env
+  fi
 fi
 
 mkdir -p database

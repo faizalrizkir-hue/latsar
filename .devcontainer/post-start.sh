@@ -6,6 +6,8 @@ if ! command -v php >/dev/null 2>&1 && [ ! -x /usr/bin/php ] && [ ! -x /usr/loca
   exit 0
 fi
 
+cd "${WORKSPACE_FOLDER:-$(pwd)}"
+
 BASHRC="$HOME/.bashrc"
 touch "$BASHRC"
 PHP_USER_CONF_DIR="$HOME/.config/php/conf.d"
@@ -37,4 +39,28 @@ if ! grep -q "LATSAR_PHP_INI_SCAN_DIR" "$BASHRC"; then
 # LATSAR_PHP_INI_SCAN_DIR
 export PHP_INI_SCAN_DIR="/usr/local/etc/php/conf.d:/home/vscode/.config/php/conf.d"
 EOF
+fi
+
+# Keep APP_URL / ASSET_URL aligned with Codespaces forwarded host so css/js/images
+# are loaded from the public app.github.dev domain instead of localhost.
+if [ -f .env.example ] && [ ! -f .env ]; then
+  cp .env.example .env
+fi
+
+if [ -f .env ] && [ -n "${CODESPACE_NAME:-}" ] && [ -n "${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}" ]; then
+  PUBLIC_URL="https://${CODESPACE_NAME}-8000.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}"
+
+  if grep -q "^APP_URL=" .env; then
+    sed -i "s#^APP_URL=.*#APP_URL=${PUBLIC_URL}#" .env
+  else
+    echo "APP_URL=${PUBLIC_URL}" >> .env
+  fi
+
+  if grep -q "^ASSET_URL=" .env; then
+    sed -i "s#^ASSET_URL=.*#ASSET_URL=${PUBLIC_URL}#" .env
+  else
+    echo "ASSET_URL=${PUBLIC_URL}" >> .env
+  fi
+
+  php artisan optimize:clear >/dev/null 2>&1 || true
 fi
