@@ -26,7 +26,13 @@ echo "[codespaces] Preparing MySQL (MariaDB) service..."
 
 if ! command -v mysql >/dev/null 2>&1; then
   echo "[codespaces] Installing mariadb-server and mariadb-client..."
-  sudo apt-get update
+  if ! sudo apt-get update; then
+    echo "[codespaces] apt update failed. Trying to disable broken Yarn repo..."
+    if [ -f /etc/apt/sources.list.d/yarn.list ]; then
+      sudo mv /etc/apt/sources.list.d/yarn.list /etc/apt/sources.list.d/yarn.list.disabled
+    fi
+    sudo apt-get update
+  fi
   sudo DEBIAN_FRONTEND=noninteractive apt-get install -y mariadb-server mariadb-client
 fi
 

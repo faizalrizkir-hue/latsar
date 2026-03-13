@@ -53,6 +53,7 @@ What it does:
 Important:
 - A file in `C:\Users\...\Desktop` is not directly readable by Codespaces.
 - Upload your dump into repo workspace first (drag-and-drop in VS Code Explorer), then run the script.
+- If `apt-get update` fails because of Yarn GPG key in Codespaces, the setup script will disable `yarn.list` automatically and retry.
 
 ## About Laravel
 
