@@ -64,3 +64,10 @@ if [ -f .env ] && [ -n "${CODESPACE_NAME:-}" ] && [ -n "${GITHUB_CODESPACES_PORT
 
   php artisan optimize:clear >/dev/null 2>&1 || true
 fi
+
+# Keep local MySQL service available when DB connection uses mysql.
+if [ -f .env ] && grep -q '^DB_CONNECTION=mysql' .env 2>/dev/null; then
+  if command -v service >/dev/null 2>&1; then
+    sudo service mariadb start >/dev/null 2>&1 || sudo service mysql start >/dev/null 2>&1 || true
+  fi
+fi
