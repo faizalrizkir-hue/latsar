@@ -11,7 +11,7 @@
   "postStartCommand": "bash .devcontainer/post-start.sh",
   "remoteEnv": {
     "PATH": "/usr/bin:/usr/local/bin:/bin:${containerEnv:PATH}",
-    "PHP_INI_SCAN_DIR": "/usr/local/etc/php/conf.d:${containerEnv:HOME}/.config/php/conf.d"
+    "PHP_INI_SCAN_DIR": "/usr/local/etc/php/conf.d:/home/vscode/.config/php/conf.d"
   },
   "forwardPorts": [
     8000,

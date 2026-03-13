@@ -35,6 +35,6 @@ if ! grep -q "LATSAR_PHP_INI_SCAN_DIR" "$BASHRC"; then
   cat >>"$BASHRC" <<'EOF'
 
 # LATSAR_PHP_INI_SCAN_DIR
-export PHP_INI_SCAN_DIR="/usr/local/etc/php/conf.d:$HOME/.config/php/conf.d"
+export PHP_INI_SCAN_DIR="/usr/local/etc/php/conf.d:/home/vscode/.config/php/conf.d"
 EOF
 fi

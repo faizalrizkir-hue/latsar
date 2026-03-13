@@ -35,6 +35,7 @@ If browser URL becomes `...app.github.dev:8000/...`, fix `.env` APP_URL to:
 `https://${CODESPACE_NAME}-8000.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}` then run `php artisan optimize:clear`.
 If login fails on an existing Codespace, run:
 `php artisan migrate --force && php artisan db:seed --force`.
+If MySQL driver is still not detected, ensure `/usr/local/etc/php/conf.d/99-pdo-mysql.ini` contains `extension=pdo_mysql`.
 
 ### Sync MySQL Data to Codespaces
 
