@@ -40,6 +40,7 @@ if ! grep -q "^APP_KEY=base64:" .env; then
 fi
 
 php artisan migrate --graceful --force
+php artisan db:seed --force
 php artisan storage:link || true
 
 chmod -R ug+rw storage bootstrap/cache || true
@@ -48,3 +49,4 @@ echo ""
 echo "Codespaces setup complete."
 echo "Run app server: php -d display_errors=0 artisan serve --host=0.0.0.0 --port=8000"
 echo "Run Vite dev:   npm run dev -- --host 0.0.0.0 --port 5173"
+echo "Default login:  admin / admin123"

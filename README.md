@@ -23,12 +23,17 @@ npm run dev -- --host 0.0.0.0 --port 5173
 
 Default database for Codespaces is SQLite (`database/database.sqlite`).
 Do not commit `.env`; store sensitive values using GitHub Codespaces Secrets.
+Default seeded login for first run:
+- Username: `admin`
+- Password: `admin123`
 
 If you see `libcrypto.so.1.1` / `OPENSSL_1_1_1` errors, rebuild the container from VS Code command palette:
 `Codespaces: Rebuild Container`.
 If needed, run `which php` and ensure it resolves to `/usr/local/bin/php`.
 If browser URL becomes `...app.github.dev:8000/...`, fix `.env` APP_URL to:
 `https://${CODESPACE_NAME}-8000.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}` then run `php artisan optimize:clear`.
+If login fails on an existing Codespace, run:
+`php artisan migrate --force && php artisan db:seed --force`.
 
 ## About Laravel
 
