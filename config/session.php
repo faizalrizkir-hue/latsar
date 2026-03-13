@@ -34,6 +34,19 @@ return [
 
     'lifetime' => (int) env('SESSION_LIFETIME', 120),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Application Idle Timeout
+    |--------------------------------------------------------------------------
+    |
+    | This controls how long an authenticated user may stay inactive before
+    | the application forces a logout, even if the session cookie is still
+    | valid. The value is expressed in minutes.
+    |
+    */
+
+    'idle_timeout' => (int) env('SESSION_IDLE_TIMEOUT', 60),
+
     'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', false),
 
     /*

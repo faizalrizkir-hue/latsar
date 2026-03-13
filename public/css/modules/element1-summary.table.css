@@ -1,0 +1,11 @@
+.element1-summary-page .element1-summary-table tbody tr:hover td{
+    background:#eef5ff;
+}
+
+.element1-summary-page .element1-summary-table .aksi{
+    text-align:center;
+}
+
+.element1-summary-page .element1-summary-table .btn-aksi{
+    margin:0 auto;
+}

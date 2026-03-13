@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    'recaptcha' => [
+        'site_key' => env('RECAPTCHA_SITE_KEY'),
+        'secret_key' => env('RECAPTCHA_SECRET_KEY'),
+        'min_score' => (float) env('RECAPTCHA_MIN_SCORE', 0.5),
+        'action' => env('RECAPTCHA_ACTION', 'login'),
+        'skip_on_local' => (bool) env('RECAPTCHA_SKIP_ON_LOCAL', true),
+    ],
+
 ];

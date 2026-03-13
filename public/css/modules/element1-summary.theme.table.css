@@ -1,0 +1,59 @@
+:root[data-theme="dark"] .element1-summary-page{
+    --line: rgba(148, 163, 184, 0.4);
+    --line-strong: rgba(125, 165, 220, 0.58);
+    --panel: rgba(17, 24, 39, 0.94);
+    --text: #e4ecf9;
+    --muted: #b0c0d8;
+}
+
+:root[data-theme="dark"] .element1-summary-page .keg-title h4{
+    color:#f1f6ff;
+}
+
+:root[data-theme="dark"] .element1-summary-page .keg-title small{
+    color:#b7c8de;
+}
+
+:root[data-theme="dark"] .element1-summary-page .keg-table{
+    border-color:rgba(148, 163, 184, 0.4);
+    background:linear-gradient(180deg, rgba(14, 23, 38, 0.92), rgba(12, 20, 34, 0.9));
+}
+
+:root[data-theme="dark"] .element1-summary-page .keg-table thead th{
+    background:linear-gradient(180deg, rgba(39, 52, 74, 0.9), rgba(30, 41, 59, 0.88));
+    border-right-color:rgba(148, 163, 184, 0.34);
+    border-bottom-color:rgba(148, 163, 184, 0.46);
+    color:#dbe8fa;
+}
+
+:root[data-theme="dark"] .element1-summary-page .keg-table tbody td{
+    border-top-color:rgba(148, 163, 184, 0.3);
+    border-right-color:rgba(148, 163, 184, 0.26);
+    color:#e4ecf9;
+}
+
+:root[data-theme="dark"] .element1-summary-page .keg-table tbody tr.active td{
+    background:rgba(37, 99, 235, 0.18);
+}
+
+:root[data-theme="dark"] .element1-summary-page .element1-summary-table tbody tr:hover td{
+    background:rgba(37,99,235,0.16);
+}
+
+:root[data-theme="dark"] .element1-summary-page .pernyataan{
+    color:#f1f5ff;
+}
+
+:root[data-theme="dark"] .element1-summary-page .bobot{
+    color:#b3c2d8;
+}
+
+:root[data-theme="dark"] .element1-summary-page .pill-skor{
+    border-color:rgba(148, 163, 184, 0.46);
+    background:rgba(30, 41, 59, 0.76);
+    color:#dbe7f7;
+}
+
+:root[data-theme="dark"] .element1-summary-page .element1-summary-table .text-muted{
+    color:#b7c7de !important;
+}

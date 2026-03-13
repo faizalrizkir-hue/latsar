@@ -1,0 +1,16 @@
+:root[data-theme="dark"] .element1-summary-page .element1-stat-label{
+    color:#a8b8cf;
+}
+
+:root[data-theme="dark"] .element1-summary-page .element1-stat-card{
+    border-color:rgba(148, 163, 184, 0.38);
+    background:linear-gradient(170deg, rgba(24, 36, 56, 0.88), rgba(14, 24, 40, 0.9));
+}
+
+:root[data-theme="dark"] .element1-summary-page .element1-stat-value{
+    color:#e2ebff;
+}
+
+:root[data-theme="dark"] .element1-summary-page .element1-stat-note{
+    color:#8fa2be;
+}

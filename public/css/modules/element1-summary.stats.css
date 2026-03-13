@@ -1,0 +1,36 @@
+.element1-summary-page .element1-summary-grid{
+    grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+    gap:12px;
+}
+
+.element1-summary-page .element1-stat-card{
+    padding:0.95rem 1.05rem;
+    border-radius:16px;
+    display:grid;
+    gap:0.36rem;
+}
+
+.element1-summary-page .element1-stat-label{
+    color:#405471;
+    font-size:0.9rem;
+    font-weight:700;
+}
+
+.element1-summary-page .element1-stat-value{
+    color:#1b2c45;
+    font-size:2rem;
+    line-height:1;
+    font-weight:800;
+    letter-spacing:-0.01em;
+}
+
+.element1-summary-page .element1-stat-note{
+    color:#5f718a;
+    font-size:0.83rem;
+    font-weight:700;
+    line-height:1.45;
+}
+
+.element1-summary-page .keg-formula{
+    word-break:break-word;
+}

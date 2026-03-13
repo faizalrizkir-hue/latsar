@@ -1,0 +1,226 @@
+/* ---- Legacy profile styling override ---- */
+.legacy-page .content-panel{
+    background: linear-gradient(135deg, rgba(255,255,255,0.92), rgba(245,248,255,0.96));
+    border: 1px solid rgba(148,163,184,0.25);
+    box-shadow: 0 18px 36px rgba(15,23,42,0.12);
+    padding: 16px;
+}
+:root[data-theme="dark"] .legacy-page .content-panel{
+    background: linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.88));
+    border: 1px solid rgba(148,163,184,0.35);
+    box-shadow: 0 18px 40px rgba(0,0,0,0.45);
+}
+.legacy-page .legacy-content{
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    overflow:visible;
+}
+.legacy-page .legacy-container{
+    flex:1;
+    overflow:visible;
+    padding:16px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.92), rgba(245,248,255,0.96));
+}
+:root[data-theme="dark"] .legacy-page .legacy-container{
+    background: linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.88));
+}
+.legacy-page .legacy-body{
+    min-height: auto;
+}
+.legacy-page .card{
+    background: linear-gradient(180deg, rgba(255,255,255,0.97), rgba(241,247,255,0.98));
+    border: 1px solid transparent;
+    border-radius: 14px;
+    box-shadow: 0 16px 30px rgba(15,23,42,0.12);
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
+    background-image:
+        linear-gradient(180deg, rgba(255,255,255,0.97), rgba(241,247,255,0.98)),
+        linear-gradient(135deg, rgba(96,165,250,0.55), rgba(34,211,238,0.4));
+    transition: transform 0.2s ease, box-shadow 0.25s ease;
+}
+.legacy-page .card:hover{
+    transform: translateY(-2px);
+    box-shadow: 0 20px 40px rgba(15,23,42,0.16);
+}
+:root[data-theme="dark"] .legacy-page .card{
+    background-image:
+        linear-gradient(180deg, rgba(30,41,59,0.95), rgba(15,23,42,0.92)),
+        linear-gradient(135deg, rgba(96,165,250,0.4), rgba(34,211,238,0.35));
+    border:1px solid rgba(148,163,184,0.35);
+    box-shadow: 0 16px 38px rgba(0,0,0,0.45);
+}
+:root[data-theme="dark"] .legacy-page .card:hover{
+    box-shadow: 0 20px 44px rgba(0,0,0,0.5);
+}
+.legacy-page .section-card{
+    border: 1px solid transparent;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 12px;
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
+    background-image:
+        linear-gradient(180deg, rgba(255,255,255,0.98), rgba(245,248,255,0.98)),
+        linear-gradient(135deg, rgba(96,165,250,0.4), rgba(22,163,74,0.32));
+}
+:root[data-theme="dark"] .legacy-page .section-card{
+    background-image:
+        linear-gradient(180deg, rgba(17,24,39,0.96), rgba(15,23,42,0.94)),
+        linear-gradient(135deg, rgba(96,165,250,0.35), rgba(22,163,74,0.28));
+    border:1px solid rgba(148,163,184,0.35);
+}
+.legacy-page input,
+.legacy-page select,
+.legacy-page textarea{
+    border: 1px solid rgba(59,130,246,0.55);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.9);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+:root[data-theme="dark"] .legacy-page input,
+:root[data-theme="dark"] .legacy-page select,
+:root[data-theme="dark"] .legacy-page textarea{
+    background: rgba(17,24,39,0.9);
+    color: #e2e8f0;
+    border:1px solid rgba(96,165,250,0.55);
+}
+.legacy-page input:hover,
+.legacy-page select:hover,
+.legacy-page textarea:hover{
+    border-color: rgba(59,130,246,0.75);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.16);
+}
+.legacy-page input:focus,
+.legacy-page select:focus,
+.legacy-page textarea:focus{
+    border-color: rgba(59,130,246,0.8);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.18);
+    outline: none;
+}
+:root[data-theme="dark"] .legacy-page input:focus,
+:root[data-theme="dark"] .legacy-page select:focus,
+:root[data-theme="dark"] .legacy-page textarea:focus{
+    box-shadow: 0 0 0 3px rgba(96,165,250,0.28);
+}
+.legacy-page .btn.primary{
+    background: linear-gradient(135deg, #2563eb, #22d3ee);
+    color: #fff;
+    border: 1px solid rgba(37,99,235,0.4);
+    box-shadow: 0 12px 24px rgba(37,99,235,0.22);
+}
+.legacy-page .btn.primary:hover{
+    transform: translateY(-1px);
+    box-shadow: 0 16px 28px rgba(37,99,235,0.25);
+}
+.legacy-page .btn.pill:hover{
+    transform: translateY(-1px);
+    box-shadow: 0 10px 20px rgba(59,130,246,0.18);
+}
+.legacy-page .btn.danger{
+    background: linear-gradient(135deg, #ef4444, #f87171);
+    color:#fff;
+    border:1px solid rgba(239,68,68,0.7);
+    opacity:1;
+    filter:none;
+}
+.legacy-page .btn.danger:not(:disabled){
+    opacity:1;
+    filter:none;
+}
+.legacy-page .btn.danger:disabled{
+    opacity:0.55;
+    filter:grayscale(0.1);
+}
+.legacy-page .btn.danger,
+.legacy-page .btn.warning,
+.legacy-page .btn.primary{
+    transition: transform 0.18s ease, box-shadow 0.22s ease, filter 0.18s ease;
+}
+.legacy-page .btn.danger:hover:not(:disabled),
+.legacy-page .btn.warning:hover:not(:disabled),
+.legacy-page .btn.primary:hover:not(:disabled){
+    transform: translateY(-1px);
+    box-shadow: 0 12px 22px rgba(0,0,0,0.16);
+    filter: brightness(1.03);
+}
+.legacy-page .btn.btn-reset,
+.legacy-page .btn.btn-toggle,
+.legacy-page .btn.btn-danger{
+    transition: transform 0.18s ease, box-shadow 0.22s ease, filter 0.18s ease;
+}
+.legacy-page .btn.btn-reset:hover:not(:disabled),
+.legacy-page .btn.btn-toggle:hover:not(:disabled),
+.legacy-page .btn.btn-danger:hover:not(:disabled){
+    transform: translateY(-1px) !important;
+    box-shadow: 0 14px 24px rgba(37,99,235,0.22) !important;
+    filter: brightness(1.04) !important;
+}
+.legacy-page .btn.warning{
+    background: linear-gradient(135deg, #f97316, #fb923c);
+    color: #fff;
+    border:1px solid rgba(249,115,22,0.65);
+}
+:root[data-theme="dark"] .legacy-page .btn.primary,
+:root[data-theme="dark"] .legacy-page .btn.btn-reset{
+    box-shadow: 0 12px 26px rgba(96,165,250,0.35);
+}
+:root[data-theme="dark"] .legacy-page .btn.danger,
+:root[data-theme="dark"] .legacy-page .btn.btn-danger{
+    box-shadow: 0 12px 26px rgba(239,68,68,0.35);
+}
+:root[data-theme="dark"] .legacy-page .btn.warning{
+    box-shadow: 0 12px 26px rgba(249,115,22,0.32);
+}
+
+/* Hover info chips (total akun, aktif, nonaktif) */
+.legacy-page .summary-chip,
+.legacy-page .stats-chip,
+.legacy-page .badge-summary{
+    background: linear-gradient(180deg, rgba(255,255,255,0.97), rgba(245,248,255,0.98));
+    border: 1px solid rgba(148,163,184,0.35);
+    border-radius: 12px;
+    box-shadow: 0 10px 22px rgba(15,23,42,0.08);
+    transition: transform 0.2s ease, box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+    cursor: default;
+    position: relative;
+    z-index: 0;
+}
+.legacy-page .summary-chip:hover,
+.legacy-page .stats-chip:hover,
+.legacy-page .badge-summary:hover{
+    transform: translateY(-2px);
+    box-shadow: 0 18px 32px rgba(37,99,235,0.18);
+    border-color: rgba(37,99,235,0.35) !important;
+    background: linear-gradient(180deg, rgba(255,255,255,0.99), rgba(237,246,255,0.98));
+    z-index: 1;
+}
+.legacy-page .btn.danger:hover{
+    transform: translateY(-1px);
+    box-shadow: 0 12px 22px rgba(239,68,68,0.32);
+}
+.legacy-page .btn.ghost{
+    border:1px solid rgba(148,163,184,0.45);
+    background: rgba(255,255,255,0.7);
+}
+.legacy-page .btn.pill{
+    border-radius: 999px;
+}
+.legacy-page .btn:hover{
+    filter: brightness(1.03);
+}
+.legacy-page .btn:disabled{
+    opacity: 0.9;
+    filter: none;
+}
+.legacy-page .avatar-preview{
+    border: 2px solid transparent;
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
+    background-image:
+        radial-gradient(circle at 30% 30%, rgba(96,165,250,0.25), rgba(59,130,246,0.05)),
+        linear-gradient(135deg, rgba(96,165,250,0.55), rgba(34,211,238,0.45));
+    box-shadow: 0 12px 24px rgba(15,23,42,0.14);
+}
+
