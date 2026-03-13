@@ -24,6 +24,9 @@ npm run dev -- --host 0.0.0.0 --port 5173
 Default database for Codespaces is SQLite (`database/database.sqlite`).
 Do not commit `.env`; store sensitive values using GitHub Codespaces Secrets.
 
+If you see `libcrypto.so.1.1` / `OPENSSL_1_1_1` errors, rebuild the container from VS Code command palette:
+`Codespaces: Rebuild Container`.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
