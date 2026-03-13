@@ -5,7 +5,7 @@ set -euo pipefail
 cd "${WORKSPACE_FOLDER:-$(pwd)}"
 
 # Always prefer container PHP over legacy Oryx PHP.
-export PATH="/usr/local/bin:/usr/bin:/bin:${PATH}"
+export PATH="/usr/bin:/usr/local/bin:/bin:${PATH}"
 hash -r
 
 if [ ! -f .env ]; then

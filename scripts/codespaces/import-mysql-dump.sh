@@ -8,6 +8,22 @@ cd "$ROOT_DIR"
 DB_NAME="${DB_NAME:-latsar}"
 DB_USER="${DB_USER:-latsar}"
 DB_PASSWORD="${DB_PASSWORD:-latsar123}"
+PHP_CMD=""
+
+resolve_php() {
+  if [ -x "${ROOT_DIR}/scripts/codespaces/php-bin.sh" ]; then
+    PHP_CMD="$("${ROOT_DIR}/scripts/codespaces/php-bin.sh" 1 || true)"
+  fi
+
+  if [ -z "$PHP_CMD" ] && command -v php >/dev/null 2>&1; then
+    PHP_CMD="$(command -v php)"
+  fi
+
+  if [ -z "$PHP_CMD" ]; then
+    echo "[codespaces] ERROR: PHP binary not found." >&2
+    exit 1
+  fi
+}
 
 resolve_dump_path() {
   local input_path="${1:-}"
@@ -63,6 +79,7 @@ fi
 echo "[codespaces] Using dump: $DUMP_PATH"
 
 bash scripts/codespaces/setup-mysql.sh
+resolve_php
 
 import_sql_stream() {
   # Force import into target DB by stripping DB-switch statements from dump.
@@ -77,13 +94,13 @@ else
   cat "$DUMP_PATH" | import_sql_stream | mysql -u "$DB_USER" "-p${DB_PASSWORD}" "$DB_NAME"
 fi
 
-php artisan migrate --graceful --force
-php artisan db:seed --class=AccountsSeeder --force
-php artisan optimize:clear
+"$PHP_CMD" artisan migrate --graceful --force
+"$PHP_CMD" artisan db:seed --class=AccountsSeeder --force
+"$PHP_CMD" artisan optimize:clear
 
 TABLE_COUNT="$(mysql -u "$DB_USER" "-p${DB_PASSWORD}" "$DB_NAME" -Nse "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME}'" 2>/dev/null || echo 0)"
 echo "[codespaces] Tables in ${DB_NAME}: ${TABLE_COUNT}"
 
 echo "[codespaces] Import completed."
 echo "[codespaces] You can run:"
-echo "  php -d display_errors=0 -d xdebug.mode=off artisan serve --host=0.0.0.0 --port=8000"
+echo "  ${PHP_CMD} -d display_errors=0 -d xdebug.mode=off artisan serve --host=0.0.0.0 --port=8000"

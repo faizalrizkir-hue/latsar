@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-if [ ! -x /usr/local/bin/php ]; then
+if ! command -v php >/dev/null 2>&1 && [ ! -x /usr/bin/php ] && [ ! -x /usr/local/bin/php ]; then
   exit 0
 fi
 
@@ -26,7 +26,7 @@ if ! grep -q "LATSAR_FORCE_CONTAINER_PHP" "$BASHRC"; then
   cat >>"$BASHRC" <<'EOF'
 
 # LATSAR_FORCE_CONTAINER_PHP
-export PATH="/usr/local/bin:/usr/bin:/bin:${PATH}"
+export PATH="/usr/bin:/usr/local/bin:/bin:${PATH}"
 hash -r
 EOF
 fi
