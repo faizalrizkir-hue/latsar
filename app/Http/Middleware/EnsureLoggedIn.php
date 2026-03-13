@@ -17,7 +17,7 @@ class EnsureLoggedIn
     public function handle(Request $request, Closure $next): Response
     {
         if (!Session::has('user')) {
-            return redirect(route('login.form', [], false));
+            return redirect()->route('login.form');
         }
 
         $idleTimeoutMinutes = max(1, (int) config('session.idle_timeout', 60));
@@ -31,7 +31,7 @@ class EnsureLoggedIn
             $request->session()->regenerateToken();
 
             return redirect()
-                ->to(route('login.form', [], false))
+                ->route('login.form')
                 ->with('logout', 'Sesi berakhir karena tidak ada aktivitas selama '.$idleTimeoutMinutes.' menit.');
         }
 

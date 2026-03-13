@@ -17,7 +17,7 @@ class DmsController extends Controller
     public function index(Request $request)
     {
         if (!Session::has('user')) {
-            return redirect(route('login.form', [], false));
+            return redirect()->route('login.form');
         }
 
         $filters = $this->buildFilters($request);
@@ -136,7 +136,7 @@ class DmsController extends Controller
             ]);
         }
 
-        return redirect(route('dms.index', [], false))->with('status', 'Dokumen berhasil ditambahkan.');
+        return redirect()->route('dms.index')->with('status', 'Dokumen berhasil ditambahkan.');
     }
 
     public function edit(int $id)
@@ -232,7 +232,7 @@ class DmsController extends Controller
             );
         }
 
-        return redirect(route('dms.index', [], false))->with('status', 'Dokumen diperbarui.');
+        return redirect()->route('dms.index')->with('status', 'Dokumen diperbarui.');
     }
 
     public function destroy(Request $request, int $id)

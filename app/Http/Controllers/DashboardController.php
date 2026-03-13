@@ -35,7 +35,7 @@ class DashboardController extends Controller
     public function index()
     {
         if (!Session::has('user')) {
-            return redirect(route('login.form', [], false));
+            return redirect()->route('login.form');
         }
 
         $sessionUser = Session::get('user');

@@ -8,6 +8,28 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ElementController;
 
+// In Codespaces / PHP built-in server, static files can sometimes be routed into Laravel.
+// These routes ensure public assets are still served correctly.
+$servePublicFile = static function (string $baseDir, string $path) {
+    $relativePath = trim(str_replace('\\', '/', $path), '/');
+    $fullPath = public_path(trim($baseDir.'/'.$relativePath, '/'));
+
+    abort_unless(is_file($fullPath), 404);
+
+    return response()->file($fullPath);
+};
+
+Route::get('/css/{path}', fn (string $path) => $servePublicFile('css', $path))
+    ->where('path', '.*');
+Route::get('/js/{path}', fn (string $path) => $servePublicFile('js', $path))
+    ->where('path', '.*');
+Route::get('/static/{path}', fn (string $path) => $servePublicFile('static', $path))
+    ->where('path', '.*');
+Route::get('/build/{path}', fn (string $path) => $servePublicFile('build', $path))
+    ->where('path', '.*');
+Route::get('/uploads/{path}', fn (string $path) => $servePublicFile('uploads', $path))
+    ->where('path', '.*');
+
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login.form');
 Route::post('/login', [AuthController::class, 'login'])->name('login.perform');
 
