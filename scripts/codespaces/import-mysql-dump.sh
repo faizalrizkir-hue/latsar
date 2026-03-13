@@ -64,17 +64,25 @@ echo "[codespaces] Using dump: $DUMP_PATH"
 
 bash scripts/codespaces/setup-mysql.sh
 
+import_sql_stream() {
+  # Force import into target DB by stripping DB-switch statements from dump.
+  sed -E '/^[[:space:]]*CREATE[[:space:]]+DATABASE[[:space:]]+/Id; /^[[:space:]]*USE[[:space:]]+/Id'
+}
+
 if [[ "$DUMP_PATH" == *.gz ]]; then
   echo "[codespaces] Importing compressed dump..."
-  gzip -dc "$DUMP_PATH" | mysql -u "$DB_USER" "-p${DB_PASSWORD}" "$DB_NAME"
+  gzip -dc "$DUMP_PATH" | import_sql_stream | mysql -u "$DB_USER" "-p${DB_PASSWORD}" "$DB_NAME"
 else
   echo "[codespaces] Importing dump..."
-  mysql -u "$DB_USER" "-p${DB_PASSWORD}" "$DB_NAME" < "$DUMP_PATH"
+  cat "$DUMP_PATH" | import_sql_stream | mysql -u "$DB_USER" "-p${DB_PASSWORD}" "$DB_NAME"
 fi
 
 php artisan migrate --graceful --force
 php artisan db:seed --class=AccountsSeeder --force
 php artisan optimize:clear
+
+TABLE_COUNT="$(mysql -u "$DB_USER" "-p${DB_PASSWORD}" "$DB_NAME" -Nse "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME}'" 2>/dev/null || echo 0)"
+echo "[codespaces] Tables in ${DB_NAME}: ${TABLE_COUNT}"
 
 echo "[codespaces] Import completed."
 echo "[codespaces] You can run:"

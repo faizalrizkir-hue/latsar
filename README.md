@@ -47,7 +47,7 @@ What it does:
 - Installs and starts MariaDB inside Codespaces (if missing)
 - Creates DB/user (`latsar` / `latsar`, password `latsar123`)
 - Updates `.env` to MySQL connection
-- Imports dump file
+- Imports dump file (and strips `CREATE DATABASE` / `USE` directives to force import into target DB)
 - Runs `php artisan migrate --force` and ensures admin seeder
 
 Important:
