@@ -46,5 +46,5 @@ chmod -R ug+rw storage bootstrap/cache || true
 
 echo ""
 echo "Codespaces setup complete."
-echo "Run app server: php artisan serve --host=0.0.0.0 --port=8000"
+echo "Run app server: php -d display_errors=0 artisan serve --host=0.0.0.0 --port=8000"
 echo "Run Vite dev:   npm run dev -- --host 0.0.0.0 --port 5173"

@@ -10,7 +10,8 @@
   "postCreateCommand": "bash .devcontainer/post-create.sh",
   "postStartCommand": "bash .devcontainer/post-start.sh",
   "remoteEnv": {
-    "PATH": "/usr/local/bin:/usr/bin:/bin:${containerEnv:PATH}"
+    "PATH": "/usr/local/bin:/usr/bin:/bin:${containerEnv:PATH}",
+    "PHP_INI_SCAN_DIR": "/usr/local/etc/php/conf.d:${containerEnv:HOME}/.config/php/conf.d"
   },
   "forwardPorts": [
     8000,

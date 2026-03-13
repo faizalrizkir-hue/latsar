@@ -17,7 +17,7 @@ You can develop this project from anywhere using GitHub Codespaces.
 4. Start the app:
 
 ```bash
-php artisan serve --host=0.0.0.0 --port=8000
+php -d display_errors=0 artisan serve --host=0.0.0.0 --port=8000
 npm run dev -- --host 0.0.0.0 --port 5173
 ```
 
