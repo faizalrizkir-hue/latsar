@@ -59,6 +59,38 @@ has_pdo_mysql() {
   "$PHP_CMD" -m 2>/dev/null | grep -qi "^pdo_mysql$"
 }
 
+try_install_with_docker_php_ext() {
+  local installer=""
+  local enabler=""
+
+  installer="$(command -v docker-php-ext-install 2>/dev/null || true)"
+  enabler="$(command -v docker-php-ext-enable 2>/dev/null || true)"
+
+  [ -n "$installer" ] || installer="/usr/local/bin/docker-php-ext-install"
+  [ -n "$enabler" ] || enabler="/usr/local/bin/docker-php-ext-enable"
+
+  if [ -x "$installer" ]; then
+    echo "[codespaces] Installing pdo_mysql via docker-php-ext-install..."
+    sudo env PATH="$PATH" "$installer" pdo_mysql mysqli || "$installer" pdo_mysql mysqli || true
+  fi
+
+  if [ -x "$enabler" ]; then
+    echo "[codespaces] Enabling pdo_mysql via docker-php-ext-enable..."
+    sudo env PATH="$PATH" "$enabler" pdo_mysql mysqli || "$enabler" pdo_mysql mysqli || true
+  fi
+}
+
+try_install_with_install_php_extensions() {
+  local installer=""
+  installer="$(command -v install-php-extensions 2>/dev/null || true)"
+  [ -n "$installer" ] || installer="/usr/local/bin/install-php-extensions"
+
+  if [ -x "$installer" ]; then
+    echo "[codespaces] Installing pdo_mysql via install-php-extensions..."
+    sudo env PATH="$PATH" "$installer" pdo_mysql mysqli || "$installer" pdo_mysql mysqli || true
+  fi
+}
+
 echo "[codespaces] Preparing MySQL (MariaDB) service..."
 resolve_php
 
@@ -69,22 +101,20 @@ if ! command -v mysql >/dev/null 2>&1; then
 fi
 
 if ! has_pdo_mysql; then
-  if command -v docker-php-ext-install >/dev/null 2>&1; then
-    echo "[codespaces] Installing pdo_mysql via docker-php-ext-install..."
-    sudo docker-php-ext-install pdo_mysql mysqli >/dev/null 2>&1 || docker-php-ext-install pdo_mysql mysqli >/dev/null 2>&1 || true
-  fi
-fi
-
-if ! has_pdo_mysql && command -v install-php-extensions >/dev/null 2>&1; then
-  echo "[codespaces] Installing pdo_mysql via install-php-extensions..."
-  sudo install-php-extensions pdo_mysql mysqli >/dev/null 2>&1 || install-php-extensions pdo_mysql mysqli >/dev/null 2>&1 || true
+  try_install_with_docker_php_ext
 fi
 
 if ! has_pdo_mysql; then
-  echo "[codespaces] Installing PHP MySQL extension (pdo_mysql)..."
+  try_install_with_install_php_extensions
+fi
+
+if ! has_pdo_mysql; then
+  echo "[codespaces] Trying apt package fallback for pdo_mysql..."
   ensure_apt_update
   if ! sudo DEBIAN_FRONTEND=noninteractive apt-get install -y php8.2-mysql; then
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y php-mysql
+    if ! sudo DEBIAN_FRONTEND=noninteractive apt-get install -y php-mysql; then
+      echo "[codespaces] WARNING: apt fallback packages not available on this image."
+    fi
   fi
   if command -v phpenmod >/dev/null 2>&1; then
     sudo phpenmod pdo_mysql mysqli mysqlnd >/dev/null 2>&1 || true
