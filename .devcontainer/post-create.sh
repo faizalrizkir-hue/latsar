@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+cd "${WORKSPACE_FOLDER:-$(pwd)}"
+
+if [ ! -f .env ]; then
+  cp .env.example .env
+fi
+
+mkdir -p database
+if [ ! -f database/database.sqlite ]; then
+  touch database/database.sqlite
+fi
+
+composer install --no-interaction --prefer-dist
+
+if [ -f package-lock.json ]; then
+  npm ci
+else
+  npm install
+fi
+
+if ! grep -q "^APP_KEY=base64:" .env; then
+  php artisan key:generate --force
+fi
+
+php artisan migrate --graceful --force
+php artisan storage:link || true
+
+chmod -R ug+rw storage bootstrap/cache || true
+
+echo ""
+echo "Codespaces setup complete."
+echo "Run app server: php artisan serve --host=0.0.0.0 --port=8000"
+echo "Run Vite dev:   npm run dev -- --host 0.0.0.0 --port 5173"

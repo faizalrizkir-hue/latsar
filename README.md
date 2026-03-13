@@ -7,6 +7,23 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Development in GitHub Codespaces
+
+You can develop this project from anywhere using GitHub Codespaces.
+
+1. Open repository in GitHub.
+2. Click **Code** -> **Codespaces** -> **Create codespace on main**.
+3. Wait until container setup is complete (automatic via `.devcontainer/post-create.sh`).
+4. Start the app:
+
+```bash
+php artisan serve --host=0.0.0.0 --port=8000
+npm run dev -- --host 0.0.0.0 --port 5173
+```
+
+Default database for Codespaces is SQLite (`database/database.sqlite`).
+Do not commit `.env`; store sensitive values using GitHub Codespaces Secrets.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
