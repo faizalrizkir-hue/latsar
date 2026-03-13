@@ -12,6 +12,16 @@ if [ ! -f .env ]; then
   cp .env.example .env
 fi
 
+# Set APP_URL automatically for Codespaces forwarded domain.
+if [ -n "${CODESPACE_NAME:-}" ] && [ -n "${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}" ]; then
+  APP_URL_VALUE="https://${CODESPACE_NAME}-8000.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}"
+  if grep -q "^APP_URL=" .env; then
+    sed -i "s#^APP_URL=.*#APP_URL=${APP_URL_VALUE}#" .env
+  else
+    echo "APP_URL=${APP_URL_VALUE}" >> .env
+  fi
+fi
+
 mkdir -p database
 if [ ! -f database/database.sqlite ]; then
   touch database/database.sqlite

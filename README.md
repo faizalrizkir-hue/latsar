@@ -27,6 +27,8 @@ Do not commit `.env`; store sensitive values using GitHub Codespaces Secrets.
 If you see `libcrypto.so.1.1` / `OPENSSL_1_1_1` errors, rebuild the container from VS Code command palette:
 `Codespaces: Rebuild Container`.
 If needed, run `which php` and ensure it resolves to `/usr/local/bin/php`.
+If browser URL becomes `...app.github.dev:8000/...`, fix `.env` APP_URL to:
+`https://${CODESPACE_NAME}-8000.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}` then run `php artisan optimize:clear`.
 
 ## About Laravel
 
