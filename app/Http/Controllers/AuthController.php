@@ -87,7 +87,7 @@ class AuthController extends Controller
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
                 'ok' => true,
-                'redirect' => route('dashboard'),
+                'redirect' => route('dashboard', [], false),
                 'username' => $user->username,
                 'display_name' => $user->display_name,
                 'role' => $user->role,
@@ -95,7 +95,7 @@ class AuthController extends Controller
             ]);
         }
 
-        return redirect()->intended(route('dashboard'));
+        return redirect()->intended(route('dashboard', [], false));
     }
 
     public function logout()
@@ -105,7 +105,7 @@ class AuthController extends Controller
         Session::regenerateToken();
 
         return redirect()
-            ->route('login.form')
+            ->to(route('login.form', [], false))
             ->with('logout', 'Anda telah logout dari sistem.');
     }
 

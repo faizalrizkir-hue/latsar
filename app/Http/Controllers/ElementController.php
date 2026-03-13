@@ -195,7 +195,7 @@ class ElementController extends Controller
     public function index()
     {
         if (!Session::has('user')) {
-            return redirect()->route('login.form');
+            return redirect(route('login.form', [], false));
         }
 
         $user = Session::get('user', []);
@@ -211,7 +211,7 @@ class ElementController extends Controller
     public function show(string $slug)
     {
         if (!Session::has('user')) {
-            return redirect()->route('login.form');
+            return redirect(route('login.form', [], false));
         }
 
         abort_unless(isset($this->pages[$slug]), 404);
@@ -237,7 +237,7 @@ class ElementController extends Controller
     public function store(Request $request, string $slug)
     {
         if (!Session::has('user')) {
-            return redirect()->route('login.form');
+            return redirect(route('login.form', [], false));
         }
 
         abort_unless(isset($this->pages[$slug]), 404);
@@ -248,7 +248,7 @@ class ElementController extends Controller
         }
 
         if ($this->getElementSummaryModuleConfig($slug) !== null) {
-            return redirect()->route('elements.show', $slug);
+            return redirect(route('elements.show', $slug, false));
         }
 
         $moduleConfig = $this->getSubtopicModuleConfig($slug);
@@ -1025,7 +1025,7 @@ class ElementController extends Controller
         }
 
         return redirect()
-            ->route('dashboard')
+            ->to(route('dashboard', [], false))
             ->with('error', 'Anda tidak memiliki akses ke element yang dipilih.');
     }
 
