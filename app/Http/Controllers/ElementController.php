@@ -5,10 +5,10 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\Element1KegiatanAsurans;
 use App\Models\Element1KegiatanAsuransEditLog;
-use App\Models\ElementAssessment;
 use App\Models\DmsFile;
 use App\Models\ElementTeamAssignment;
 use App\Models\Notification;
+use App\Services\ElementPreferenceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -17,6 +17,11 @@ use Illuminate\Support\Str;
 
 class ElementController extends Controller
 {
+    public function __construct(
+        private readonly ElementPreferenceService $elementPreferenceService
+    ) {
+    }
+
     private array $pages = [
         'element1' => 'Element 1 : Kualitas Peran dan Layanan',
         'element2' => 'Element 2 : Profesionalisme Penugasan',
@@ -38,12 +43,13 @@ class ElementController extends Controller
         'element4_mekanisme_pendanaan' => 'Element 4 - Manajemen Sumber Daya Keuangan',
         'element4_pengembangan_sdm_profesional_apip' => 'Element 4 - Pengembangan SDM Profesional APIP',
         'element4_perencanaan_sdm_apip' => 'Element 4 - Perencanaan Kebutuhan dan Pengadaan SDM Pengawasan',
-        'element5_akses_informasi_sumberdaya' => 'Element 5 - Akses Informasi Sumberdaya',
-        'element5_hubungan_apip_manajemen' => 'Element 5 - Hubungan APIP dan Manajemen',
-        'element5_koordinasi_pengawasan' => 'Element 5 - Koordinasi Pengawasan',
+        'element5_akses_informasi_sumberdaya' => 'Element 5 - Akses terhadap Informasi dan Sistem Informasi',
+        'element5_hubungan_apip_manajemen' => 'Element 5 - Kualitas Komunikasi APIP',
+        'element5_koordinasi_pengawasan' => 'Element 5 - Koordinasi Pengawasan dengan Pihak Eksternal',
         'element5_pembangunan_budaya_integritas' => 'Element 5 - Pembangunan Budaya Integritas',
-        'element5_pengelolaan_komunikasi_internal' => 'Element 5 - Pengelolaan Komunikasi Internal',
     ];
+
+    private ?array $cachedPageTitles = null;
 
     private array $questionPresets = [
         'element1_kegiatan_asurans' => [
@@ -77,9 +83,9 @@ class ElementController extends Controller
         ],
         'element5' => [
             1 => 'Budaya Integritas',
-            2 => 'Hubungan Manajemen',
-            3 => 'Koordinasi Pengawasan',
-            4 => 'Akses Informasi',
+            2 => 'Kualitas Komunikasi APIP',
+            3 => 'Koordinasi Pengawasan dengan Pihak Eksternal',
+            4 => 'Akses terhadap Informasi dan Sistem Informasi',
         ],
         'element2_komunikasi_hasil' => [
             1 => 'Kualitas Komunikasi',
@@ -152,39 +158,24 @@ class ElementController extends Controller
             2 => 'Rekrutmen dan Distribusi SDM',
         ],
         'element5_akses_informasi_sumberdaya' => [
-            1 => 'Ketersediaan Info',
-            2 => 'Aksesibilitas',
-            3 => 'Keamanan Data',
-            4 => 'Pemanfaatan',
+            1 => 'Akses Informasi dan Dukungan Pimpinan',
+            2 => 'Nilai Tambah terhadap Pengawasan Intern',
         ],
         'element5_hubungan_apip_manajemen' => [
-            1 => 'Koordinasi',
-            2 => 'Dukungan Manajemen',
-            3 => 'Respon Rekomendasi',
-            4 => 'Komunikasi Formal',
+            1 => 'Pemantauan dan Pemberian Arahan atas Peningkatan Kapabilitas APIP',
+            2 => 'Kualitas Komunikasi Internal',
+            3 => 'Kualitas Komunikasi APIP dengan Manajemen',
         ],
         'element5_koordinasi_pengawasan' => [
-            1 => 'Rencana Bersama',
-            2 => 'Pelaksanaan Kolaboratif',
-            3 => 'Berbagi Data',
-            4 => 'Evaluasi Bersama',
+            1 => 'Intensitas Koordinasi dan Pertukaran Data Informasi',
+            2 => 'Sinergi dalam Perencanaan',
         ],
         'element5_pembangunan_budaya_integritas' => [
-            1 => 'Kebijakan Integritas',
-            2 => 'Sosialisasi',
-            3 => 'Pengawasan',
-            4 => 'Penegakan',
-        ],
-        'element5_pengelolaan_komunikasi_internal' => [
-            1 => 'Saluran Komunikasi',
-            2 => 'Frekuensi',
-            3 => 'Kejelasan',
-            4 => 'Umpan Balik',
+            1 => 'Internalisasi Nilai Integritas dan Penerapan Etika Organisasi',
+            2 => 'Mekanisme Pengaduan, Pemantauan, dan Tindak Lanjut Pelanggaran Integritas',
         ],
     ];
 
-    // Bisa diisi nanti, untuk sementara bobot default akan dirata.
-    private array $weightPresets = [];
     private array $kegiatanWeights = [
         1 => 0.20,
         2 => 0.25,
@@ -214,7 +205,8 @@ class ElementController extends Controller
             return redirect()->route('login.form');
         }
 
-        abort_unless(isset($this->pages[$slug]), 404);
+        $pageTitles = $this->pageTitles();
+        abort_unless(isset($pageTitles[$slug]), 404);
 
         $guard = $this->guardElementAccess($slug);
         if ($guard !== null) {
@@ -223,15 +215,29 @@ class ElementController extends Controller
 
         $summaryModuleConfig = $this->getElementSummaryModuleConfig($slug);
         if ($summaryModuleConfig !== null) {
+            if (!(bool) ($summaryModuleConfig['is_active'] ?? true)) {
+                return redirect()
+                    ->route('dashboard')
+                    ->with('error', 'Element ini sedang dinonaktifkan pada Preferensi Element.');
+            }
+
             return $this->renderElementSummary($slug, $summaryModuleConfig);
         }
 
         $moduleConfig = $this->getSubtopicModuleConfig($slug);
         if ($moduleConfig !== null) {
+            if (!(bool) ($moduleConfig['is_active'] ?? true)) {
+                return redirect()
+                    ->route('elements.show', Str::before($slug, '_'))
+                    ->with('error', 'Sub topik ini sedang dinonaktifkan pada Preferensi Element.');
+            }
+
             return $this->renderKegiatanAsurans($slug, $moduleConfig);
         }
 
-        return $this->renderForm($slug);
+        return redirect()
+            ->route('dashboard')
+            ->with('error', 'Sub topik tidak ditemukan atau belum dikonfigurasi.');
     }
 
     public function store(Request $request, string $slug)
@@ -240,91 +246,45 @@ class ElementController extends Controller
             return redirect()->route('login.form');
         }
 
-        abort_unless(isset($this->pages[$slug]), 404);
+        $pageTitles = $this->pageTitles();
+        abort_unless(isset($pageTitles[$slug]), 404);
 
         $guard = $this->guardElementAccess($slug);
         if ($guard !== null) {
             return $guard;
         }
 
-        if ($this->getElementSummaryModuleConfig($slug) !== null) {
+        $summaryModuleConfig = $this->getElementSummaryModuleConfig($slug);
+        if ($summaryModuleConfig !== null) {
+            if (!(bool) ($summaryModuleConfig['is_active'] ?? true)) {
+                return redirect()
+                    ->route('dashboard')
+                    ->with('error', 'Element ini sedang dinonaktifkan pada Preferensi Element.');
+            }
+
             return redirect()->route('elements.show', $slug);
         }
 
         $moduleConfig = $this->getSubtopicModuleConfig($slug);
         if ($moduleConfig !== null) {
+            if (!(bool) ($moduleConfig['is_active'] ?? true)) {
+                return redirect()
+                    ->route('elements.show', Str::before($slug, '_'))
+                    ->with('error', 'Sub topik ini sedang dinonaktifkan pada Preferensi Element.');
+            }
+
             return $this->handleKegiatanAsurans($request, $slug, $moduleConfig);
         }
 
-        $title = $this->pages[$slug];
-        $user = Session::get('user', []);
-
-        $questions = $this->questionPresets[$slug] ?? [1 => 'Kriteria 1', 2 => 'Kriteria 2', 3 => 'Kriteria 3', 4 => 'Kriteria 4'];
-        $weights = $this->weightPresets[$slug] ?? $this->evenWeights(count($questions));
-
-        $rules = [
-            'scores' => 'required|array',
-            'notes' => 'nullable|string|max:500',
-            'verify' => 'nullable|boolean',
-        ];
-        foreach ($questions as $id => $label) {
-            $rules["scores.$id"] = 'required|numeric|min:1|max:5';
-        }
-
-        $data = $request->validate($rules);
-
-        $scores = [];
-        $weighted = 0.0;
-        foreach ($questions as $qid => $label) {
-            $score = (float)($data['scores'][$qid] ?? 0);
-            $scores[$qid] = $score;
-            $weighted += $score * ($weights[$qid] ?? 0);
-        }
-        $weighted = round($weighted, 2);
-        $levelData = $this->mapLevel($weighted);
-
-        ElementAssessment::create([
-            'subtopic_slug' => $slug,
-            'subtopic_title' => $title,
-            'scores' => $scores,
-            'weighted_total' => $weighted,
-            'level' => $levelData['level'],
-            'predikat' => $levelData['predikat'],
-            'notes' => $data['notes'] ?? null,
-            'submitted_by' => $user['username'] ?? null,
-            'verified_by' => ($request->boolean('verify') ? ($user['username'] ?? null) : null),
-            'verified_at' => $request->boolean('verify') ? now() : null,
-        ]);
-
-        return back()->with('status', 'Penilaian tersimpan. Total: ' . $weighted . ' (' . $levelData['predikat'] . ')');
-    }
-
-    private function renderForm(string $slug)
-    {
-        $title = $this->pages[$slug];
-        $assessments = ElementAssessment::where('subtopic_slug', $slug)
-            ->orderByDesc('created_at')
-            ->limit(10)
-            ->get();
-
-        $questions = $this->questionPresets[$slug] ?? [1 => 'Kriteria 1', 2 => 'Kriteria 2', 3 => 'Kriteria 3', 4 => 'Kriteria 4'];
-        $weights = $this->weightPresets[$slug] ?? $this->evenWeights(count($questions));
-
-        return view('elements.form', [
-            'title' => $title,
-            'slug' => $slug,
-            'weights' => $weights,
-            'questions' => $questions,
-            'assessments' => $assessments,
-            'user' => Session::get('user'),
-            'notifications' => Notification::orderByDesc('created_at')->limit(50)->get(),
-        ]);
+        return redirect()
+            ->route('dashboard')
+            ->with('error', 'Sub topik tidak ditemukan atau belum dikonfigurasi.');
     }
 
     private function renderElementSummary(string $slug, ?array $summaryConfig = null)
     {
         $summaryConfig ??= $this->getElementSummaryModuleConfig($slug) ?? [];
-        $elementTitle = (string) ($summaryConfig['title'] ?? ($this->pages[$slug] ?? Str::headline($slug)));
+        $elementTitle = (string) ($summaryConfig['title'] ?? $this->pageTitle($slug));
         $summaryView = (string) ($summaryConfig['view'] ?? 'elements.element1-summary');
         $summaryStyles = array_values(array_filter((array) ($summaryConfig['styles'] ?? [
             'css/element1-kegiatan-asurans.css',
@@ -340,9 +300,11 @@ class ElementController extends Controller
 
         $elementWeight = (float) ($summaryConfig['element_weight'] ?? 0.40);
 
-        $allSubtopicConfigs = collect((array) config('element_subtopic_modules.modules', []))
+        $allSubtopicConfigs = collect($this->elementPreferenceService->subtopicModules())
             ->filter(function ($config, $moduleSlug) use ($slug) {
-                return is_array($config) && Str::startsWith((string) $moduleSlug, $slug.'_');
+                return is_array($config)
+                    && Str::startsWith((string) $moduleSlug, $slug.'_')
+                    && (bool) ($config['is_active'] ?? true);
             });
 
         $configuredSubtopicSlugs = collect((array) ($summaryConfig['subtopic_slugs'] ?? []))
@@ -357,6 +319,7 @@ class ElementController extends Controller
                 if (!is_array($moduleConfig)) {
                     return $this->placeholderSubtopicSummary($resolvedSlug);
                 }
+
                 return $this->buildSubtopicSummary($resolvedSlug, $moduleConfig);
             })
             ->filter(fn ($item) => is_array($item))
@@ -437,7 +400,7 @@ class ElementController extends Controller
     {
         $moduleModelClass = (string) ($moduleConfig['model'] ?? Element1KegiatanAsurans::class);
         $moduleWeights = (array) ($moduleConfig['weights'] ?? $this->kegiatanWeights);
-        $subtopicTitle = (string) ($moduleConfig['subtopic_title'] ?? ($this->pages[$slug] ?? $slug));
+        $subtopicTitle = (string) ($moduleConfig['subtopic_title'] ?? $this->pageTitle($slug, $slug));
         $subtopicCode = (string) ($moduleConfig['subtopic_code'] ?? '');
         $moduleInfoLevels = collect((array) ($moduleConfig['info_levels'] ?? []))
             ->map(fn ($item) => is_array($item) ? $item : [])
@@ -500,7 +463,7 @@ class ElementController extends Controller
         return [
             'slug' => $slug,
             'code' => '',
-            'title' => (string) ($this->pages[$slug] ?? Str::headline(str_replace('_', ' ', $slug))),
+            'title' => $this->pageTitle($slug),
             'score' => null,
             'level' => null,
             'predikat' => 'Belum Dinilai',
@@ -518,9 +481,9 @@ class ElementController extends Controller
         $moduleModelClass = (string) ($moduleConfig['model'] ?? Element1KegiatanAsurans::class);
         $moduleEditLogModelClass = (string) ($moduleConfig['edit_log_model'] ?? Element1KegiatanAsuransEditLog::class);
         $moduleWeights = (array) ($moduleConfig['weights'] ?? $this->kegiatanWeights);
-        $modulePageTitle = (string) ($moduleConfig['page_title'] ?? ($this->pages[$slug] ?? $this->pages['element1_kegiatan_asurans']));
+        $modulePageTitle = (string) ($moduleConfig['page_title'] ?? $this->pageTitle(Str::before($slug, '_')));
         $moduleSubtopicCode = (string) ($moduleConfig['subtopic_code'] ?? 'S1');
-        $moduleSubtopicTitle = (string) ($moduleConfig['subtopic_title'] ?? ($this->pages[$slug] ?? 'Sub Topik'));
+        $moduleSubtopicTitle = (string) ($moduleConfig['subtopic_title'] ?? $this->pageTitle($slug, 'Sub Topik'));
         $moduleInfoModalTitle = (string) ($moduleConfig['info_modal_title'] ?? ('Informasi Level '.$moduleSubtopicTitle));
         $moduleInfoLevels = collect($moduleConfig['info_levels'] ?? [])->values();
         $moduleView = (string) ($moduleConfig['view'] ?? 'elements.element1-kegiatan-asurans');
@@ -960,7 +923,7 @@ class ElementController extends Controller
     private function renderBlankElement(string $slug)
     {
         return view('elements.blank', [
-            'title' => $this->pages[$slug] ?? 'Element',
+            'title' => $this->pageTitle($slug),
             'user' => Session::get('user', []),
         ]);
     }
@@ -989,28 +952,179 @@ class ElementController extends Controller
         };
     }
 
+    private function pageTitles(): array
+    {
+        if ($this->cachedPageTitles !== null) {
+            return $this->cachedPageTitles;
+        }
+
+        $summaryModules = $this->elementPreferenceService->summaryModules();
+        $subtopicModules = $this->elementPreferenceService->subtopicModules();
+        if (count($summaryModules) === 0 && count($subtopicModules) === 0) {
+            $this->cachedPageTitles = $this->pages;
+
+            return $this->cachedPageTitles;
+        }
+
+        $pages = [];
+        foreach ($summaryModules as $slug => $module) {
+            if (!is_array($module)) {
+                continue;
+            }
+
+            $resolvedSlug = (string) $slug;
+            if ($resolvedSlug === '') {
+                continue;
+            }
+
+            $pages[$resolvedSlug] = (string) ($module['title'] ?? ($pages[$resolvedSlug] ?? Str::headline($resolvedSlug)));
+        }
+        foreach ($subtopicModules as $slug => $module) {
+            if (!is_array($module)) {
+                continue;
+            }
+
+            $resolvedSlug = (string) $slug;
+            if ($resolvedSlug === '') {
+                continue;
+            }
+
+            $pages[$resolvedSlug] = (string) ($module['subtopic_title'] ?? ($pages[$resolvedSlug] ?? Str::headline($resolvedSlug)));
+        }
+
+        $this->cachedPageTitles = $pages;
+
+        return $this->cachedPageTitles;
+    }
+
+    private function pageTitle(string $slug, ?string $fallback = null): string
+    {
+        $pageTitles = $this->pageTitles();
+        if (isset($pageTitles[$slug])) {
+            return (string) $pageTitles[$slug];
+        }
+
+        if (is_string($fallback) && trim($fallback) !== '') {
+            return trim($fallback);
+        }
+
+        return Str::headline(str_replace('_', ' ', $slug));
+    }
+
     private function getSubtopicModuleConfig(string $slug): ?array
     {
-        $modules = (array) config('element_subtopic_modules.modules', []);
-        $moduleConfig = $modules[$slug] ?? null;
-        return is_array($moduleConfig) ? $moduleConfig : null;
+        $runtimeModule = $this->elementPreferenceService->subtopicModule($slug);
+        $baseModule = $this->baseSubtopicModuleConfig($slug);
+
+        if (!is_array($runtimeModule)) {
+            return is_array($baseModule) ? $baseModule : null;
+        }
+
+        if (!is_array($baseModule)) {
+            return $runtimeModule;
+        }
+
+        $merged = array_merge($baseModule, $runtimeModule);
+        foreach ([
+            'subtopic_title',
+            'page_title',
+            'info_modal_title',
+            'notification_title',
+            'subtopic_code',
+            'rows',
+            'weights',
+            'info_levels',
+            'statement_level_hints',
+            'is_active',
+        ] as $key) {
+            if (array_key_exists($key, $runtimeModule)) {
+                $merged[$key] = $runtimeModule[$key];
+            }
+        }
+
+        $runtimeView = trim((string) ($runtimeModule['view'] ?? ''));
+        $runtimeModel = trim((string) ($runtimeModule['model'] ?? ''));
+        $runtimeEditLogModel = trim((string) ($runtimeModule['edit_log_model'] ?? ''));
+        $runtimeMode = strtolower(trim((string) ($runtimeModule['mode'] ?? '')));
+        $looksDegradedToGeneric = $runtimeView === ''
+            && $runtimeModel === ''
+            && $runtimeEditLogModel === ''
+            && in_array($runtimeMode, ['', 'assessment', 'generic'], true);
+
+        if ($looksDegradedToGeneric) {
+            $baseMode = strtolower(trim((string) ($baseModule['mode'] ?? '')));
+            if ($baseMode === '') {
+                $baseMode = trim((string) ($baseModule['model'] ?? '')) !== '' ? 'kegiatan' : 'assessment';
+            }
+
+            $merged['view'] = $baseModule['view'] ?? $merged['view'];
+            $merged['model'] = $baseModule['model'] ?? $merged['model'];
+            $merged['edit_log_model'] = $baseModule['edit_log_model'] ?? $merged['edit_log_model'];
+            $merged['mode'] = $baseMode;
+        }
+
+        return $merged;
     }
 
     private function getElementSummaryModuleConfig(string $slug): ?array
     {
-        $modules = (array) config('element_summary_modules.modules', []);
-        $moduleConfig = $modules[$slug] ?? null;
-        return is_array($moduleConfig) ? $moduleConfig : null;
+        return $this->elementPreferenceService->summaryModule($slug);
+    }
+
+    private function baseSubtopicModuleConfig(string $slug): ?array
+    {
+        $modules = config('element_subtopic_modules.modules', []);
+        if (is_array($modules) && is_array($modules[$slug] ?? null)) {
+            return (array) $modules[$slug];
+        }
+
+        $configFile = config_path('element_subtopic_modules.php');
+        if (!is_file($configFile)) {
+            return null;
+        }
+
+        $raw = require $configFile;
+        if (!is_array($raw)) {
+            return null;
+        }
+
+        $fileModules = $raw['modules'] ?? null;
+        if (!is_array($fileModules) || !is_array($fileModules[$slug] ?? null)) {
+            return null;
+        }
+
+        return (array) $fileModules[$slug];
     }
 
     private function visiblePagesForUser(array $user): array
     {
-        $assignedElementSlugs = ElementTeamAssignment::assignedElementSlugsForUser($user);
-        if ($assignedElementSlugs === null) {
-            return $this->pages;
+        $activeSummaryModules = $this->elementPreferenceService->summaryModules(true);
+        $activeSubtopicModules = $this->elementPreferenceService->subtopicModules(true);
+
+        $pages = [];
+        foreach ($activeSummaryModules as $slug => $module) {
+            if (!is_array($module)) {
+                continue;
+            }
+
+            $resolvedSlug = (string) $slug;
+            $pages[$resolvedSlug] = (string) ($module['title'] ?? $this->pageTitle($resolvedSlug));
+        }
+        foreach ($activeSubtopicModules as $slug => $module) {
+            if (!is_array($module)) {
+                continue;
+            }
+
+            $resolvedSlug = (string) $slug;
+            $pages[$resolvedSlug] = (string) ($module['subtopic_title'] ?? $this->pageTitle($resolvedSlug));
         }
 
-        return collect($this->pages)
+        $assignedElementSlugs = ElementTeamAssignment::assignedElementSlugsForUser($user);
+        if ($assignedElementSlugs === null) {
+            return $pages;
+        }
+
+        return collect($pages)
             ->filter(function ($title, $slug) use ($assignedElementSlugs) {
                 return in_array(ElementTeamAssignment::topLevelElementSlug((string) $slug), $assignedElementSlugs, true);
             })
@@ -1164,7 +1278,7 @@ class ElementController extends Controller
         );
 
         return view('legacy-wrapper', [
-            'pageTitle' => $this->pages[$slug] ?? 'Element',
+            'pageTitle' => $this->pageTitle($slug),
             'showPageTitle' => true,
             'legacyBody' => $body,
             'legacyStyles' => $styles,

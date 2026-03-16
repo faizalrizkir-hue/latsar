@@ -7,6 +7,7 @@ use App\Http\Controllers\DmsController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ElementController;
+use App\Http\Controllers\ElementPreferenceController;
 
 // In Codespaces / PHP built-in server, static files can sometimes be routed into Laravel.
 // These routes ensure public assets are still served correctly.
@@ -58,5 +59,9 @@ Route::middleware('auth.session')->group(function () {
         Route::post('/accounts', [AccountController::class, 'store'])->name('accounts.store');
         Route::post('/accounts/{account}/reset', [AccountController::class, 'resetPassword'])->name('accounts.reset');
         Route::post('/accounts/{account}/toggle', [AccountController::class, 'toggle'])->name('accounts.toggle');
+        Route::get('/element-preferences', [ElementPreferenceController::class, 'index'])->name('element-preferences.index');
+        Route::post('/element-preferences', [ElementPreferenceController::class, 'update'])->name('element-preferences.update');
+        Route::post('/element-preferences/reset', [ElementPreferenceController::class, 'reset'])->name('element-preferences.reset');
+        Route::post('/element-preferences/reset-data', [ElementPreferenceController::class, 'resetData'])->name('element-preferences.reset-data');
     });
 });

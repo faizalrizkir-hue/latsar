@@ -8,6 +8,7 @@ use App\Models\ElementAssessment;
 use App\Models\ElementTeamAssignment;
 use App\Models\Notification;
 use App\Models\Account;
+use App\Services\ElementPreferenceService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -16,21 +17,10 @@ use Illuminate\Support\Str;
 
 class DashboardController extends Controller
 {
-    private array $elementWeights = [
-        'element1' => 0.40,
-        'element2' => 0.20,
-        'element3' => 0.20,
-        'element4' => 0.10,
-        'element5' => 0.10,
-    ];
-
-    private array $elementTitles = [
-        'element1' => 'Element 1 : Kualitas Peran dan Layanan',
-        'element2' => 'Element 2 : Profesionalisme Penugasan',
-        'element3' => 'Element 3 : Manajemen Pengawasan',
-        'element4' => 'Element 4 : Pengelolaan Kinerja dan Sumber Daya Pengawasan',
-        'element5' => 'Element 5 : Budaya dan Hubungan Organisasi',
-    ];
+    public function __construct(
+        private readonly ElementPreferenceService $elementPreferenceService
+    ) {
+    }
 
     public function index()
     {
@@ -39,8 +29,20 @@ class DashboardController extends Controller
         }
 
         $sessionUser = Session::get('user');
-        $elements = $this->buildElementSummaries();
+        $summaryModules = $this->elementPreferenceService->summaryModules(true);
+        $subtopicModules = $this->elementPreferenceService->subtopicModules();
+        $elementWeights = collect($summaryModules)
+            ->mapWithKeys(function (array $config, string $slug) {
+                return [(string) $slug => (float) ($config['element_weight'] ?? 0)];
+            })
+            ->all();
+
+        $elements = $this->buildElementSummaries($summaryModules, $subtopicModules, $elementWeights);
+
         $accessibleElementSlugs = ElementTeamAssignment::assignedElementSlugsForUser((array) $sessionUser);
+        if ($accessibleElementSlugs !== null) {
+            $accessibleElementSlugs = array_values(array_intersect($accessibleElementSlugs, array_keys($elementWeights)));
+        }
 
         $overallWeightedScore = (float) number_format((float) collect($elements)
             ->sum(fn (array $item) => (float) ($item['weighted_score'] ?? 0)), 2, '.', '');
@@ -72,7 +74,7 @@ class DashboardController extends Controller
         return view('dashboard', [
             'pageTitle' => 'Dashboard Kapabilitas APIP',
             'elements' => $elements,
-            'elementWeights' => $this->elementWeights,
+            'elementWeights' => $elementWeights,
             'accessibleElementSlugs' => $accessibleElementSlugs,
             'overallWeightedScore' => $overallWeightedScore,
             'overallLevelData' => $overallLevelData,
@@ -97,13 +99,10 @@ class DashboardController extends Controller
         return asset('uploads/'.$path);
     }
 
-    private function buildElementSummaries(): array
+    private function buildElementSummaries(array $summaryModules, array $subtopicModules, array $elementWeights): array
     {
-        $summaryModules = (array) config('element_summary_modules.modules', []);
-        $subtopicModules = (array) config('element_subtopic_modules.modules', []);
-
         $elements = [];
-        foreach ($this->elementWeights as $elementSlug => $elementWeight) {
+        foreach ($elementWeights as $elementSlug => $elementWeight) {
             $summaryConfig = $summaryModules[$elementSlug] ?? [];
             if (!is_array($summaryConfig)) {
                 $summaryConfig = [];
@@ -136,7 +135,7 @@ class DashboardController extends Controller
 
             $elements[] = [
                 'slug' => $elementSlug,
-                'title' => (string) ($summaryConfig['title'] ?? ($this->elementTitles[$elementSlug] ?? Str::headline($elementSlug))),
+                'title' => (string) ($summaryConfig['title'] ?? Str::headline($elementSlug)),
                 'weight' => (float) $elementWeight,
                 'score' => $hasData ? $elementScore : null,
                 'weighted_score' => $weightedScore,
@@ -161,15 +160,18 @@ class DashboardController extends Controller
             ->values();
 
         $moduleSlugs = collect($subtopicModules)
+            ->filter(function ($config, $slug) use ($elementSlug) {
+                return is_array($config)
+                    && is_string($slug)
+                    && Str::startsWith($slug, $elementSlug.'_')
+                    && (bool) ($config['is_active'] ?? true);
+            })
             ->keys()
-            ->filter(fn ($slug) => is_string($slug) && Str::startsWith($slug, $elementSlug.'_'))
             ->values();
 
         $assessmentBySlug = $this->latestAssessmentBySubtopic($elementSlug);
 
-        $allSlugs = $preferredSlugs
-            ->concat($moduleSlugs)
-            ->concat($assessmentBySlug->keys())
+        $allSlugs = ($preferredSlugs->isNotEmpty() ? $preferredSlugs : $moduleSlugs)
             ->unique()
             ->values();
 

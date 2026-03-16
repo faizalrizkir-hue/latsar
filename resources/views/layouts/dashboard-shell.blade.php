@@ -25,6 +25,7 @@
     use Illuminate\Support\Str;
     use App\Models\Account;
     use App\Models\ElementTeamAssignment;
+    use App\Services\ElementPreferenceService;
     $notificationItems = $notifications ?? collect();
     $notificationCount = count($notificationItems);
     $latestNotification = $notificationCount > 0 ? $notificationItems->first() : null;
@@ -65,14 +66,154 @@
 
         return Str::upper(Str::substr($compact, 0, 2));
     };
+    $elementPreferenceService = app(ElementPreferenceService::class);
     $visibleElementNavSlugs = ElementTeamAssignment::assignedElementSlugsForUser($user);
-    $canSeeElementNav = function (string $slug) use ($visibleElementNavSlugs): bool {
-        if ($visibleElementNavSlugs === null) {
-            return true;
+    $subtopicModulesForNav = collect($elementPreferenceService->subtopicModules(true))
+        ->filter(fn ($item) => is_array($item));
+    $subtopicTitleBySlug = $subtopicModulesForNav
+        ->mapWithKeys(function ($module, $slug) {
+            $resolvedSlug = (string) $slug;
+            if ($resolvedSlug === '') {
+                return [];
+            }
+
+            $resolvedTitle = trim((string) ($module['subtopic_title'] ?? ''));
+            if ($resolvedTitle === '') {
+                return [];
+            }
+
+            return [$resolvedSlug => $resolvedTitle];
+        })
+        ->all();
+    $resolveElementNumber = static function (string $slug, string $title, int $fallbackIndex = 0): string {
+        if (preg_match('/^element(\d+)$/i', $slug, $matches)) {
+            return (string) ($matches[1] ?? '');
         }
 
-        return in_array($slug, $visibleElementNavSlugs, true);
+        if (preg_match('/element\s*(\d+)/i', $title, $matches)) {
+            return (string) ($matches[1] ?? '');
+        }
+
+        return $fallbackIndex > 0 ? (string) $fallbackIndex : 'E';
     };
+    $normalizeSubtopicNavTitle = static function (string $title, int $position): string {
+        $resolvedTitle = trim($title);
+        if ($resolvedTitle === '') {
+            return 'Sub Topik '.$position;
+        }
+
+        $cleanedTitle = preg_replace('/^\s*sub\s*topik\s*\d+\s*[-:]?\s*/i', '', $resolvedTitle);
+        $cleanedTitle = is_string($cleanedTitle) ? trim($cleanedTitle) : $resolvedTitle;
+
+        return $cleanedTitle !== '' ? $cleanedTitle : $resolvedTitle;
+    };
+    $structureElements = collect((array) ($elementPreferenceService->structure()['elements'] ?? []))
+        ->filter(fn ($item) => is_array($item))
+        ->values();
+    $navElements = $structureElements
+        ->filter(function (array $element) use ($visibleElementNavSlugs): bool {
+            $elementSlug = (string) ($element['slug'] ?? '');
+            if ($elementSlug === '' || !(bool) ($element['active'] ?? false)) {
+                return false;
+            }
+
+            if ($visibleElementNavSlugs === null) {
+                return true;
+            }
+
+            return in_array($elementSlug, $visibleElementNavSlugs, true);
+        })
+        ->map(function (array $element, int $elementIndex) use ($subtopicTitleBySlug, $resolveElementNumber, $normalizeSubtopicNavTitle) {
+            $elementSlug = (string) ($element['slug'] ?? '');
+            $elementTitle = trim((string) ($element['title'] ?? $elementSlug));
+            if ($elementTitle === '') {
+                $elementTitle = Str::headline($elementSlug);
+            }
+
+            $subtopics = collect((array) ($element['subtopics'] ?? []))
+                ->filter(fn ($item) => is_array($item) && (bool) ($item['active'] ?? false))
+                ->values()
+                ->map(function (array $subtopic, int $subtopicIndex) use ($subtopicTitleBySlug, $normalizeSubtopicNavTitle) {
+                    $subtopicSlug = (string) ($subtopic['slug'] ?? '');
+                    $subtopicTitle = trim((string) ($subtopicTitleBySlug[$subtopicSlug] ?? ($subtopic['title'] ?? $subtopicSlug)));
+                    if ($subtopicTitle === '') {
+                        $subtopicTitle = Str::headline($subtopicSlug);
+                    }
+
+                    return [
+                        'slug' => $subtopicSlug,
+                        'title' => $normalizeSubtopicNavTitle($subtopicTitle, $subtopicIndex + 1),
+                    ];
+                })
+                ->filter(fn ($item) => $item['slug'] !== '')
+                ->values();
+
+            $elementNumber = $resolveElementNumber($elementSlug, $elementTitle, $elementIndex + 1);
+            $navTitle = is_numeric($elementNumber) ? 'Element '.$elementNumber : $elementTitle;
+            $iconLabel = is_numeric($elementNumber) ? $elementNumber : 'E';
+
+            return [
+                'slug' => $elementSlug,
+                'title' => $elementTitle,
+                'nav_title' => $navTitle,
+                'icon_label' => Str::upper($iconLabel),
+                'subtopics' => $subtopics,
+            ];
+        })
+        ->values();
+
+    if ($navElements->isEmpty()) {
+        $subtopicModules = collect($elementPreferenceService->subtopicModules(true))
+            ->filter(fn ($item) => is_array($item));
+
+        $fallbackElements = $subtopicModules
+            ->groupBy(fn ($module, $slug) => ElementTeamAssignment::topLevelElementSlug((string) $slug))
+            ->filter(fn ($modules, $elementSlug) => is_string($elementSlug) && $elementSlug !== '')
+            ->map(function ($modules, $elementSlug) use ($resolveElementNumber, $normalizeSubtopicNavTitle) {
+                $firstModule = $modules->first();
+                $elementTitle = trim((string) ($firstModule['page_title'] ?? ''));
+                if ($elementTitle === '') {
+                    $elementTitle = Str::headline((string) $elementSlug);
+                }
+
+                $subtopicPosition = 1;
+                $subtopics = $modules
+                    ->map(function ($module, $slug) use ($normalizeSubtopicNavTitle, &$subtopicPosition) {
+                        $subtopicSlug = (string) $slug;
+                        $subtopicTitle = trim((string) ($module['subtopic_title'] ?? $subtopicSlug));
+                        if ($subtopicTitle === '') {
+                            $subtopicTitle = Str::headline($subtopicSlug);
+                        }
+
+                        return [
+                            'slug' => $subtopicSlug,
+                            'title' => $normalizeSubtopicNavTitle($subtopicTitle, $subtopicPosition++),
+                        ];
+                    })
+                    ->filter(fn ($item) => ($item['slug'] ?? '') !== '')
+                    ->values();
+                $elementNumber = $resolveElementNumber((string) $elementSlug, $elementTitle);
+                $navTitle = is_numeric($elementNumber) ? 'Element '.$elementNumber : $elementTitle;
+                $iconLabel = is_numeric($elementNumber) ? $elementNumber : 'E';
+
+                return [
+                    'slug' => (string) $elementSlug,
+                    'title' => $elementTitle,
+                    'nav_title' => $navTitle,
+                    'icon_label' => Str::upper($iconLabel),
+                    'subtopics' => $subtopics,
+                ];
+            })
+            ->values();
+
+        if ($visibleElementNavSlugs !== null) {
+            $fallbackElements = $fallbackElements
+                ->filter(fn ($element) => in_array((string) ($element['slug'] ?? ''), $visibleElementNavSlugs, true))
+                ->values();
+        }
+
+        $navElements = $fallbackElements;
+    }
     $photoUrl = $resolvePhotoUrl($photoPath);
     $toastQueue = [];
     if (session('login_welcome_toast')) {
@@ -111,64 +252,31 @@
         </div>
         <ul class="nav" id="navMain">
             <li><a href="{{ route('dashboard') }}"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 14a8 8 0 1 1 16 0"/><path d="M12 14l4-4"/><circle cx="12" cy="14" r="1.2"/></svg></span><span class="nav-text">Dashboard</span></a></li>
-            @if($canSeeElementNav('element1'))
+            @foreach($navElements as $elementNav)
             <li class="has-sub">
-                <a class="nav-toggle" data-sub-toggle="element1"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M15.5 12.6 17 21l-5-2.7L7 21l1.5-8.4"/><path d="m10.4 8 1.1 1.1 2.2-2.2"/></svg></span><span class="nav-text">Element 1</span><span class="chevron">›</span></a>
-                <ul class="nav-sub" id="sub-element1">
-                    <li class="nav-sub-parent"><a href="{{ route('elements.show','element1') }}"><span class="sub-icon">•</span><span>Rekapitulasi Element</span></a></li>
-                    <li class="nav-sub-child"><a href="{{ route('elements.show','element1_kegiatan_asurans') }}"><span class="sub-icon">•</span><span>Kegiatan Asurans</span></a></li>
-                    <li class="nav-sub-child"><a href="{{ route('elements.show','element1_jasa_konsultansi') }}"><span class="sub-icon">•</span><span>Kegiatan Konsultansi</span></a></li>
+                <a class="nav-toggle" data-sub-toggle="{{ $elementNav['slug'] }}">
+                    <span class="nav-icon">{{ $elementNav['icon_label'] }}</span>
+                    <span class="nav-text">{{ $elementNav['nav_title'] }}</span>
+                    <span class="chevron">›</span>
+                </a>
+                <ul class="nav-sub" id="sub-{{ $elementNav['slug'] }}">
+                    <li class="nav-sub-parent">
+                        <a href="{{ route('elements.show', $elementNav['slug']) }}">
+                            <span class="sub-icon">•</span>
+                            <span>Rekapitulasi Element</span>
+                        </a>
+                    </li>
+                    @foreach($elementNav['subtopics'] as $subtopicNav)
+                        <li class="nav-sub-child">
+                            <a href="{{ route('elements.show', $subtopicNav['slug']) }}">
+                                <span class="sub-icon">•</span>
+                                <span>{{ $subtopicNav['title'] }}</span>
+                            </a>
+                        </li>
+                    @endforeach
                 </ul>
             </li>
-            @endif
-            @if($canSeeElementNav('element2'))
-            <li class="has-sub">
-                <a class="nav-toggle" data-sub-toggle="element2"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2.5"/><path d="M9 7V5.8A1.8 1.8 0 0 1 10.8 4h2.4A1.8 1.8 0 0 1 15 5.8V7"/><path d="m9.5 13 1.6 1.6 3-3"/></svg></span><span class="nav-text">Element 2</span><span class="chevron">›</span></a>
-                <ul class="nav-sub" id="sub-element2">
-                    <li class="nav-sub-parent"><a href="{{ route('elements.show','element2') }}"><span class="sub-icon">•</span><span>Rekapitulasi Element</span></a></li>
-                    <li class="nav-sub-child"><a href="{{ route('elements.show','element2_pengembangan_informasi') }}"><span class="sub-icon">•</span><span>Pengembangan Informasi Awal</span></a></li>
-                    <li class="nav-sub-child"><a href="{{ route('elements.show','element2_perencanaan_penugasan') }}"><span class="sub-icon">•</span><span>Perencanaan Penugasan</span></a></li>
-                    <li class="nav-sub-child"><a href="{{ route('elements.show','element2_pelaksanaan_penugasan') }}"><span class="sub-icon">•</span><span>Pelaksanaan Penugasan</span></a></li>
-                    <li class="nav-sub-child"><a href="{{ route('elements.show','element2_komunikasi_hasil') }}"><span class="sub-icon">•</span><span>Komunikasi Hasil Penugasan</span></a></li>
-                    <li class="nav-sub-child"><a href="{{ route('elements.show','element2_pemantauan_tindak_lanjut') }}"><span class="sub-icon">•</span><span>Pemantauan Tindak Lanjut</span></a></li>
-                    <li class="nav-sub-child"><a href="{{ route('elements.show','element2_pengendalian_kualitas') }}"><span class="sub-icon">•</span><span>Pengendalian Kualitas Penugasan</span></a></li>
-                </ul>
-            </li>
-            @endif
-            @if($canSeeElementNav('element3'))
-            <li class="has-sub">
-                <a class="nav-toggle" data-sub-toggle="element3"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 5 6v5.5c0 4.3 3 8.2 7 9.5 4-1.3 7-5.2 7-9.5V6l-7-3Z"/><path d="m9.3 11.7 2 2 3.6-3.6"/></svg></span><span class="nav-text">Element 3</span><span class="chevron">›</span></a>
-                <ul class="nav-sub" id="sub-element3">
-                    <li class="nav-sub-parent"><a href="{{ route('elements.show','element3') }}"><span class="sub-icon">•</span><span>Rekapitulasi Element</span></a></li>
-                    <li class="nav-sub-child"><a href="{{ route('elements.show','element3_perencanaan_pengawasan') }}"><span class="sub-icon">•</span><span>Perencanaan Pengawasan</span></a></li>
-                    <li class="nav-sub-child"><a href="{{ route('elements.show','element3_pelaporan_manajemen_kld') }}"><span class="sub-icon">•</span><span>Pelaporan kepada Manajemen K/L/D</span></a></li>
-                </ul>
-            </li>
-            @endif
-            @if($canSeeElementNav('element4'))
-            <li class="has-sub">
-                <a class="nav-toggle" data-sub-toggle="element4"><span class="nav-icon">4</span><span class="nav-text">Element 4</span><span class="chevron">›</span></a>
-                <ul class="nav-sub" id="sub-element4">
-                    <li class="nav-sub-parent"><a href="{{ route('elements.show','element4') }}"><span class="sub-icon">•</span><span>Rekapitulasi Element</span></a></li>
-                    <li class="nav-sub-child"><a href="{{ route('elements.show','element4_manajemen_kinerja') }}"><span class="sub-icon">•</span><span>Manajemen Kinerja</span></a></li>
-                    <li class="nav-sub-child"><a href="{{ route('elements.show','element4_mekanisme_pendanaan') }}"><span class="sub-icon">•</span><span>Manajemen Sumber Daya Keuangan</span></a></li>
-                    <li class="nav-sub-child"><a href="{{ route('elements.show','element4_perencanaan_sdm_apip') }}"><span class="sub-icon">•</span><span>Perencanaan Kebutuhan dan Pengadaan SDM Pengawasan</span></a></li>
-                    <li class="nav-sub-child"><a href="{{ route('elements.show','element4_pengembangan_sdm_profesional_apip') }}"><span class="sub-icon">•</span><span>Pengembangan SDM Profesional APIP</span></a></li>
-                    <li class="nav-sub-child"><a href="{{ route('elements.show','element4_dukungan_tik') }}"><span class="sub-icon">•</span><span>Dukungan terhadap Teknologi Informasi</span></a></li>
-                </ul>
-            </li>
-            @endif
-            @if($canSeeElementNav('element5'))
-            <li class="has-sub">
-                <a class="nav-toggle" data-sub-toggle="element5"><span class="nav-icon">5</span><span class="nav-text">Element 5</span><span class="chevron">›</span></a>
-                <ul class="nav-sub" id="sub-element5">
-                    <li><a href="{{ route('elements.show','element5_pembangunan_budaya_integritas') }}"><span class="sub-icon">•</span><span>Pembangunan Budaya Integritas</span></a></li>
-                    <li><a href="{{ route('elements.show','element5_pengelolaan_komunikasi_internal') }}"><span class="sub-icon">•</span><span>Pengelolaan Komunikasi Internal</span></a></li>
-                    <li><a href="{{ route('elements.show','element5_koordinasi_pengawasan') }}"><span class="sub-icon">•</span><span>Koordinasi Pengawasan Eksternal</span></a></li>
-                    <li><a href="{{ route('elements.show','element5_akses_informasi_sumberdaya') }}"><span class="sub-icon">•</span><span>Akses Informasi & Sistem</span></a></li>
-                </ul>
-            </li>
-            @endif
+            @endforeach
             <li><a href="#"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="14" height="14" rx="2"/><path d="M11 4v14M4 11h14"/><path d="M19 16v6M16 19h6"/></svg></span><span class="nav-text">Area Of Improvement (AoI)</span></a></li>
             <li><a href="{{ route('dms.index') }}"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 8a3 3 0 0 1 3-3h4l2 2h6a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3Z"/><path d="M3 9h18"/></svg></span><span class="nav-text">Data Management System</span></a></li>
             <li><a href="#"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 10.5v5"/><path d="M12 7.5h.01"/></svg></span><span class="nav-text">Informasi Umum</span></a></li>
@@ -294,6 +402,7 @@
                         <a href="{{ route('profile.edit') }}" role="menuitem">Edit Profil</a>
                         @if($canManageAccounts)
                             <a href="{{ route('accounts.index') }}" role="menuitem">Manajemen Akun</a>
+                            <a href="{{ route('element-preferences.index') }}" role="menuitem">Preferensi Element</a>
                         @endif
                         <form action="{{ route('logout') }}" method="POST" id="idleLogoutForm" data-idle-timeout-ms="{{ $idleTimeoutMs }}">
                             @csrf

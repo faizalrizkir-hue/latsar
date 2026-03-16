@@ -188,5 +188,52 @@ return [
                 ],
             ],
         ],
+        'element5' => [
+            'view' => 'elements.element1-summary',
+            'title' => 'Element 5 : Budaya dan Hubungan Organisasi',
+            'header_code' => 'E5',
+            'header_subtitle' => 'Rekap Skor Tertimbang dan Level dari 4 Sub Topik Element 5',
+            'level_label' => 'Level Element 5',
+            'info_modal_title' => 'Informasi Level Element 5 - Budaya dan Hubungan Organisasi',
+            'styles' => [
+                'css/element1-kegiatan-asurans.css',
+                'css/element1-summary.css',
+            ],
+            'element_weight' => 0.10,
+            'subtopic_slugs' => [
+                'element5_pembangunan_budaya_integritas',
+                'element5_hubungan_apip_manajemen',
+                'element5_koordinasi_pengawasan',
+                'element5_akses_informasi_sumberdaya',
+            ],
+            'subtopic_weights' => [
+                'element5_pembangunan_budaya_integritas' => 0.20,
+                'element5_hubungan_apip_manajemen' => 0.40,
+                'element5_koordinasi_pengawasan' => 0.10,
+                'element5_akses_informasi_sumberdaya' => 0.30,
+            ],
+            'info_levels' => [
+                [
+                    'level' => 1,
+                    'description' => 'Budaya dan hubungan organisasi belum terkelola secara sistematis; internalisasi integritas serta kolaborasi dengan pemangku kepentingan masih terbatas.',
+                ],
+                [
+                    'level' => 2,
+                    'description' => 'Budaya dan hubungan organisasi mulai dibangun melalui kebijakan dan sosialisasi awal, namun implementasi dan pemanfaatannya belum konsisten.',
+                ],
+                [
+                    'level' => 3,
+                    'description' => 'Budaya integritas, hubungan manajemen, koordinasi pengawasan, dan akses informasi telah berjalan memadai dan mendukung proses pengawasan.',
+                ],
+                [
+                    'level' => 4,
+                    'description' => 'Budaya dan hubungan organisasi telah terintegrasi lintas proses, konsisten, terdokumentasi, dan memberi nilai tambah bagi penguatan pengawasan.',
+                ],
+                [
+                    'level' => 5,
+                    'description' => 'Budaya dan hubungan organisasi mencapai kematangan tinggi, adaptif terhadap perubahan, didukung teknologi, dan menjadi rujukan praktik baik.',
+                ],
+            ],
+        ],
     ],
 ];

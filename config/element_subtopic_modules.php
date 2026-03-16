@@ -30,6 +30,14 @@ use App\Models\Element4PengembanganSdmProfesionalApip;
 use App\Models\Element4PengembanganSdmProfesionalApipEditLog;
 use App\Models\Element4PerencanaanSdmApip;
 use App\Models\Element4PerencanaanSdmApipEditLog;
+use App\Models\Element5AksesInformasiSumberdaya;
+use App\Models\Element5AksesInformasiSumberdayaEditLog;
+use App\Models\Element5HubunganApipManajemen;
+use App\Models\Element5HubunganApipManajemenEditLog;
+use App\Models\Element5KoordinasiPengawasan;
+use App\Models\Element5KoordinasiPengawasanEditLog;
+use App\Models\Element5PembangunanBudayaIntegritas;
+use App\Models\Element5PembangunanBudayaIntegritasEditLog;
 
 return [
     'modules' => [
@@ -1053,6 +1061,252 @@ return [
                     3 => 'Manajemen pengawasan memanfaatkan sistem atau aplikasi TI untuk sebagian proses pengelolaan, namun penerapannya belum mencakup seluruh fungsi manajerial pengawasan.',
                     4 => 'Manajemen pengawasan dikelola melalui sistem TI terintegrasi yang menghubungkan proses bisnis prioritas untuk pengawasan dan mendukung fleksibilitas pengelolaan kinerja serta keuangan.',
                     5 => 'Manajemen pengawasan didukung oleh dashboard TI yang terintegrasi, memfasilitasi pemantauan kinerja dan penyediaan informasi bagi pimpinan dalam pengambilan keputusan dan penentuan prioritas pengawasan.',
+                ],
+            ],
+        ],
+        'element5_pembangunan_budaya_integritas' => [
+            'view' => 'elements.element1-kegiatan-asurans',
+            'model' => Element5PembangunanBudayaIntegritas::class,
+            'edit_log_model' => Element5PembangunanBudayaIntegritasEditLog::class,
+            'page_title' => 'Element 5 : Budaya dan Hubungan Organisasi',
+            'subtopic_code' => 'S1',
+            'subtopic_title' => 'Sub Topik 1 - Pembangunan Budaya Integritas',
+            'info_modal_title' => 'Informasi Level Sub Topik 1 - Pembangunan Budaya Integritas',
+            'notification_title' => 'Element 5 - Pembangunan Budaya Integritas',
+            'rows' => [
+                1 => 'Internalisasi Nilai Integritas dan Penerapan Etika Organisasi',
+                2 => 'Mekanisme Pengaduan, Pemantauan, dan Tindak Lanjut Pelanggaran Integritas',
+            ],
+            'weights' => [
+                1 => 0.50,
+                2 => 0.50,
+            ],
+            'info_levels' => [
+                [
+                    'level' => 1,
+                    'score_range' => '0 - 1,99',
+                    'description' => 'Budaya integritas belum melembaga; etika organisasi sudah ada secara formal, namun belum disosialisasikan dan diterapkan/diinternalisasi dalam budaya organisasi; tidak ada mekanisme pengaduan atau ada namun tidak dapat dimanfaatkan.',
+                ],
+                [
+                    'level' => 2,
+                    'score_range' => '2 - 2,99',
+                    'description' => 'Budaya integritas mulai dibangun melalui sosialisasi; etika organisasi sudah ada dan sudah disosialisasikan; mekanisme pengaduan sudah ada namun belum disosialisasikan dan belum dimanfaatkan oleh stakeholders.',
+                ],
+                [
+                    'level' => 3,
+                    'score_range' => '3 - 3,99',
+                    'description' => 'Budaya integritas sudah melembaga dalam organisasi dan menjadi bagian proses pelaksanaan pengawasan; mekanisme pengaduan sudah ada dan tersosialisasi kepada stakeholders internal/eksternal organisasi; terdapat mekanisme untuk memantau dan menindaklanjuti pengaduan.',
+                ],
+                [
+                    'level' => 4,
+                    'score_range' => '4 - 4,99',
+                    'description' => 'Budaya integritas APIP telah mendapat pengakuan organisasi dan menjadi role model bagi unit kerja lain; mekanisme pengaduan telah berfungsi secara sistematis dan konsisten. Mekanisme pemantauan dan tindak lanjut telah terdokumentasi dan dapat dipertanggungjawabkan kepada publik.',
+                ],
+                [
+                    'level' => 5,
+                    'score_range' => '5',
+                    'description' => 'Budaya integritas APIP telah mendapat pengakuan dan menjadi role model nasional. Aturan perilaku/disiplin pegawai telah adaptif pada perubahan standar nasional dan internasional. Mekanisme pengaduan, pemantauan, dan tindak lanjut atas budaya integritas serta pelanggarannya telah berfungsi secara sistematis, konsisten, dan transparan dengan dukungan TI.',
+                ],
+            ],
+            'statement_level_hints' => [
+                'Internalisasi Nilai Integritas dan Penerapan Etika Organisasi' => [
+                    1 => 'Nilai integritas dan etika hanya tercantum dalam dokumen atau slogan tanpa penerapan nyata. Tidak ada sosialisasi atau pemahaman pegawai.',
+                    2 => 'Nilai integritas dan etika organisasi telah disosialisasikan dan mulai dipahami oleh pegawai, baik di unit APIP maupun organisasi tempat APIP berada.',
+                    3 => 'Nilai integritas dan etika organisasi telah diterapkan dalam proses kerja pengawasan dan kehidupan organisasi. Pelanggaran telah diberi sanksi sesuai aturan.',
+                    4 => 'Penerapan integritas dan etika organisasi dievaluasi secara sistematis dan berkala, dan hasil evaluasi digunakan untuk memperbaiki proses bisnis serta sistem pengawasan secara berkelanjutan.',
+                    5 => 'Budaya integritas dan etika organisasi sudah melembaga dan menjadi contoh bagi organisasi lain. APIP secara adaptif menyesuaikan penerapan nilai integritas terhadap perubahan lingkungan dan teknologi.',
+                ],
+            ],
+        ],
+        'element5_hubungan_apip_manajemen' => [
+            'view' => 'elements.element1-kegiatan-asurans',
+            'model' => Element5HubunganApipManajemen::class,
+            'edit_log_model' => Element5HubunganApipManajemenEditLog::class,
+            'page_title' => 'Element 5 : Budaya dan Hubungan Organisasi',
+            'subtopic_code' => 'S2',
+            'subtopic_title' => 'Sub Topik 2 - Kualitas Komunikasi APIP',
+            'info_modal_title' => 'Informasi Level Sub Topik 2 - Kualitas Komunikasi APIP',
+            'notification_title' => 'Element 5 - Kualitas Komunikasi APIP',
+            'rows' => [
+                1 => 'Pemantauan dan Pemberian Arahan atas Peningkatan Kapabilitas APIP',
+                2 => 'Kualitas Komunikasi Internal',
+                3 => 'Kualitas Komunikasi APIP dengan Manajemen',
+            ],
+            'weights' => [
+                1 => 0.40,
+                2 => 0.20,
+                3 => 0.40,
+            ],
+            'info_levels' => [
+                [
+                    'level' => 1,
+                    'score_range' => '0 - 1,99',
+                    'description' => 'Tidak ada komitmen Pimpinan K/L/D untuk mendukung peningkatan Kapabilitas APIP. Pola komunikasi internal APIP bersifat top down. Hubungan APIP dengan manajemen minim/saat ada masalah (watchdog). Komunikasi APIP tidak terdokumentasi (internal maupun dengan manajemen).',
+                ],
+                [
+                    'level' => 2,
+                    'score_range' => '2 - 2,99',
+                    'description' => 'Komitmen Pimpinan K/L/D untuk peningkatan Kapabilitas APIP bersifat administratif; komunikasi vertikal internal APIP bersifat top down, komunikasi horizontal internal APIP egaliter; APIP dilibatkan dalam forum komunikasi resmi yang insidentil sebagai pemberi konsultansi yang bersifat administratif; dokumentasi komunikasi tidak relevan/formalitas tanpa kesepakatan tindak lanjut.',
+                ],
+                [
+                    'level' => 3,
+                    'score_range' => '3 - 3,99',
+                    'description' => 'Pimpinan K/L/D berkomitmen penuh dan aktif mendukung peningkatan Kapabilitas APIP. Komunikasi egaliter (vertikal dan horizontal) internal APIP ditujukan untuk perbaikan kinerja. APIP konsisten dilibatkan dalam forum komunikasi manajemen. Dokumentasi komunikasi APIP baik dan terdapat rencana tindak lanjut oleh manajemen.',
+                ],
+                [
+                    'level' => 4,
+                    'score_range' => '4 - 4,99',
+                    'description' => 'Pimpinan K/L/D aktif mendukung proses evaluasi dan pembinaan untuk peningkatan Kapabilitas APIP; komunikasi internal bersifat kolaboratif dan bertujuan untuk menjaga kualitas pengawasan; APIP dilibatkan dalam rapat strategis manajemen dan proaktif memberikan konsultansi terkait dengan peningkatan TKMRPI; dokumentasi komunikasi APIP menjadi dasar pemutakhiran kebijakan dan pengendalian internal.',
+                ],
+                [
+                    'level' => 5,
+                    'score_range' => '5',
+                    'description' => 'Pimpinan K/L/D konsisten mendukung dan meningkatkan kapabilitas APIP. Komunikasi terintegrasi dan terdokumentasi dengan dukungan teknologi informasi. APIP selalu dilibatkan dalam pengambilan keputusan/kebijakan strategis organisasi dan mendorong inovasi kebijakan lintas sektor/lembaga/daerah.',
+                ],
+            ],
+            'statement_level_hints' => [
+                'Pemantauan dan Pemberian Arahan atas Peningkatan Kapabilitas APIP' => [
+                    1 => 'Tidak ada komitmen yang jelas Pimpinan K/L/D untuk meningkatkan Kapabilitas APIP. Perhatian hanya sebatas formalitas atau mandat administratif.',
+                    2 => 'Pimpinan K/L/D menyadari pentingnya APIP dan telah menunjukkan komitmen dalam mendukung peningkatan Kapabilitas APIP K/L/D, namun masih cenderung pada pemenuhan administratif dan terbatas pada unit kerja APIP.',
+                    3 => 'Pimpinan K/L/D telah berkomitmen penuh dan berperan aktif pada proses penilaian dan mendukung ketercapaian target indikator kinerja kapabilitas APIP K/L/D. Arahan diberikan kepada seluruh organisasi, bukan hanya pada unit kerja APIP.',
+                    4 => 'Pimpinan K/L/D tidak hanya aktif dalam penilaian, tetapi juga proaktif membina peningkatan kapabilitas APIP melalui perencanaan dan pengorganisasian pembinaan.',
+                    5 => 'Pimpinan K/L/D secara konsisten menjaga dan meningkatkan kapabilitas APIP, serta melakukan evaluasi terhadap rencana pembinaan agar peran APIP tetap efektif.',
+                ],
+                'Kualitas Komunikasi Internal' => [
+                    1 => 'Pola komunikasi internal APIP bersifat satu arah (topdown pimpinan ke anggota) dan terpisah (silo); tidak ada koordinasi dan kolaborasi antar sub unit/antar pegawai.',
+                    2 => 'Komunikasi dan koordinasi antar pegawai dan antar sub unit (horizontal) sudah terbangun dan terbuka namun belum digunakan untuk menghasilkan perbaikan mekanisme pengawasan, komunikasi pimpinan dan bawahan (vertikal) masih satu arah (top-down).',
+                    3 => 'Komunikasi berjalan dua arah dan koordinasi antar pegawai/antar sub unit (horizontal) dan pegawai-pimpinan APIP (vertikal) sudah berjalan secara egaliter/setara; informasi antar unit digunakan untuk koordinasi dan kolaborasi menyusun perencanaan dan memperbaiki manajemen pengawasan.',
+                    4 => 'Komunikasi internal telah bersifat kolaboratif, terbuka, dan digunakan untuk berbagi pengetahuan (knowledge sharing) serta menjaga kualitas penerapan standar pengawasan.',
+                    5 => 'Pola komunikasi dan kolaborasi sudah terdokumentasi dan dikelola melalui teknologi informasi. Hasil komunikasi digunakan sebagai basis inovasi dan pengambilan keputusan kolektif.',
+                ],
+                'Kualitas Komunikasi APIP dengan Manajemen' => [
+                    1 => 'Hubungan APIP dengan manajemen (pimpinan unit lain/K/L/D) minim/tidak ada saluran komunikasi resmi. APIP tidak dilibatkan. APIP hanya dilibatkan saat ada masalah atau temuan (watchdog), komunikasi dengan manajemen tidak didokumentasikan.',
+                    2 => 'APIP mulai dilibatkan dalam rapat manajemen dalam forum komunikasi resmi yang bersifat insidentil; berperan sebagai pemberi advisory administratif (membantu lini ke-1) tanpa tindak lanjut atau kesepakatan, dokumentasi sedikit dan tidak relevan/formalitas.',
+                    3 => 'APIP konsisten dilibatkan pada rapat manajemen dan berperan sebagai rekan diskusi teknis bidang kepatuhan, risiko, dan perbaikan kinerja (strategic partner lini ke-2); komunikasi dan hasilnya terdokumentasi dengan baik.',
+                    4 => 'APIP dilibatkan dalam rapat-rapat strategis manajemen; APIP proaktif memberikan advisory terkait TKMRPI dalam rapat strategis manajemen (trusted advisor); dokumentasi komunikasi digunakan oleh manajemen dalam kebijakan dan pengendalian internal.',
+                    5 => 'APIP selalu dilibatkan dalam pengambilan keputusan terkait kebijakan strategis organisasi dan mendorong inovasi kebijakan lintas sektor/lembaga/daerah.',
+                ],
+            ],
+        ],
+        'element5_koordinasi_pengawasan' => [
+            'view' => 'elements.element1-kegiatan-asurans',
+            'model' => Element5KoordinasiPengawasan::class,
+            'edit_log_model' => Element5KoordinasiPengawasanEditLog::class,
+            'page_title' => 'Element 5 : Budaya dan Hubungan Organisasi',
+            'subtopic_code' => 'S3',
+            'subtopic_title' => 'Sub Topik 3 - Koordinasi Pengawasan dengan Pihak Eksternal',
+            'info_modal_title' => 'Informasi Level Sub Topik 3 - Koordinasi Pengawasan dengan Pihak Eksternal',
+            'notification_title' => 'Element 5 - Koordinasi Pengawasan dengan Pihak Eksternal',
+            'rows' => [
+                1 => 'Intensitas Koordinasi dan Pertukaran Data Informasi',
+                2 => 'Sinergi dalam Perencanaan',
+            ],
+            'weights' => [
+                1 => 0.40,
+                2 => 0.60,
+            ],
+            'info_levels' => [
+                [
+                    'level' => 1,
+                    'score_range' => '0 - 1,99',
+                    'description' => 'Tidak ada koordinasi. Kegiatan pengawasan berjalan sendiri-sendiri.',
+                ],
+                [
+                    'level' => 2,
+                    'score_range' => '2 - 2,99',
+                    'description' => 'Koordinasi insidentil. Komunikasi antar-APIP atau pemeriksa masih terbatas.',
+                ],
+                [
+                    'level' => 3,
+                    'score_range' => '3 - 3,99',
+                    'description' => 'Koordinasi rutin dengan pemeriksa/APIP lain. APIP rutin melakukan sinergi dalam perencanaan pengawasan.',
+                ],
+                [
+                    'level' => 4,
+                    'score_range' => '4 - 4,99',
+                    'description' => 'Koordinasi terstruktur, aktif dan proaktif. Kolaborasi perencanaan pengawasan telah mencakup pembagian fokus dan lokus.',
+                ],
+                [
+                    'level' => 5,
+                    'score_range' => '5',
+                    'description' => 'Koordinasi terintegrasi lintas K/L/D. Kolaborasi perencanaan pengawasan telah menyasar pada kebijakan strategis dan bermanfaat untuk lintas K/L/D.',
+                ],
+            ],
+            'statement_level_hints' => [
+                'Intensitas Koordinasi dan Pertukaran Data Informasi' => [
+                    1 => 'APIP belum melakukan koordinasi atau pertukaran data dengan APIP lain, pemeriksa, atau instansi pengawasan lain. Pengawasan berjalan sendiri-sendiri tanpa sinergi.',
+                    2 => 'APIP mulai berkoordinasi, tetapi masih bersifat insidental (hanya saat diminta). Pertukaran data/informasi belum terstruktur dan tidak berkelanjutan.',
+                    3 => 'APIP secara rutin berkoordinasi dengan APIP/pemeriksa lain dan mulai memiliki sistem atau pedoman berbagi data yang jelas. Koordinasi dilakukan secara terencana dan berkala.',
+                    4 => 'Koordinasi dan pertukaran data dilakukan secara terencana, terintegrasi dengan perencanaan pengawasan, serta dievaluasi secara berkala untuk peningkatan kualitas pengawasan.',
+                    5 => 'APIP menjalin kerja sama formal lintas lembaga/daerah untuk berbagi data dan melakukan pengawasan bersama secara berkelanjutan. Sistem berbagi data sudah terintegrasi secara digital dan menjadi contoh praktik baik nasional.',
+                ],
+                'Sinergi dalam Perencanaan' => [
+                    1 => 'Setiap APIP menyusun perencanaan pengawasan sendiri-sendiri tanpa koordinasi. Sering terjadi duplikasi pemeriksaan/pengawasan pada objek dan waktu yang sama. Tidak ada manfaat nyata bagi organisasi.',
+                    2 => 'Koordinasi dilakukan sesekali (misalnya melalui rapat atau forum Rakorwas), tetapi belum menghasilkan kesepakatan substantif. Belum ada pembagian area atau fokus pengawasan yang jelas.',
+                    3 => 'APIP secara rutin berkoordinasi dengan APIP/pemeriksa lain dalam menyusun perencanaan pengawasan. Ada pembagian area/lokus untuk menghindari duplikasi dan meningkatkan efektivitas audit/pengawasan.',
+                    4 => 'Perencanaan pengawasan dilakukan secara kolaboratif dan saling melengkapi, bukan hanya berbagi lokus, tetapi juga berbagi pendekatan audit dan topik pemeriksaan. Sinergi ini menjadi bagian dari budaya kerja pengawasan.',
+                    5 => 'Sinergi perencanaan sudah lintas sektor atau lintas lembaga, dengan pembagian tugas audit yang terintegrasi dan berorientasi pada kebijakan/program nasional. Hasilnya menjadi rekomendasi strategis lintas instansi dan contoh praktik baik.',
+                ],
+            ],
+        ],
+        'element5_akses_informasi_sumberdaya' => [
+            'view' => 'elements.element1-kegiatan-asurans',
+            'model' => Element5AksesInformasiSumberdaya::class,
+            'edit_log_model' => Element5AksesInformasiSumberdayaEditLog::class,
+            'page_title' => 'Element 5 : Budaya dan Hubungan Organisasi',
+            'subtopic_code' => 'S4',
+            'subtopic_title' => 'Sub Topik 4 - Akses terhadap Informasi dan Sistem Informasi',
+            'info_modal_title' => 'Informasi Level Sub Topik 4 - Akses terhadap Informasi dan Sistem Informasi',
+            'notification_title' => 'Element 5 - Akses terhadap Informasi dan Sistem Informasi',
+            'rows' => [
+                1 => 'Akses Informasi dan Dukungan Pimpinan',
+                2 => 'Nilai Tambah terhadap Pengawasan Intern',
+            ],
+            'weights' => [
+                1 => 0.60,
+                2 => 0.40,
+            ],
+            'info_levels' => [
+                [
+                    'level' => 1,
+                    'score_range' => '0 - 1,99',
+                    'description' => 'Akses APIP terhadap perolehan informasi dibatasi. Tidak ada dukungan signifikan dari manajemen atas pembatasan akses. Tidak ada nilai tambah terhadap pelaksanaan pengawasan.',
+                ],
+                [
+                    'level' => 2,
+                    'score_range' => '2 - 2,99',
+                    'description' => 'Akses APIP terhadap perolehan informasi mulai terbuka, namun terbatas pada data/informasi tertentu. Dukungan manajemen terhadap akses informasi masih bersifat administratif. Nilai tambah terbatas untuk mendukung pengawasan intern.',
+                ],
+                [
+                    'level' => 3,
+                    'score_range' => '3 - 3,99',
+                    'description' => 'Akses penuh terhadap perolehan informasi, serta tidak ada intervensi. Dukungan manajemen terhadap akses informasi telah dijamin dalam mandat. Akses dan dukungan mendorong efektivitas pelaksanaan pengawasan.',
+                ],
+                [
+                    'level' => 4,
+                    'score_range' => '4 - 4,99',
+                    'description' => 'Akses penuh terhadap seluruh informasi dan sistem informasi K/L/D secara terintegrasi namun belum lintas K/L/D dan real time. Pimpinan K/L/D proaktif menjalin kerja sama dengan pimpinan K/L/D lain terkait peningkatan integrasi akses informasi. Pengawasan berbasis data terintegrasi untuk tujuan pemberian peringatan dini bagi organisasi.',
+                ],
+                [
+                    'level' => 5,
+                    'score_range' => '5',
+                    'description' => 'Akses penuh terhadap informasi dan sistem informasi K/L/D yang terintegrasi lintas K/L/D dan real time. Dukungan penuh dari pimpinan lintas K/L/D. Pengawasan berbasis data terintegrasi mendukung CACM yang menghasilkan pengawasan proyektif dan inovatif untuk mendukung keputusan strategis.',
+                ],
+            ],
+            'statement_level_hints' => [
+                'Akses Informasi dan Dukungan Pimpinan' => [
+                    1 => 'APIP sulit mendapatkan data atau informasi yang dibutuhkan untuk melaksanakan pengawasan. Tidak ada kebijakan atau dukungan nyata dari pimpinan untuk mempermudah akses.',
+                    2 => 'APIP mulai diberi akses data/informasi, tetapi masih terbatas pada data/informasi tertentu. Dukungan pimpinan K/L/D sudah ada secara tertulis, namun belum efektif di lapangan.',
+                    3 => 'APIP dapat mengakses data dan informasi yang relevan untuk mendukung pengawasan intern tanpa intervensi. Pimpinan K/L/D menjamin melalui mandat atas keterbukaan akses informasi bagi APIP.',
+                    4 => 'APIP memiliki akses ke sistem informasi organisasi yang sudah terintegrasi. Pimpinan K/L/D secara proaktif mendorong kolaborasi lintas unit untuk meningkatkan keterbukaan data dan teknologi informasi.',
+                    5 => 'APIP memiliki akses penuh ke data dan sistem informasi yang terintegrasi lintas lembaga secara real-time. Pimpinan K/L/D lintas organisasi mendukung penuh transparansi dan pemanfaatan data bersama.',
+                ],
+                'Nilai Tambah terhadap Pengawasan Intern' => [
+                    1 => 'Tidak ada dampak positif terhadap pelaksanaan atau hasil pengawasan.',
+                    2 => 'Nilai tambah terbatas untuk mendukung pengawasan intern.',
+                    3 => 'Pengawasan intern efektif dan hasil pengawasan berkualitas.',
+                    4 => 'Pengawasan proaktif dan berbasis data terintegrasi dimanfaatkan untuk tujuan early warning/pemberian peringatan dini bagi organisasi.',
+                    5 => 'Pengawasan berbasis data terintegrasi dilakukan secara berkelanjutan untuk pengambilan keputusan strategis.',
                 ],
             ],
         ],

@@ -62,13 +62,25 @@ class ElementTeamAssignment extends Model
             $query->whereJsonContains('member_usernames', $username);
         }
 
-        return $query
+        $assigned = $query
             ->pluck('element_slug')
             ->map(fn ($slug) => self::topLevelElementSlug((string) $slug))
             ->filter(fn ($slug) => $slug !== '')
             ->unique()
             ->values()
             ->all();
+
+        if (count($assigned) > 0) {
+            return $assigned;
+        }
+
+        // Fail-open when assignment table is empty to avoid blank navigation
+        // on new/clean installations before team assignment is configured.
+        if (!self::query()->exists()) {
+            return null;
+        }
+
+        return [];
     }
 
     public static function canUserAccessSlug(array $user, string $slug): bool

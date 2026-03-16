@@ -30,6 +30,9 @@
         ->implode("\n");
     $weightHintText = trim("Bobot skor tertimbang:\n".$weightHintItems);
     $weightedScoreHintText = 'Rumus Skor Tertimbang: Bobot (%) x Skor';
+    $formatPercent = function (float $value): string {
+        return rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.');
+    };
     $levelPredikatHintText = trim(
         "Informasi Level Kapabilitas APIP:\n"
         ."Level 1 - Rintisan (0,00 - 1,98)\n"
@@ -267,7 +270,7 @@
                                                                     {{ (string) ($subtopic['level_note'] ?? $subtopic['description'] ?? 'Belum ada deskripsi level sub topik.') }}
                                                                 </div>
                                                             </td>
-                                                            <td>{{ number_format((float) ($subtopic['weight'] ?? 0) * 100, 2) }}%</td>
+                                                            <td>{{ $formatPercent((float) ($subtopic['weight'] ?? 0) * 100) }}%</td>
                                                             <td>{{ is_numeric($subtopic['score'] ?? null) ? number_format((float) $subtopic['score'], 2) : '-' }}</td>
                                                             <td>{{ number_format((float) ($subtopic['weighted_score'] ?? 0), 2) }}</td>
                                                             <td>
@@ -286,7 +289,7 @@
                                                             <span class="subtopic-total-label">Total</span>
                                                         </td>
                                                         <td>
-                                                            <span class="subtopic-total-value">{{ number_format($subtopicWeightTotal * 100, 2) }}%</span>
+                                                            <span class="subtopic-total-value">{{ $formatPercent($subtopicWeightTotal * 100) }}%</span>
                                                         </td>
                                                         <td>-</td>
                                                         <td>
