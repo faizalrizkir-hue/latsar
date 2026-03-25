@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
+use Illuminate\Http\Client\Response as HttpClientResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
@@ -128,6 +129,7 @@ class AuthController extends Controller
         }
 
         try {
+            /** @var HttpClientResponse $response */
             $response = Http::asForm()
                 ->timeout(10)
                 ->post('https://www.google.com/recaptcha/api/siteverify', [

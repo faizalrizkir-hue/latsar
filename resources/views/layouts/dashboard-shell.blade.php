@@ -311,11 +311,14 @@
                 </button>
                 <div class="breadcrumb">
                     @if(!isset($showPageTitle) || $showPageTitle)
-                        <h2 id="pageTitle" style="margin-bottom:4px;">{{ $pageTitle ?? 'Halaman' }}</h2>
+                        <h2 id="pageTitle" class="topbar-page-title">{{ $pageTitle ?? 'Halaman' }}</h2>
                     @endif
-                    <div class="breadcrumb-meta" id="liveDateTime" style="color:var(--text-muted);font-weight:700;"></div>
+                    <div class="topbar-context-row">
+                        <div class="breadcrumb-meta" id="liveDateTime"></div>
+                    </div>
                 </div>
             </div>
+            <div class="top-actions-divider" aria-hidden="true"></div>
             <div class="top-actions">
                 <button class="theme-toggle" id="themeToggle" aria-pressed="true">
                     <span class="icon" aria-hidden="true">
@@ -405,9 +408,9 @@
                                 {{ $avatarLabel($user['display_name'] ?? null) }}
                             @endif
                         </div>
-                        <div>
-                            <strong style="display:block;">{{ $user['display_name'] ?? 'Admin SIKAP' }}</strong>
-                            <span style="color:var(--text-muted);font-size:0.85rem;">{{ $userRoleLabel }}</span>
+                        <div class="profile-meta">
+                            <strong class="profile-name">{{ $user['display_name'] ?? 'Admin SIKAP' }}</strong>
+                            <span class="profile-role">{{ $userRoleLabel }}</span>
                         </div>
                         <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" style="stroke:currentColor;fill:none;"><path d="M6 9l6 6 6-6"/></svg>
                     </button>
@@ -522,8 +525,30 @@
         requestAnimationFrame(keepActiveNavLinkVisible);
         window.setTimeout(keepActiveNavLinkVisible, 180);
     };
+    const getHeadnav = () => document.querySelector('.headnav.topbar');
+    const updateHeadnavScrollState = () => {
+        const headnav = getHeadnav();
+        if (!headnav) return;
+
+        headnav.classList.toggle('is-scrolled', window.scrollY > 8);
+    };
+    const animateTopbarTitle = () => {
+        const titleNode = document.getElementById('pageTitle');
+        if (!titleNode) return;
+
+        titleNode.classList.remove('topbar-title-anim');
+        // Reflow for deterministic animation restart after wire:navigate.
+        void titleNode.offsetWidth;
+        titleNode.classList.add('topbar-title-anim');
+
+        window.setTimeout(() => {
+            titleNode.classList.remove('topbar-title-anim');
+        }, 220);
+    };
     applyStoredTheme();
     applyStoredSidenavState();
+    updateHeadnavScrollState();
+    animateTopbarTitle();
     document.addEventListener('click', (e) => {
         const btn = e.target.closest('#sidenavToggle');
         if(!btn) return;
@@ -548,6 +573,8 @@
         applyStoredTheme();
         applyStoredSidenavState();
         renderClock();
+        updateHeadnavScrollState();
+        animateTopbarTitle();
         syncActiveNavMenu();
     });
     const closeAllSubMenus = () => {
@@ -610,6 +637,8 @@
         keepActiveNavLinkVisibleAfterLayout();
     };
     syncActiveNavMenu();
+    window.addEventListener('scroll', updateHeadnavScrollState, { passive: true });
+    window.addEventListener('pageshow', updateHeadnavScrollState);
     window.addEventListener('pageshow', syncActiveNavMenu);
     const openSubMenu = (parent, sub) => {
         if(!parent || !sub) return;
