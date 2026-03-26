@@ -14,3 +14,11 @@
 :root[data-theme="dark"] .element1-summary-page .element1-stat-note{
     color:#8fa2be;
 }
+
+:root[data-theme="dark"] .element1-summary-page .element1-stat-split-label{
+    color:#a8b8cf;
+}
+
+:root[data-theme="dark"] .element1-summary-page .element1-stat-split-value{
+    color:#e2ebff;
+}

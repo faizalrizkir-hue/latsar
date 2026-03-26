@@ -30,6 +30,7 @@ class Account extends Model
         return match (true) {
             in_array($roleKey, ['administrator', 'admin', 'superadmin'], true) => 'Administrator',
             $roleKey === 'koordinator' => 'Koordinator',
+            $roleKey === 'qa' => 'QA BPKP',
             $roleKey === '' => 'Pengguna',
             default => 'Anggota Tim',
         };

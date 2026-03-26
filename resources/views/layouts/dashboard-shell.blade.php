@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $pageTitle ?? 'LATSAR' }}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/css/dashboard.css">
+    <link rel="stylesheet" href="/css/dashboard.css?v={{ @filemtime(public_path('css/dashboard.css')) }}">
     <script>
         // Terapkan tema tersimpan sedini mungkin supaya tidak kedip dan tidak kembali ke gelap
         (function(){
@@ -224,6 +224,189 @@
 
         return $item;
     })->values();
+    $normalizeElementDirectoryTitle = static function (string $navTitle, string $elementTitle): string {
+        $resolvedNavTitle = trim($navTitle);
+        $resolvedElementTitle = trim($elementTitle);
+        if ($resolvedNavTitle === '') {
+            return $resolvedElementTitle;
+        }
+
+        if ($resolvedElementTitle === '') {
+            return $resolvedNavTitle;
+        }
+
+        $cleanedTitle = preg_replace('/^\s*element\s*\d+\s*[:\-]?\s*/i', '', $resolvedElementTitle);
+        $cleanedTitle = is_string($cleanedTitle) ? trim($cleanedTitle) : $resolvedElementTitle;
+        if ($cleanedTitle === '' || strcasecmp($cleanedTitle, $resolvedNavTitle) === 0) {
+            return $resolvedNavTitle;
+        }
+
+        return $resolvedNavTitle.' : '.$cleanedTitle;
+    };
+    $formatSubtopicDirectoryTitle = static function (string $subtopicTitle, int $position): string {
+        $resolvedTitle = trim($subtopicTitle);
+        if ($resolvedTitle === '') {
+            return 'Sub Topik '.$position;
+        }
+
+        $cleanedTitle = preg_replace('/^\s*sub\s*topik\s*\d+\s*[-:]?\s*/i', '', $resolvedTitle);
+        $cleanedTitle = is_string($cleanedTitle) ? trim($cleanedTitle) : $resolvedTitle;
+        if ($cleanedTitle === '') {
+            return 'Sub Topik '.$position;
+        }
+
+        return 'Sub Topik '.$position.' - '.$cleanedTitle;
+    };
+    $elementDirectoryBySlug = [];
+    $subtopicDirectoryBySlug = [];
+    $subtopicPositionBySlug = [];
+    foreach ($navElements as $elementNav) {
+        $elementSlug = (string) ($elementNav['slug'] ?? '');
+        if ($elementSlug === '') {
+            continue;
+        }
+
+        $elementDirectory = $normalizeElementDirectoryTitle(
+            (string) ($elementNav['nav_title'] ?? ''),
+            (string) ($elementNav['title'] ?? '')
+        );
+        $elementDirectoryBySlug[$elementSlug] = $elementDirectory;
+
+        $subtopics = collect((array) ($elementNav['subtopics'] ?? []))->values();
+        foreach ($subtopics as $subtopicIndex => $subtopicNav) {
+            $subtopicSlug = (string) ($subtopicNav['slug'] ?? '');
+            if ($subtopicSlug === '') {
+                continue;
+            }
+
+            $subtopicDirectoryBySlug[$subtopicSlug] = [
+                'element_slug' => $elementSlug,
+                'element_directory' => $elementDirectory,
+                'subtopic_title_raw' => trim((string) ($subtopicNav['title'] ?? '')),
+                'subtopic_directory' => $formatSubtopicDirectoryTitle((string) ($subtopicNav['title'] ?? ''), $subtopicIndex + 1),
+            ];
+            $subtopicPositionBySlug[$subtopicSlug] = $subtopicIndex + 1;
+        }
+    }
+    $routeName = request()->route()?->getName();
+    $currentSlug = trim((string) request()->route('slug', ''));
+    $defaultHeadnavTitle = trim((string) ($pageTitle ?? 'Halaman'));
+    $headnavCrumbs = [
+        [
+            'label' => 'Dashboard',
+            'url' => route('dashboard'),
+            'is_current' => false,
+        ],
+    ];
+    $pushHeadnavCrumb = static function (array &$crumbs, string $label, ?string $url = null): void {
+        $resolvedLabel = trim($label);
+        if ($resolvedLabel === '') {
+            return;
+        }
+
+        $crumbs[] = [
+            'label' => $resolvedLabel,
+            'url' => $url,
+            'is_current' => false,
+        ];
+    };
+    if ($routeName === 'dashboard') {
+        // keep single breadcrumb
+    } elseif ($routeName === 'elements.show') {
+        if ($currentSlug !== '' && Str::contains($currentSlug, '_')) {
+            $resolvedElementSlug = trim((string) Str::before($currentSlug, '_'));
+            $resolvedElementDirectory = trim((string) ($elementDirectoryBySlug[$resolvedElementSlug] ?? ''));
+            $modulePageTitleText = trim((string) ($modulePageTitle ?? ''));
+            if ($resolvedElementDirectory === '' && $resolvedElementSlug !== '') {
+                $elementNumber = '';
+                if (preg_match('/^element(\d+)$/i', $resolvedElementSlug, $matches)) {
+                    $elementNumber = (string) ($matches[1] ?? '');
+                }
+                $elementNavLabel = $elementNumber !== '' ? 'Element '.$elementNumber : Str::headline($resolvedElementSlug);
+                $resolvedElementDirectory = $normalizeElementDirectoryTitle(
+                    $elementNavLabel,
+                    $modulePageTitleText !== '' ? $modulePageTitleText : $elementNavLabel
+                );
+            }
+            $resolvedElementUrl = $resolvedElementSlug !== '' ? route('elements.show', $resolvedElementSlug) : null;
+            $pushHeadnavCrumb(
+                $headnavCrumbs,
+                $resolvedElementDirectory,
+                $resolvedElementUrl
+            );
+
+            $resolvedSubtopicPosition = (int) ($subtopicPositionBySlug[$currentSlug] ?? 0);
+            if ($resolvedSubtopicPosition <= 0 && preg_match('/sub\s*topik\s*(\d+)/i', (string) ($title ?? ''), $matches)) {
+                $resolvedSubtopicPosition = max(1, (int) ($matches[1] ?? 1));
+            }
+            if ($resolvedSubtopicPosition <= 0) {
+                $resolvedSubtopicPosition = 1;
+            }
+
+            $resolvedSubtopicTitle = trim((string) ($subtopicDirectoryBySlug[$currentSlug]['subtopic_title_raw'] ?? ''));
+            if ($resolvedSubtopicTitle === '') {
+                $resolvedSubtopicTitle = trim((string) ($moduleSubtopicTitle ?? $title ?? ''));
+            }
+            if ($resolvedSubtopicTitle === '') {
+                $resolvedSubtopicTitle = Str::headline(str_replace('_', ' ', (string) Str::after($currentSlug, $resolvedElementSlug.'_')));
+            }
+
+            $resolvedSubtopicDirectory = $formatSubtopicDirectoryTitle($resolvedSubtopicTitle, $resolvedSubtopicPosition);
+            $pushHeadnavCrumb(
+                $headnavCrumbs,
+                $resolvedSubtopicDirectory,
+                route('elements.show', $currentSlug)
+            );
+        } elseif ($currentSlug !== '' && isset($elementDirectoryBySlug[$currentSlug])) {
+            $pushHeadnavCrumb(
+                $headnavCrumbs,
+                (string) $elementDirectoryBySlug[$currentSlug],
+                route('elements.show', $currentSlug)
+            );
+        } elseif ($defaultHeadnavTitle !== '') {
+            $pushHeadnavCrumb($headnavCrumbs, $defaultHeadnavTitle);
+        }
+    } elseif ($routeName === 'elements.index') {
+        $pushHeadnavCrumb($headnavCrumbs, 'Penilaian Element', route('elements.index'));
+    } elseif (is_string($routeName) && Str::startsWith($routeName, 'dms.')) {
+        $pushHeadnavCrumb($headnavCrumbs, 'Data Management System', route('dms.index'));
+        if ($routeName === 'dms.create') {
+            $pushHeadnavCrumb($headnavCrumbs, 'Tambah Dokumen');
+        } elseif ($routeName === 'dms.edit') {
+            $pushHeadnavCrumb($headnavCrumbs, 'Edit Dokumen');
+        }
+    } elseif ($routeName === 'aoi.index') {
+        $pushHeadnavCrumb($headnavCrumbs, 'Area Of Improvement (AoI)', route('aoi.index'));
+    } elseif ($routeName === 'profile.edit') {
+        $pushHeadnavCrumb($headnavCrumbs, 'Edit Profil', route('profile.edit'));
+    } elseif ($routeName === 'accounts.index') {
+        $pushHeadnavCrumb($headnavCrumbs, 'Manajemen Akun', route('accounts.index'));
+    } elseif (is_string($routeName) && Str::startsWith($routeName, 'element-preferences.')) {
+        $pushHeadnavCrumb($headnavCrumbs, 'Preferensi Element', route('element-preferences.index'));
+    } elseif ($defaultHeadnavTitle !== '') {
+        $pushHeadnavCrumb($headnavCrumbs, $defaultHeadnavTitle);
+    }
+    $headnavCrumbs = collect($headnavCrumbs)
+        ->map(function (array $crumb): array {
+            $crumb['label'] = trim((string) ($crumb['label'] ?? ''));
+            $crumb['url'] = ($crumb['url'] ?? null) ? trim((string) $crumb['url']) : null;
+            $crumb['is_current'] = false;
+
+            return $crumb;
+        })
+        ->filter(fn (array $crumb) => $crumb['label'] !== '')
+        ->values()
+        ->all();
+    $headnavCrumbCount = count($headnavCrumbs);
+    if ($headnavCrumbCount > 0) {
+        $headnavCrumbs[$headnavCrumbCount - 1]['is_current'] = true;
+        $headnavCrumbs[$headnavCrumbCount - 1]['url'] = null;
+    }
+    $headnavTitle = implode(' / ', collect($headnavCrumbs)
+        ->map(fn ($crumb) => trim((string) ($crumb['label'] ?? '')))
+        ->filter()
+        ->values()
+        ->all());
     $photoUrl = $resolvePhotoUrl($photoPath);
     $toastQueue = [];
     if (session('login_welcome_toast')) {
@@ -290,9 +473,11 @@
             </li>
             @endforeach
             <li class="nav-section-label" aria-hidden="true"><span>Lainnya</span></li>
-            <li><a href="#"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="14" height="14" rx="2"/><path d="M11 4v14M4 11h14"/><path d="M19 16v6M16 19h6"/></svg></span><span class="nav-text">Area Of Improvement (AoI)</span></a></li>
-            <li><a href="{{ route('dms.index') }}"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 8a3 3 0 0 1 3-3h4l2 2h6a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3Z"/><path d="M3 9h18"/></svg></span><span class="nav-text">Data Management System</span></a></li>
-            <li><a href="#"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 10.5v5"/><path d="M12 7.5h.01"/></svg></span><span class="nav-text">Informasi Umum</span></a></li>
+            <li><a href="{{ route('aoi.index') }}"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="14" height="14" rx="2"/><path d="M11 4v14M4 11h14"/><path d="M19 16v6M16 19h6"/></svg></span><span class="nav-text">Area Of Improvement (AoI)</span></a></li>
+            @if($userRoleKey !== 'qa')
+                <li><a href="{{ route('dms.index') }}"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 8a3 3 0 0 1 3-3h4l2 2h6a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3Z"/><path d="M3 9h18"/></svg></span><span class="nav-text">Data Management System</span></a></li>
+                <li><a href="#"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 10.5v5"/><path d="M12 7.5h.01"/></svg></span><span class="nav-text">Informasi Umum</span></a></li>
+            @endif
         </ul>
     </aside>
 
@@ -311,7 +496,18 @@
                 </button>
                 <div class="breadcrumb">
                     @if(!isset($showPageTitle) || $showPageTitle)
-                        <h2 id="pageTitle" class="topbar-page-title">{{ $pageTitle ?? 'Halaman' }}</h2>
+                        <nav id="pageTitle" class="topbar-page-title breadcrumb-trail" aria-label="Lokasi halaman">
+                            @foreach($headnavCrumbs as $crumbIndex => $crumb)
+                                @if($crumbIndex > 0)
+                                    <span class="breadcrumb-separator" aria-hidden="true">/</span>
+                                @endif
+                                @if(!empty($crumb['url']) && empty($crumb['is_current']))
+                                    <a class="breadcrumb-link" href="{{ $crumb['url'] }}">{{ $crumb['label'] }}</a>
+                                @else
+                                    <span class="breadcrumb-current">{{ $crumb['label'] }}</span>
+                                @endif
+                            @endforeach
+                        </nav>
                     @endif
                     <div class="topbar-context-row">
                         <div class="breadcrumb-meta" id="liveDateTime"></div>

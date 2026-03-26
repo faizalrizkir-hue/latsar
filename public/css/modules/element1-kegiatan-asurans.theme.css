@@ -91,6 +91,30 @@
     outline-color: rgba(125, 176, 255, 0.9);
 }
 
+:root[data-theme="dark"] .qa-toggle-btn {
+    border-color: rgba(148, 163, 184, 0.48);
+    background: linear-gradient(180deg, rgba(51, 65, 85, 0.95), rgba(30, 41, 59, 0.9));
+    color: #d8e6fb;
+    box-shadow: 0 10px 18px rgba(2, 6, 23, 0.4);
+}
+
+:root[data-theme="dark"] .qa-toggle-btn:hover {
+    border-color: rgba(147, 197, 253, 0.62);
+    background: linear-gradient(180deg, rgba(59, 130, 246, 0.24), rgba(30, 64, 175, 0.28));
+    color: #eff6ff;
+}
+
+:root[data-theme="dark"] .qa-toggle-btn.is-active {
+    border-color: rgba(74, 222, 128, 0.64);
+    background: linear-gradient(180deg, rgba(21, 128, 61, 0.5), rgba(22, 101, 52, 0.56));
+    color: #dcfce7;
+    box-shadow: 0 10px 18px rgba(4, 47, 46, 0.4);
+}
+
+:root[data-theme="dark"] .qa-toggle-btn:focus-visible {
+    outline-color: rgba(147, 197, 253, 0.9);
+}
+
 :root[data-theme="dark"] .edit-pane-title {
     border-color: rgba(148, 163, 184, 0.52);
     background: linear-gradient(180deg, rgba(51, 65, 85, 0.92), rgba(30, 41, 59, 0.9));
@@ -171,6 +195,10 @@
     border-color: rgba(148, 163, 184, 0.45);
     background: rgba(30, 41, 59, 0.56);
     color: #a6bad6;
+}
+
+:root[data-theme="dark"] .keg-page .subtopic-level-desc.qa-level-font {
+    color: #b8c9e2;
 }
 
 :root[data-theme="dark"] .level-validate-card {
@@ -1209,6 +1237,50 @@
     color: #b8c8de !important;
 }
 
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .qa-final-status {
+    border-color: rgba(148, 163, 184, 0.44);
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.84));
+    color: #d7e6fb;
+    box-shadow: 0 10px 18px rgba(2, 6, 23, 0.4);
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .qa-final-status .qa-final-status-icon {
+    border-color: rgba(148, 163, 184, 0.44);
+    background: linear-gradient(180deg, rgba(51, 65, 85, 0.88), rgba(30, 41, 59, 0.86));
+    color: #c3d8f6;
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .qa-final-status.is-pending {
+    border-color: rgba(245, 158, 11, 0.56);
+    background: linear-gradient(180deg, rgba(120, 53, 15, 0.54), rgba(146, 64, 14, 0.46));
+    color: #fde68a;
+    box-shadow: 0 10px 18px rgba(120, 53, 15, 0.36);
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .qa-final-status.is-pending .qa-final-status-icon {
+    border-color: rgba(251, 191, 36, 0.58);
+    background: linear-gradient(180deg, rgba(180, 83, 9, 0.66), rgba(146, 64, 14, 0.62));
+    color: #fde68a;
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .qa-final-status.is-pending .qa-final-status-icon::after {
+    background: #fbbf24;
+    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.24);
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .qa-final-status.is-done {
+    border-color: rgba(74, 222, 128, 0.58);
+    background: linear-gradient(180deg, rgba(21, 128, 61, 0.5), rgba(22, 101, 52, 0.44));
+    color: #dcfce7;
+    box-shadow: 0 10px 18px rgba(4, 47, 46, 0.36);
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .qa-final-status.is-done .qa-final-status-icon {
+    border-color: rgba(110, 231, 183, 0.54);
+    background: linear-gradient(180deg, rgba(22, 163, 74, 0.58), rgba(21, 128, 61, 0.52));
+    color: #d1fae5;
+}
+
 :root[data-theme="dark"] .keg-page:not(.element1-summary-page) .keg-chip:not(.level) {
     border-color: rgba(148, 163, 184, 0.46);
     background: linear-gradient(160deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.88));
@@ -1222,6 +1294,12 @@
 
 :root[data-theme="dark"] .keg-page:not(.element1-summary-page) .keg-chip:not(.level) .value {
     color: #edf4ff;
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .keg-chip.level.pending {
+    border-color: rgba(148, 163, 184, 0.56);
+    background: linear-gradient(160deg, rgba(51, 65, 85, 0.9), rgba(30, 41, 59, 0.9));
+    color: #d3dfef;
 }
 
 :root[data-theme="dark"] .keg-page:not(.element1-summary-page) .keg-table {
@@ -1256,6 +1334,10 @@
     border-color: rgba(148, 163, 184, 0.46);
     background: rgba(30, 41, 59, 0.76);
     color: #dbe7f7;
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .keg-dual-metric-label {
+    color: #afc0d8;
 }
 
 :root[data-theme="dark"] .keg-page:not(.element1-summary-page) .btn-clear {

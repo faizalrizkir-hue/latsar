@@ -30,7 +30,8 @@ class AccountController extends Controller
                 CASE
                     WHEN LOWER(role) IN ('administrator', 'admin', 'superadmin') THEN 0
                     WHEN LOWER(role) = 'koordinator' THEN 1
-                    ELSE 2
+                    WHEN LOWER(role) = 'qa' THEN 2
+                    ELSE 3
                 END
             ")
             ->orderByRaw("
@@ -80,7 +81,7 @@ class AccountController extends Controller
                 $data = $request->validate([
                     'new_username' => 'required|string|min:3|max:100|unique:accounts,username',
                     'new_display_name' => 'nullable|string|max:150',
-                    'new_role' => 'required|string|in:administrator,koordinator,auditor',
+                    'new_role' => 'required|string|in:administrator,koordinator,qa,auditor',
                     'new_password' => 'required|string|min:6',
                 ]);
                 Account::create([

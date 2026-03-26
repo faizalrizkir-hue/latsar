@@ -6,6 +6,11 @@
     $overallLevelLabel = $overallLevel !== null ? 'Level '.$overallLevel : 'Belum Dinilai';
     $overallPredikat = (string) ($overallLevelData['predikat'] ?? 'Belum Dinilai');
     $overallDescription = (string) ($overallLevelData['description'] ?? '');
+    $overallLevelQa = is_numeric($overallLevelDataQa['level'] ?? null) ? (int) $overallLevelDataQa['level'] : null;
+    $overallLevelQaClass = $overallLevelQa !== null ? 'is-level-'.$overallLevelQa : 'pending';
+    $overallLevelLabelQa = $overallLevelQa !== null ? 'Level '.$overallLevelQa : 'Belum Dinilai';
+    $overallPredikatQa = (string) ($overallLevelDataQa['predikat'] ?? 'Belum Dinilai');
+    $overallDescriptionQa = (string) ($overallLevelDataQa['description'] ?? '');
     $accessibleElementSlugs = is_array($accessibleElementSlugs ?? null) ? $accessibleElementSlugs : null;
     $canOpenElement = function (string $slug) use ($accessibleElementSlugs): bool {
         if ($accessibleElementSlugs === null) {
@@ -57,18 +62,20 @@
 @endpush
 
 @section('content')
-    <div class="apip-home-page">
+    <div class="apip-home-page qa-display-off" id="apipHomePage">
         <section class="apip-home-hero">
             <article class="card apip-overview-card">
                 <div class="apip-overview-top">
                     <p class="apip-eyebrow">Dashboard Utama</p>
-                    <button
-                        type="button"
-                        class="apip-overview-hint hint-bubble-trigger"
-                        data-hint="{{ $weightHintText }}"
-                        aria-label="Informasi bobot skor tertimbang">
-                        ?
-                    </button>
+                    <div class="apip-overview-actions">
+                        <button
+                            type="button"
+                            class="apip-overview-hint hint-bubble-trigger"
+                            data-hint="{{ $weightHintText }}"
+                            aria-label="Informasi bobot skor tertimbang">
+                            ?
+                        </button>
+                    </div>
                 </div>
                 <h1 class="apip-title">Skor dan Level Kapabilitas APIP</h1>
                 <p class="apip-subtitle">
@@ -77,14 +84,24 @@
 
                 <div class="apip-overview-kpis">
                     <div class="apip-kpi">
-                        <div class="kpi-label">Skor Kapabilitas APIP</div>
+                        <div class="kpi-label">Skor Kapabilitas APIP <span class="qa-mandiri-suffix">(Mandiri)</span></div>
                         <div class="kpi-value">{{ number_format((float) ($overallWeightedScore ?? 0), 2) }}</div>
                         <div class="kpi-note">Total skor tertimbang seluruh element</div>
                     </div>
                     <div class="apip-kpi">
-                        <div class="kpi-label">Level Kapabilitas APIP</div>
+                        <div class="kpi-label">Level Kapabilitas APIP <span class="qa-mandiri-suffix">(Mandiri)</span></div>
                         <div class="kpi-value">{{ $overallLevelLabel }}</div>
                         <div class="kpi-note">{{ $overallPredikat }}</div>
+                    </div>
+                    <div class="apip-kpi qa-only">
+                        <div class="kpi-label">Skor Kapabilitas APIP (QA)</div>
+                        <div class="kpi-value">{{ $overallLevelQa !== null ? number_format((float) ($overallWeightedScoreQa ?? 0), 2) : '-' }}</div>
+                        <div class="kpi-note">Total skor tertimbang hasil verifikasi QA</div>
+                    </div>
+                    <div class="apip-kpi qa-only">
+                        <div class="kpi-label qa-level-font">Level Kapabilitas APIP (QA)</div>
+                        <div class="kpi-value">{{ $overallLevelLabelQa }}</div>
+                        <div class="kpi-note qa-level-font">{{ $overallPredikatQa }}</div>
                     </div>
                 </div>
             </article>
@@ -109,6 +126,12 @@
                         <path d="M20 120 A100 100 0 0 1 220 120" class="meter-segment seg-l4" style="stroke-dasharray: {{ number_format((float) $segmentLength, 2, '.', '') }} {{ number_format((float) $segmentArcLength, 2, '.', '') }}; stroke-dashoffset: {{ number_format((float) $segmentOffsets[3], 2, '.', '') }};"></path>
                         <path d="M20 120 A100 100 0 0 1 220 120" class="meter-segment seg-l5" style="stroke-dasharray: {{ number_format((float) $segmentLength, 2, '.', '') }} {{ number_format((float) $segmentArcLength, 2, '.', '') }}; stroke-dashoffset: {{ number_format((float) $segmentOffsets[4], 2, '.', '') }};"></path>
 
+                        @if ($overallLevelQa !== null)
+                            <g class="meter-needle-group meter-needle-group-qa qa-only qa-meter-overlay {{ $overallLevelQaClass }}" data-target-deg="{{ number_format((float) ($meterNeedleDegQa ?? -90), 2, '.', '') }}" transform="rotate({{ number_format((float) ($meterNeedleDegQa ?? -90), 2, '.', '') }} 120 120)">
+                                <line x1="120" y1="120" x2="120" y2="40" class="meter-needle meter-needle-qa"></line>
+                                <circle cx="120" cy="120" r="6.4" class="meter-needle-core meter-needle-core-qa"></circle>
+                            </g>
+                        @endif
                         <g class="meter-needle-group" data-target-deg="{{ number_format((float) ($meterNeedleDeg ?? -90), 2, '.', '') }}" transform="rotate(-90 120 120)">
                             <line x1="120" y1="120" x2="120" y2="34" class="meter-needle"></line>
                             <circle cx="120" cy="120" r="8" class="meter-needle-core"></circle>
@@ -117,9 +140,16 @@
                 </div>
                 <div class="meter-readout">
                     <div class="meter-score" data-final-score="{{ number_format((float) ($overallWeightedScore ?? 0), 2, '.', '') }}">0.00</div>
-                    <div class="meter-level">{{ $overallLevelLabel }} - {{ $overallPredikat }}</div>
+                    <div class="meter-score-qa qa-only {{ $overallLevelQaClass }}">
+                        QA: <span class="meter-score-qa-value">{{ $overallLevelQa !== null ? number_format((float) ($overallWeightedScoreQa ?? 0), 2) : '-' }}</span>
+                    </div>
+                    <div class="meter-level {{ $overallLevelClass }}"><span class="qa-mandiri-prefix">Mandiri: </span>{{ $overallLevelLabel }} - <span class="meter-predikat">{{ $overallPredikat }}</span></div>
+                    <div class="meter-level meter-level-qa qa-only qa-level-font {{ $overallLevelQaClass }}">QA: {{ $overallLevelLabelQa }} - <span class="meter-predikat">{{ $overallPredikatQa }}</span></div>
                     @if ($overallDescription !== '')
                         <p class="meter-note">{{ $overallDescription }}</p>
+                    @endif
+                    @if ($overallDescriptionQa !== '')
+                        <p class="meter-note qa-only qa-level-font">QA: {{ $overallDescriptionQa }}</p>
                     @endif
                 </div>
             </article>
@@ -129,13 +159,15 @@
             <div class="section-head apip-summary-head">
                 <div class="apip-summary-head-top">
                     <h3>Rangkuman Skor per Element</h3>
-                    <button
-                        type="button"
-                        class="apip-summary-hint hint-bubble-trigger"
-                        data-hint="{{ $weightedScoreHintText }}"
-                        aria-label="Informasi rumus skor tertimbang">
-                        ?
-                    </button>
+                    <div class="apip-summary-actions">
+                        <button
+                            type="button"
+                            class="apip-summary-hint hint-bubble-trigger"
+                            data-hint="{{ $weightedScoreHintText }}"
+                            aria-label="Informasi rumus skor tertimbang">
+                            ?
+                        </button>
+                    </div>
                 </div>
                 <p>Ringkasan skor tertimbang, skor, dan level untuk setiap element.</p>
             </div>
@@ -157,6 +189,8 @@
                             @php
                                 $elementLevel = is_numeric($element['level'] ?? null) ? (int) $element['level'] : null;
                                 $levelClass = $elementLevel !== null ? 'is-level-'.$elementLevel : 'pending';
+                                $elementLevelQa = is_numeric($element['qa_level'] ?? null) ? (int) $element['qa_level'] : null;
+                                $levelQaClass = $elementLevelQa !== null ? 'is-level-'.$elementLevelQa : 'pending';
                             @endphp
                             <tr>
                                 <td>
@@ -166,22 +200,71 @@
                                         $elementDescription = $elementDescription !== ''
                                             ? $elementDescription
                                             : 'Belum ada keterangan level untuk element ini.';
+                                        $elementQaDescription = trim((string) ($element['qa_description'] ?? ''));
+                                        $elementQaDescription = $elementQaDescription !== ''
+                                            ? $elementQaDescription
+                                            : 'Belum ada keterangan level QA untuk element ini.';
                                     @endphp
                                     <div class="row-meta element-level-note" title="{{ $elementDescription }}">
-                                        {{ $elementDescription }}
+                                        <span class="qa-mandiri-prefix">Mandiri: </span>{{ $elementDescription }}
+                                    </div>
+                                    <div class="row-meta element-level-note qa-only qa-level-font" title="{{ $elementQaDescription }}">
+                                        QA: {{ $elementQaDescription }}
                                     </div>
                                 </td>
                                 <td>{{ number_format((float) ($element['weight'] ?? 0) * 100, 0) }}%</td>
                                 <td>
-                                    {{ is_numeric($element['score'] ?? null) ? number_format((float) $element['score'], 2) : '-' }}
+                                    <div class="apip-split-metric">
+                                        <div class="apip-split-metric-row">
+                                            <span class="apip-split-metric-label qa-mandiri-label">Mandiri</span>
+                                            <span>{{ is_numeric($element['score'] ?? null) ? number_format((float) $element['score'], 2) : '-' }}</span>
+                                        </div>
+                                        <div class="apip-split-metric-row qa-only">
+                                            <span class="apip-split-metric-label">QA</span>
+                                            <span>{{ is_numeric($element['qa_score'] ?? null) ? number_format((float) $element['qa_score'], 2) : '-' }}</span>
+                                        </div>
+                                    </div>
                                 </td>
-                                <td>{{ number_format((float) ($element['weighted_score'] ?? 0), 2) }}</td>
                                 <td>
-                                    <span class="level-chip {{ $levelClass }}">
-                                        {{ $elementLevel !== null ? 'Level '.$elementLevel : '-' }}
-                                    </span>
+                                    <div class="apip-split-metric">
+                                        <div class="apip-split-metric-row">
+                                            <span class="apip-split-metric-label qa-mandiri-label">Mandiri</span>
+                                            <span>{{ number_format((float) ($element['weighted_score'] ?? 0), 2) }}</span>
+                                        </div>
+                                        <div class="apip-split-metric-row qa-only">
+                                            <span class="apip-split-metric-label">QA</span>
+                                            <span>{{ number_format((float) ($element['qa_weighted_score'] ?? 0), 2) }}</span>
+                                        </div>
+                                    </div>
                                 </td>
-                                <td>{{ $element['predikat'] ?? '-' }}</td>
+                                <td>
+                                    <div class="apip-split-metric">
+                                        <div class="apip-split-metric-row">
+                                            <span class="apip-split-metric-label qa-mandiri-label">Mandiri</span>
+                                            <span class="level-chip {{ $levelClass }}">
+                                                {{ $elementLevel !== null ? 'L'.$elementLevel : '-' }}
+                                            </span>
+                                        </div>
+                                        <div class="apip-split-metric-row qa-only">
+                                            <span class="apip-split-metric-label">QA</span>
+                                            <span class="level-chip {{ $levelQaClass }}">
+                                                {{ $elementLevelQa !== null ? 'L'.$elementLevelQa : '-' }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="apip-split-metric">
+                                        <div class="apip-split-metric-row">
+                                            <span class="apip-split-metric-label qa-mandiri-label">Mandiri</span>
+                                            <span>{{ $element['predikat'] ?? '-' }}</span>
+                                        </div>
+                                        <div class="apip-split-metric-row qa-only">
+                                            <span class="apip-split-metric-label">QA</span>
+                                            <span>{{ $element['qa_predikat'] ?? '-' }}</span>
+                                        </div>
+                                    </div>
+                                </td>
                                 <td>
                                     @if($canOpenElement((string) ($element['slug'] ?? '')))
                                         <a class="btn-open-element" href="{{ route('elements.show', $element['slug']) }}">Buka Element</a>
@@ -241,6 +324,8 @@
                                                 ->sum(fn (array $subtopic) => (float) ($subtopic['weight'] ?? 0));
                                             $subtopicContributionTotal = (float) collect($element['subtopics'])
                                                 ->sum(fn (array $subtopic) => (float) ($subtopic['weighted_score'] ?? 0));
+                                            $subtopicQaContributionTotal = (float) collect($element['subtopics'])
+                                                ->sum(fn (array $subtopic) => (float) ($subtopic['qa_weighted_score'] ?? 0));
                                         @endphp
                                         <div class="table-wrapper">
                                             <table class="apip-subtopic-table">
@@ -251,7 +336,6 @@
                                                         <th>Skor</th>
                                                         <th>Kontribusi ke Skor Element</th>
                                                         <th>Level / Predikat</th>
-                                                        <th>Status</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -259,27 +343,62 @@
                                                         @php
                                                             $subLevel = is_numeric($subtopic['level'] ?? null) ? (int) $subtopic['level'] : null;
                                                             $subLevelClass = $subLevel !== null ? 'is-level-'.$subLevel : 'pending';
-                                                            $statusLabel = (bool) ($subtopic['has_data'] ?? false)
-                                                                ? ((bool) ($subtopic['is_verified'] ?? false) ? 'Terverifikasi' : 'Belum Diverifikasi')
-                                                                : 'Belum Dinilai';
+                                                            $subLevelQa = is_numeric($subtopic['qa_level'] ?? null) ? (int) $subtopic['qa_level'] : null;
+                                                            $subLevelQaClass = $subLevelQa !== null ? 'is-level-'.$subLevelQa : 'pending';
                                                         @endphp
                                                         <tr>
                                                             <td>
                                                                 <strong>{{ $subtopic['title'] }}</strong>
                                                                 <div class="row-meta subtopic-level-note">
-                                                                    {{ (string) ($subtopic['level_note'] ?? $subtopic['description'] ?? 'Belum ada deskripsi level sub topik.') }}
+                                                                    <span class="qa-mandiri-prefix">Mandiri: </span>{{ (string) ($subtopic['level_note'] ?? $subtopic['description'] ?? 'Belum ada deskripsi level sub topik.') }}
+                                                                </div>
+                                                                <div class="row-meta subtopic-level-note qa-only qa-level-font">
+                                                                    QA: {{ (string) ($subtopic['qa_level_note'] ?? $subtopic['qa_description'] ?? 'Belum ada deskripsi level QA sub topik.') }}
                                                                 </div>
                                                             </td>
                                                             <td>{{ $formatPercent((float) ($subtopic['weight'] ?? 0) * 100) }}%</td>
-                                                            <td>{{ is_numeric($subtopic['score'] ?? null) ? number_format((float) $subtopic['score'], 2) : '-' }}</td>
-                                                            <td>{{ number_format((float) ($subtopic['weighted_score'] ?? 0), 2) }}</td>
                                                             <td>
-                                                                <span class="level-chip {{ $subLevelClass }}">
-                                                                    {{ $subLevel !== null ? 'L'.$subLevel : '-' }}
-                                                                </span>
-                                                                <span class="predikat-text">{{ $subtopic['predikat'] ?? '-' }}</span>
+                                                                <div class="apip-split-metric">
+                                                                    <div class="apip-split-metric-row">
+                                                                        <span class="apip-split-metric-label qa-mandiri-label">Mandiri</span>
+                                                                        <span>{{ is_numeric($subtopic['score'] ?? null) ? number_format((float) $subtopic['score'], 2) : '-' }}</span>
+                                                                    </div>
+                                                                    <div class="apip-split-metric-row qa-only">
+                                                                        <span class="apip-split-metric-label">QA</span>
+                                                                        <span>{{ is_numeric($subtopic['qa_score'] ?? null) ? number_format((float) $subtopic['qa_score'], 2) : '-' }}</span>
+                                                                    </div>
+                                                                </div>
                                                             </td>
-                                                            <td>{{ $statusLabel }}</td>
+                                                            <td>
+                                                                <div class="apip-split-metric">
+                                                                    <div class="apip-split-metric-row">
+                                                                        <span class="apip-split-metric-label qa-mandiri-label">Mandiri</span>
+                                                                        <span>{{ number_format((float) ($subtopic['weighted_score'] ?? 0), 2) }}</span>
+                                                                    </div>
+                                                                    <div class="apip-split-metric-row qa-only">
+                                                                        <span class="apip-split-metric-label">QA</span>
+                                                                        <span>{{ number_format((float) ($subtopic['qa_weighted_score'] ?? 0), 2) }}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td>
+                                                                <div class="apip-split-metric">
+                                                                    <div class="apip-split-metric-row">
+                                                                        <span class="apip-split-metric-label qa-mandiri-label">Mandiri</span>
+                                                                        <span class="level-chip {{ $subLevelClass }}">
+                                                                            {{ $subLevel !== null ? 'L'.$subLevel : '-' }}
+                                                                        </span>
+                                                                        <span class="predikat-text">{{ $subtopic['predikat'] ?? '-' }}</span>
+                                                                    </div>
+                                                                    <div class="apip-split-metric-row qa-only">
+                                                                        <span class="apip-split-metric-label">QA</span>
+                                                                        <span class="level-chip {{ $subLevelQaClass }}">
+                                                                            {{ $subLevelQa !== null ? 'L'.$subLevelQa : '-' }}
+                                                                        </span>
+                                                                        <span class="predikat-text">{{ $subtopic['qa_predikat'] ?? '-' }}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
                                                         </tr>
                                                     @endforeach
                                                 </tbody>
@@ -293,9 +412,18 @@
                                                         </td>
                                                         <td>-</td>
                                                         <td>
-                                                            <span class="subtopic-total-value">{{ number_format($subtopicContributionTotal, 2) }}</span>
+                                                            <div class="apip-split-metric">
+                                                                <div class="apip-split-metric-row">
+                                                                    <span class="apip-split-metric-label qa-mandiri-label">Mandiri</span>
+                                                                    <span class="subtopic-total-value">{{ number_format($subtopicContributionTotal, 2) }}</span>
+                                                                </div>
+                                                                <div class="apip-split-metric-row qa-only">
+                                                                    <span class="apip-split-metric-label">QA</span>
+                                                                    <span class="subtopic-total-value">{{ number_format($subtopicQaContributionTotal, 2) }}</span>
+                                                                </div>
+                                                            </div>
                                                         </td>
-                                                        <td colspan="2">
+                                                        <td>
                                                             <span class="subtopic-total-note">Jumlah Bobot Internal & Kontribusi per element</span>
                                                         </td>
                                                     </tr>
@@ -312,6 +440,17 @@
                 </section>
             </div>
         </section>
+        <button
+            type="button"
+            id="dashboardQaToggleFab"
+            class="apip-qa-toggle apip-qa-toggle-fab"
+            data-qa-toggle
+            data-label-on="Sembunyikan QA"
+            data-label-off="Tampilkan QA"
+            aria-pressed="false"
+            aria-label="Toggle tampilan level dan skor QA">
+            Tampilkan QA
+        </button>
     </div>
 @endsection
 
@@ -433,7 +572,7 @@ const initDashboardSpeedometer = () => {
     };
 
     meterCards.forEach((card) => {
-        const needleGroup = card.querySelector('.meter-needle-group');
+        const needleGroup = card.querySelector('.meter-needle-group:not(.meter-needle-group-qa)') || card.querySelector('.meter-needle-group');
         const scoreEl = card.querySelector('.meter-score');
         if (!needleGroup || !scoreEl) return;
 
@@ -486,7 +625,44 @@ const initDashboardSpeedometer = () => {
     });
 };
 
+const initDashboardQaToggle = () => {
+    const page = document.getElementById('apipHomePage');
+    if (!page) return;
+
+    let toggleButton = document.getElementById('dashboardQaToggleFab');
+    if (!toggleButton) {
+        toggleButton = page.querySelector('[data-qa-toggle]');
+    }
+    if (toggleButton && toggleButton.dataset.viewportMounted !== '1') {
+        document.body.appendChild(toggleButton);
+        toggleButton.dataset.viewportMounted = '1';
+    }
+
+    const applyQaDisplay = (showQa) => {
+        page.classList.toggle('qa-display-off', !showQa);
+        if (!toggleButton) return;
+
+        toggleButton.setAttribute('aria-pressed', showQa ? 'true' : 'false');
+        toggleButton.classList.toggle('is-active', showQa);
+        const label = showQa
+            ? (toggleButton.getAttribute('data-label-on') || 'Sembunyikan QA')
+            : (toggleButton.getAttribute('data-label-off') || 'Tampilkan QA');
+        toggleButton.textContent = label;
+    };
+
+    if (toggleButton && toggleButton.dataset.qaToggleBound !== '1') {
+        toggleButton.dataset.qaToggleBound = '1';
+        toggleButton.addEventListener('click', () => {
+            const showQaNow = page.classList.contains('qa-display-off');
+            applyQaDisplay(showQaNow);
+        });
+    }
+
+    applyQaDisplay(false);
+};
+
 const initDashboardHomePage = () => {
+    initDashboardQaToggle();
     initDashboardElementAccordion();
     initDashboardSpeedometer();
 };

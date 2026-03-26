@@ -9,3 +9,49 @@
 .element1-summary-page .element1-summary-table .btn-aksi{
     margin:0 auto;
 }
+
+.element1-summary-page .element1-summary-table th,
+.element1-summary-page .element1-summary-table td{
+    text-align:center;
+}
+
+.element1-summary-page .element1-summary-table .pernyataan,
+.element1-summary-page .element1-summary-table .subtopic-predikat,
+.element1-summary-page .element1-summary-table .subtopic-level-desc{
+    text-align:center;
+}
+
+.element1-summary-page .element1-summary-table th:nth-child(2),
+.element1-summary-page .element1-summary-table td:nth-child(2),
+.element1-summary-page .element1-summary-table td:nth-child(2) .pernyataan,
+.element1-summary-page .element1-summary-table td:nth-child(2) .subtopic-predikat{
+    text-align:left;
+}
+
+.element1-summary-page .element1-summary-table td:nth-child(2) .subtopic-level-desc{
+    text-align:justify;
+    text-justify:inter-word;
+}
+
+.element1-summary-page .element1-summary-table td .d-flex{
+    justify-content:center !important;
+    gap:0.6rem;
+}
+
+.element1-summary-page .keg-dual-metric{
+    display:grid;
+    gap:0.36rem;
+}
+
+.element1-summary-page .keg-dual-metric-row{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:0.5rem;
+}
+
+.element1-summary-page .keg-dual-metric-label{
+    color:#60728f;
+    font-size:0.72rem;
+    font-weight:700;
+}

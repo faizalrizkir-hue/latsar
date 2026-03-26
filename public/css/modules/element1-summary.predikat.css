@@ -35,3 +35,11 @@
     text-align:justify;
     text-justify:inter-word;
 }
+
+.element1-summary-page .subtopic-level-desc.qa-level-font,
+.element1-summary-page .subtopic-predikat.qa-level-font{
+    font-family:"Georgia","Times New Roman",serif;
+    font-style:italic;
+    font-weight:700;
+    letter-spacing:0.01em;
+}

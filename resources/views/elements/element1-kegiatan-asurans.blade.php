@@ -12,10 +12,18 @@
         $summaryLevelInt = is_numeric($summaryLevel ?? null) ? (int) $summaryLevel : null;
         $summaryLevelClass = ($summaryLevelInt !== null && $summaryLevelInt >= 1 && $summaryLevelInt <= 5)
             ? 'is-level-'.$summaryLevelInt
-            : '';
+            : 'pending';
+        $summaryLevelQaInt = is_numeric($summaryLevelQa ?? null) ? (int) $summaryLevelQa : null;
+        $summaryLevelQaClass = ($summaryLevelQaInt !== null && $summaryLevelQaInt >= 1 && $summaryLevelQaInt <= 5)
+            ? 'is-level-'.$summaryLevelQaInt
+            : 'pending';
+        $summaryQaHasData = (bool) ($summaryQaHasData ?? false);
+        $summaryScoreQaValue = is_numeric($summaryScoreQa ?? null) ? (float) $summaryScoreQa : null;
         $userRoleLower = \Illuminate\Support\Str::lower(trim((string) data_get($user ?? [], 'role', '')));
+        $isQaRole = $userRoleLower === 'qa';
         $isAnggotaTim = \Illuminate\Support\Str::contains($userRoleLower, ['anggota', 'auditor']);
         $isVerifikator = (bool) ($canVerify ?? false);
+        $isQaVerifier = (bool) ($canQaVerify ?? false);
         $canSeeVerifyNoteTab = $isAnggotaTim || $isVerifikator;
         $statementLevelHintMap = is_array($statementLevelHintMap ?? null) ? $statementLevelHintMap : [];
         $moduleInfoLevels = collect($moduleInfoLevels ?? []);
@@ -37,7 +45,7 @@
             5 => 'Optimal',
         ];
     @endphp
-    <div class="keg-page" id="kegPage" data-disable-field-pop="1" data-summary-level="{{ $summaryLevelInt ?? '' }}">
+    <div class="keg-page qa-display-off" id="kegPage" data-disable-field-pop="1" data-summary-level="{{ $summaryLevelInt ?? '' }}">
         <div class="keg-head">
             <div class="keg-title">
                 <button type="button" class="keg-title-icon keg-info-trigger" data-info-modal-open aria-label="Lihat informasi level {{ $moduleSubtopicTitle ?? 'Sub Topik' }}">
@@ -53,25 +61,44 @@
             </div>
             <div class="keg-score-wrap">
                 <div class="keg-chip">
-                    <span class="label">Total Skor</span>
+                    <span class="label">Skor <span class="qa-mandiri-suffix">Mandiri</span></span>
                     <span class="value">{{ number_format((float) $summaryScore, 2) }}</span>
                 </div>
                 <div class="keg-chip level {{ $summaryLevelClass }}">
-                    <span class="label">Level Sub Topik</span>
+                    <span class="label">Level <span class="qa-mandiri-suffix">Mandiri</span></span>
                     <span class="value">{{ $summaryLevel }}</span>
+                </div>
+                <div class="keg-chip qa-only">
+                    <span class="label qa-level-font">Skor QA</span>
+                    <span class="value">{{ $summaryQaHasData && $summaryScoreQaValue !== null ? number_format($summaryScoreQaValue, 2) : '-' }}</span>
+                </div>
+                <div class="keg-chip level qa-only {{ $summaryLevelQaClass }}">
+                    <span class="label qa-level-font">Level QA</span>
+                    <span class="value">{{ $summaryQaHasData && $summaryLevelQaInt !== null ? $summaryLevelQaInt : '-' }}</span>
                 </div>
             </div>
         </div>
 
         <div class="keg-card">
+            <div class="keg-table-toolbar">
+                <button
+                    type="button"
+                    class="qa-toggle-btn"
+                    data-qa-toggle
+                    data-label-on="Sembunyikan QA"
+                    data-label-off="Tampilkan QA"
+                    aria-pressed="false">
+                    Tampilkan QA
+                </button>
+            </div>
             <div class="table-responsive">
                 <table class="table keg-table align-middle">
                     <thead>
                         <tr>
                             <th style="width:70px;">No</th>
                             <th>Pernyataan</th>
-                            <th style="width:140px;">Level</th>
-                            <th style="width:140px;">Skor</th>
+                            <th style="width:190px;">Level</th>
+                            <th style="width:190px;">Skor</th>
                             <th style="width:250px;">Aksi</th>
                         </tr>
                     </thead>
@@ -86,6 +113,10 @@
                         @foreach ($rows as $row)
                             @php
                                 $isVerified = (int) ($row->verified ?? 0) === 1;
+                                $isQaVerified = (int) ($row->qa_verified ?? 0) === 1;
+                                $qaVerifierName = trim((string) ($row->qa_verified_by ?? ''));
+                                $hasQaAccess = $isQaVerifier || $isVerifikator;
+                                $canOpenValidatePane = $hasQaAccess;
                                 $weight = ($weights[$row->id] ?? 0) * 100;
                                 $levelRaw = trim((string) ($row->level ?? '-'));
                                 $levelDisplay = $levelRaw !== '' && $levelRaw !== '-' ? rtrim(rtrim(number_format((float) $levelRaw, 2, '.', ''), '0'), '.') : '-';
@@ -116,6 +147,14 @@
                                 $savedLevelValidationState = is_array($row->level_validation_state ?? null)
                                     ? $row->level_validation_state
                                     : [];
+                                $savedQaLevelValidationStateRaw = $row->qa_level_validation_state ?? null;
+                                if (is_string($savedQaLevelValidationStateRaw)) {
+                                    $decodedQaState = json_decode($savedQaLevelValidationStateRaw, true);
+                                    $savedQaLevelValidationStateRaw = is_array($decodedQaState) ? $decodedQaState : [];
+                                }
+                                $savedQaLevelValidationState = is_array($savedQaLevelValidationStateRaw)
+                                    ? $savedQaLevelValidationStateRaw
+                                    : [];
                                 $statementKey = \Illuminate\Support\Str::lower(trim((string) ($row->pernyataan ?? '')));
                                 $levelHints = is_array(data_get($statementLevelHintMap, $statementKey))
                                     ? data_get($statementLevelHintMap, $statementKey)
@@ -135,6 +174,29 @@
                                 $maxValidatedLevel = (int) ($validatedLevels->max() ?? 0);
                                 $validateToneClass = $maxValidatedLevel >= 1 && $maxValidatedLevel <= 5
                                     ? 'validate-tone-l'.$maxValidatedLevel
+                                    : '';
+                                $qaValidatedLevels = collect(range(1, 5))
+                                    ->filter(fn ($i) => (int) data_get($savedQaLevelValidationState, (string) $i, 0) === 1);
+                                $qaValidatedLevelCount = $qaValidatedLevels->count();
+                                $qaMaxValidatedLevel = (int) ($qaValidatedLevels->max() ?? 0);
+                                $qaValidateToneClass = $qaMaxValidatedLevel >= 1 && $qaMaxValidatedLevel <= 5
+                                    ? 'validate-tone-l'.$qaMaxValidatedLevel
+                                    : '';
+                                $qaLevelValue = $isQaVerified ? $qaMaxValidatedLevel : 0;
+                                if ($qaLevelValue < 1 || $qaLevelValue > 5) {
+                                    $qaLevelValue = (is_numeric($row->level) && $isQaVerified) ? (int) $row->level : 0;
+                                }
+                                $qaLevelClass = ($qaLevelValue >= 1 && $qaLevelValue <= 5)
+                                    ? 'is-level-'.$qaLevelValue
+                                    : 'pending';
+                                $qaLevelDisplay = ($qaLevelValue >= 1 && $qaLevelValue <= 5)
+                                    ? (string) $qaLevelValue
+                                    : '-';
+                                $qaScoreDisplay = ($qaLevelValue >= 1 && $qaLevelValue <= 5)
+                                    ? number_format((float) ($qaLevelValue * ($weights[$row->id] ?? 0)), 2)
+                                    : '-';
+                                $qaLevelHint = ($isQaVerified && $qaLevelValue >= 1 && $qaLevelValue <= 5)
+                                    ? trim((string) ($levelHints[$qaLevelValue] ?? ''))
                                     : '';
                                 $hasEditableLevelField = collect(range(1, 5))
                                     ->contains(fn ($i) => (int) data_get($savedLevelValidationState, (string) $i, 0) !== 1);
@@ -166,6 +228,35 @@
                                         </div>
                                         <div class="subtopic-level-desc">{{ $currentLevelHint }}</div>
                                     @endif
+                                    @if ($qaLevelHint !== '')
+                                        <div class="subtopic-level-desc qa-only qa-level-font">
+                                            QA: {{ $qaLevelHint }}
+                                        </div>
+                                    @endif
+                                    @if ($isVerified)
+                                        <div class="qa-final-status qa-only {{ $isQaVerified ? 'is-done' : 'is-pending' }}">
+                                            <span class="qa-final-status-icon" aria-hidden="true">
+                                                @if ($isQaVerified)
+                                                    <svg viewBox="0 0 24 24">
+                                                        <polyline points="2.8 13 6.7 16.9 9.6 14"></polyline>
+                                                        <polyline points="7.4 13 11.6 17.2 21.2 7.6"></polyline>
+                                                    </svg>
+                                                @else
+                                                    <svg viewBox="0 0 24 24">
+                                                        <circle cx="12" cy="12" r="8.5"></circle>
+                                                        <path d="M12 7.8v4.7l3 1.9"></path>
+                                                    </svg>
+                                                @endif
+                                            </span>
+                                            <span class="qa-final-status-text">
+                                            @if ($isQaVerified)
+                                                Final QA: Terverifikasi{{ $qaVerifierName !== '' ? ' oleh '.$qaVerifierName : '' }}.
+                                            @else
+                                                Final QA: Menunggu verifikasi final QA BPKP.
+                                            @endif
+                                            </span>
+                                        </div>
+                                    @endif
                                     @if ($rowEditLogs->isNotEmpty())
                                         @php
                                             $log = $rowEditLogs->first();
@@ -176,6 +267,8 @@
                                             [$actionLabel, $actionClass] = match ($actionRaw) {
                                                 'verify' => ['Verifikasi', 'is-verify'],
                                                 'verify_reset' => ['Reset Verifikasi', 'is-verify-reset'],
+                                                'qa_verify' => ['Verifikasi Final QA', 'is-verify'],
+                                                'qa_verify_reset' => ['Reset Final QA', 'is-verify-reset'],
                                                 'clear' => ['Bersihkan', 'is-clear'],
                                                 default => ['Edit Data', 'is-save'],
                                             };
@@ -196,10 +289,28 @@
                                     @endif
                                 </td>
                                 <td class="text-center">
-                                    <span class="pill-level {{ $rowLevelClass }}">{{ $levelDisplay }}</span>
+                                    <div class="keg-dual-metric">
+                                        <div class="keg-dual-metric-row">
+                                            <span class="keg-dual-metric-label">Mandiri</span>
+                                            <span class="pill-level {{ $rowLevelClass }}">{{ $levelDisplay }}</span>
+                                        </div>
+                                        <div class="keg-dual-metric-row qa-only">
+                                            <span class="keg-dual-metric-label qa-level-font">QA</span>
+                                            <span class="pill-level {{ $qaLevelClass }}">{{ $qaLevelDisplay }}</span>
+                                        </div>
+                                    </div>
                                 </td>
                                 <td class="text-center">
-                                    <span class="pill-skor">{{ $scoreDisplay }}</span>
+                                    <div class="keg-dual-metric">
+                                        <div class="keg-dual-metric-row">
+                                            <span class="keg-dual-metric-label">Mandiri</span>
+                                            <span class="pill-skor">{{ $scoreDisplay }}</span>
+                                        </div>
+                                        <div class="keg-dual-metric-row qa-only">
+                                            <span class="keg-dual-metric-label qa-level-font">QA</span>
+                                            <span class="pill-skor">{{ $qaScoreDisplay }}</span>
+                                        </div>
+                                    </div>
                                 </td>
                                 <td class="aksi">
                                     <div class="aksi-wrap">
@@ -209,8 +320,9 @@
                                                 class="btn-aksi btn-edit"
                                                 data-toggle-row="{{ $row->id }}"
                                                 data-row-mode="edit"
-                                                title="{{ $isVerified ? 'Data terverifikasi: mode lihat (tidak dapat diubah)' : 'Edit data' }}"
-                                                aria-label="{{ $isVerified ? 'Lihat data terverifikasi' : 'Edit data' }}">
+                                                title="{{ $isQaRole ? 'Akun QA hanya dapat verifikasi final.' : ($isVerified ? 'Data terverifikasi: mode lihat (tidak dapat diubah)' : 'Edit data') }}"
+                                                aria-label="{{ $isVerified ? 'Lihat data terverifikasi' : 'Edit data' }}"
+                                                {{ $isQaRole ? 'disabled' : '' }}>
                                                 <svg class="aksi-icon" viewBox="0 0 24 24" aria-hidden="true">
                                                     <path d="M4 20h4l10-10a2.1 2.1 0 0 0-3-3L5 17v3z"></path>
                                                     <path d="M13 7l4 4"></path>
@@ -225,14 +337,19 @@
                                         </span>
                                         <button
                                             type="button"
-                                            class="btn-aksi btn-verify {{ $isVerified ? 'is-verified' : 'is-pending' }}"
+                                            class="btn-aksi btn-verify {{ $isVerified ? 'is-verified' : 'is-pending' }} {{ $isQaVerified ? 'is-qa-verified' : '' }}"
                                             data-toggle-row="{{ $row->id }}"
                                             data-row-mode="validate"
-                                            title="{{ $isVerified ? 'Sudah terverifikasi' : 'Belum terverifikasi' }}"
+                                            title="{{ $isQaVerified ? 'Sudah verifikasi final QA' : ($isVerified ? 'Sudah diverifikasi, menunggu final QA' : 'Belum diverifikasi verifikator') }}"
                                             aria-label="Verifikasi"
-                                            {{ $canVerify ? '' : 'disabled' }}>
-                                            <svg class="aksi-icon" viewBox="0 0 24 24" aria-hidden="true">
-                                                <path d="M20 6L9 17l-5-5"></path>
+                                            {{ $canOpenValidatePane ? '' : 'disabled' }}>
+                                            <svg class="aksi-icon {{ $isQaVerified ? 'qa-double-check' : '' }}" viewBox="0 0 24 24" aria-hidden="true">
+                                                @if ($isQaVerified)
+                                                    <polyline class="tick-back" points="2.8 13 6.7 16.9 9.6 14"></polyline>
+                                                    <polyline class="tick-front" points="7.4 13 11.6 17.2 21.2 7.6"></polyline>
+                                                @else
+                                                    <path d="M20 6L9 17l-5-5"></path>
+                                                @endif
                                             </svg>
                                         </button>
                                         <form method="POST" action="{{ route('elements.store', $slug) }}" class="d-inline">
@@ -245,7 +362,7 @@
                                                 title="Hapus"
                                                 aria-label="Hapus"
                                                 data-clear-row-btn
-                                                {{ $isVerified ? 'disabled' : '' }}>
+                                                {{ $isQaRole || $isVerified ? 'disabled' : '' }}>
                                                 <svg class="aksi-icon" viewBox="0 0 24 24" aria-hidden="true">
                                                     <path d="M3 6h18"></path>
                                                     <path d="M8 6V4h8v2"></path>
@@ -516,134 +633,227 @@
                                                 </form>
                                                     </section>
 
-                                                    @if ($canVerify)
+                                                    @if ($isVerifikator || $isQaVerifier)
                                                         <section class="row-mode-pane" id="{{ $rowModeValidateId }}" data-row-mode-pane="validate" hidden>
-                                                            <form method="POST" action="{{ route('elements.store', $slug) }}">
-                                                                @csrf
-                                                                <input type="hidden" name="row_id" value="{{ $row->id }}">
-                                                                <input type="hidden" name="action" value="verify">
-                                                                <div class="edit-pane-wrap validate-pane-wrap {{ $isVerified ? 'is-verified' : 'is-pending' }} {{ $validateToneClass }}" data-validate-pane-wrap>
-                                                                    <section class="edit-pane is-active">
-                                                                        <div class="fw-semibold mb-2 edit-pane-title">Form Verifikasi</div>
+                                                            @php
+                                                                $filledLevelNotes = collect(range(1, 5))
+                                                                    ->map(function ($i) use ($row) {
+                                                                        $field = 'grad_l'.$i.'_catatan';
+                                                                        return [
+                                                                            'level' => $i,
+                                                                            'value' => trim((string) ($row->$field ?? '')),
+                                                                        ];
+                                                                    })
+                                                                    ->filter(fn ($item) => $item['value'] !== '')
+                                                                    ->values();
+                                                            @endphp
+                                                            <div class="edit-pane-wrap validate-pane-wrap {{ $isVerified ? 'is-verified' : 'is-pending' }} {{ $validateToneClass }}">
+                                                                <section class="edit-pane is-active">
+                                                                    <div class="fw-semibold mb-2 edit-pane-title">Form Verifikasi</div>
 
-                                                                        <div class="keg-level-docs mb-3">
-                                                                            <div class="keg-level-docs-head">Daftar Dokumen Terpilih</div>
-                                                                            <div class="keg-level-docs-empty {{ $levelPickedDocs->isEmpty() ? '' : 'd-none' }}">
-                                                                                Belum ada dokumen terpilih pada Edit Data.
-                                                                            </div>
-                                                                            <div class="keg-level-docs-list {{ $levelPickedDocs->isEmpty() ? 'd-none' : '' }}">
-                                                                                @foreach ($levelPickedDocs as $pickedFile)
-                                                                                    <div class="keg-level-doc-item">
-                                                                                        <span class="keg-level-doc-name">{{ $pickedFile['label'] }}</span>
-                                                                                        @if (!empty($pickedFile['url']))
-                                                                                            <a
-                                                                                                href="{{ $pickedFile['url'] }}"
-                                                                                                target="_blank"
-                                                                                                rel="noopener noreferrer"
-                                                                                                class="keg-level-doc-view"
-                                                                                                title="Lihat dokumen">
-                                                                                                Lihat
-                                                                                            </a>
-                                                                                        @else
-                                                                                            <span class="keg-level-doc-view is-disabled" aria-disabled="true">Lihat</span>
-                                                                                        @endif
-                                                                                    </div>
-                                                                                @endforeach
-                                                                            </div>
+                                                                    <div class="keg-level-docs mb-3">
+                                                                        <div class="keg-level-docs-head">Daftar Dokumen Terpilih</div>
+                                                                        <div class="keg-level-docs-empty {{ $levelPickedDocs->isEmpty() ? '' : 'd-none' }}">
+                                                                            Belum ada dokumen terpilih pada Edit Data.
                                                                         </div>
-
-                                                                        <div class="mt-2">
-                                                                            <label class="form-label mb-1">Hasil Pengisian Analisis Bukti Dukung</label>
-                                                                            <textarea class="form-control keg-field" rows="4" readonly>{{ $row->analisis_bukti }}</textarea>
-                                                                        </div>
-
-                                                                        <div class="mt-3">
-                                                                            <label class="form-label mb-1">Hasil Pengisian Catatan / Analisis Bukti Per Level</label>
-                                                                            @php
-                                                                                $filledLevelNotes = collect(range(1, 5))
-                                                                                    ->map(function ($i) use ($row) {
-                                                                                        $field = 'grad_l'.$i.'_catatan';
-                                                                                        return [
-                                                                                            'level' => $i,
-                                                                                            'value' => trim((string) ($row->$field ?? '')),
-                                                                                        ];
-                                                                                    })
-                                                                                    ->filter(fn ($item) => $item['value'] !== '')
-                                                                                    ->values();
-                                                                            @endphp
-                                                                            @if ($filledLevelNotes->isEmpty())
-                                                                                <div class="keg-level-docs-empty">Belum ada catatan/analisis per level yang diisi.</div>
-                                                                            @else
-                                                                                <div class="row g-2">
-                                                                                    @foreach ($filledLevelNotes as $levelNote)
-                                                                                        @php
-                                                                                            $isLevelValidated = (int) data_get($savedLevelValidationState, (string) $levelNote['level'], 0) === 1;
-                                                                                        @endphp
-                                                                                        <div class="col-md-6">
-                                                                                            <div
-                                                                                                class="level-validate-card level-validate-l{{ $levelNote['level'] }} {{ $isLevelValidated ? 'is-validated' : '' }}"
-                                                                                                data-level-validate-field>
-                                                                                                <label class="form-label small mb-1 hint-bubble-label">
-                                                                                                    <span>Level {{ $levelNote['level'] }}</span>
-                                                                                                    @if (!empty($levelHints[$levelNote['level']] ?? null))
-                                                                                                        <span
-                                                                                                            class="hint-bubble-trigger"
-                                                                                                            role="button"
-                                                                                                            tabindex="0"
-                                                                                                            aria-label="Hint Level {{ $levelNote['level'] }}"
-                                                                                                            data-hint="{{ $levelHints[$levelNote['level']] }}">?</span>
-                                                                                                    @endif
-                                                                                                </label>
-                                                                                                <textarea class="form-control keg-field" rows="2" readonly>{{ $levelNote['value'] }}</textarea>
-                                                                                                <input type="hidden" name="level_validation[{{ $levelNote['level'] }}]" value="{{ $isLevelValidated ? '1' : '0' }}" data-level-validate-input>
-                                                                                                <div class="d-flex justify-content-end mt-2">
-                                                                                                    <button
-                                                                                                        type="button"
-                                                                                                        class="level-validate-btn level-validate-l{{ $levelNote['level'] }} {{ $isLevelValidated ? 'is-validated' : '' }}"
-                                                                                                        data-level-validate-btn
-                                                                                                        data-level="{{ $levelNote['level'] }}"
-                                                                                                        aria-label="Verifikasi isian level {{ $levelNote['level'] }}"
-                                                                                                        aria-pressed="{{ $isLevelValidated ? 'true' : 'false' }}"
-                                                                                                        title="{{ $isLevelValidated ? 'Klik untuk batalkan verifikasi level ini' : 'Klik untuk verifikasi level ini' }}">
-                                                                                                        <span class="level-validate-icon" aria-hidden="true"></span>
-                                                                                                        <span class="level-validate-text level-validate-text-default">Verifikasi</span>
-                                                                                                        <span class="level-validate-text level-validate-text-processing">Memverifikasi...</span>
-                                                                                                        <span class="level-validate-text level-validate-text-done">Terverifikasi</span>
-                                                                                                    </button>
-                                                                                                </div>
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    @endforeach
+                                                                        <div class="keg-level-docs-list {{ $levelPickedDocs->isEmpty() ? 'd-none' : '' }}">
+                                                                            @foreach ($levelPickedDocs as $pickedFile)
+                                                                                <div class="keg-level-doc-item">
+                                                                                    <span class="keg-level-doc-name">{{ $pickedFile['label'] }}</span>
+                                                                                    @if (!empty($pickedFile['url']))
+                                                                                        <a
+                                                                                            href="{{ $pickedFile['url'] }}"
+                                                                                            target="_blank"
+                                                                                            rel="noopener noreferrer"
+                                                                                            class="keg-level-doc-view"
+                                                                                            title="Lihat dokumen">
+                                                                                            Lihat
+                                                                                        </a>
+                                                                                    @else
+                                                                                        <span class="keg-level-doc-view is-disabled" aria-disabled="true">Lihat</span>
+                                                                                    @endif
                                                                                 </div>
-                                                                            @endif
+                                                                            @endforeach
                                                                         </div>
+                                                                    </div>
 
-                                                                        <div class="mt-2">
-                                                                            <label class="form-label mb-1">Catatan Verifikasi (opsional)</label>
-                                                                            <textarea name="verify_note" class="form-control keg-field" rows="3">{{ $row->verify_note }}</textarea>
-                                                                        </div>
-                                                                    </section>
-                                                                </div>
-                                                                <div class="d-flex justify-content-end gap-2 mt-3">
-                                                                    <button
-                                                                        type="button"
-                                                                        class="btn keg-form-action-btn is-reset"
-                                                                        data-verify-reset-btn>
-                                                                        Reset Verifikasi
-                                                                    </button>
-                                                                    <button
-                                                                        type="submit"
-                                                                        class="btn keg-form-action-btn is-verify"
-                                                                        name="verified"
-                                                                        value="1"
-                                                                        @if ($currentPickedDocCount <= 0)
-                                                                            disabled
-                                                                            title="Verifikasi memerlukan dokumen terpilih pada Edit Data."
-                                                                        @endif>
-                                                                        Simpan Verifikasi
-                                                                    </button>
-                                                                </div>
-                                                            </form>
+                                                                    <div class="mt-2">
+                                                                        <label class="form-label mb-1">Hasil Pengisian Analisis Bukti Dukung</label>
+                                                                        <textarea class="form-control keg-field" rows="4" readonly>{{ $row->analisis_bukti }}</textarea>
+                                                                    </div>
+
+                                                                    @if ($isVerifikator)
+                                                                        <form method="POST" action="{{ route('elements.store', $slug) }}" class="mt-3">
+                                                                            @csrf
+                                                                            <input type="hidden" name="row_id" value="{{ $row->id }}">
+                                                                            <input type="hidden" name="action" value="verify">
+                                                                            <div class="edit-pane-wrap validate-pane-wrap {{ $isVerified ? 'is-verified' : 'is-pending' }} {{ $validateToneClass }}" data-validate-pane-wrap>
+                                                                                <section class="edit-pane is-active">
+                                                                                    <label class="form-label mb-1">Hasil Pengisian Catatan / Analisis Bukti Per Level</label>
+                                                                                    @if ($filledLevelNotes->isEmpty())
+                                                                                        <div class="keg-level-docs-empty">Belum ada catatan/analisis per level yang diisi.</div>
+                                                                                    @else
+                                                                                        <div class="row g-2">
+                                                                                            @foreach ($filledLevelNotes as $levelNote)
+                                                                                                @php
+                                                                                                    $isLevelValidated = (int) data_get($savedLevelValidationState, (string) $levelNote['level'], 0) === 1;
+                                                                                                @endphp
+                                                                                                <div class="col-md-6">
+                                                                                                    <div
+                                                                                                        class="level-validate-card level-validate-l{{ $levelNote['level'] }} {{ $isLevelValidated ? 'is-validated' : '' }}"
+                                                                                                        data-level-validate-field>
+                                                                                                        <label class="form-label small mb-1 hint-bubble-label">
+                                                                                                            <span>Level {{ $levelNote['level'] }}</span>
+                                                                                                            @if (!empty($levelHints[$levelNote['level']] ?? null))
+                                                                                                                <span
+                                                                                                                    class="hint-bubble-trigger"
+                                                                                                                    role="button"
+                                                                                                                    tabindex="0"
+                                                                                                                    aria-label="Hint Level {{ $levelNote['level'] }}"
+                                                                                                                    data-hint="{{ $levelHints[$levelNote['level']] }}">?</span>
+                                                                                                            @endif
+                                                                                                        </label>
+                                                                                                        <textarea class="form-control keg-field" rows="2" readonly>{{ $levelNote['value'] }}</textarea>
+                                                                                                        <input type="hidden" name="level_validation[{{ $levelNote['level'] }}]" value="{{ $isLevelValidated ? '1' : '0' }}" data-level-validate-input>
+                                                                                                        <div class="d-flex justify-content-end mt-2">
+                                                                                                            <button
+                                                                                                                type="button"
+                                                                                                                class="level-validate-btn level-validate-l{{ $levelNote['level'] }} {{ $isLevelValidated ? 'is-validated' : '' }}"
+                                                                                                                data-level-validate-btn
+                                                                                                                data-level="{{ $levelNote['level'] }}"
+                                                                                                                aria-label="Verifikasi isian level {{ $levelNote['level'] }}"
+                                                                                                                aria-pressed="{{ $isLevelValidated ? 'true' : 'false' }}"
+                                                                                                                title="{{ $isLevelValidated ? 'Klik untuk batalkan verifikasi level ini' : 'Klik untuk verifikasi level ini' }}">
+                                                                                                                <span class="level-validate-icon" aria-hidden="true"></span>
+                                                                                                                <span class="level-validate-text level-validate-text-default">Verifikasi</span>
+                                                                                                                <span class="level-validate-text level-validate-text-processing">Memverifikasi...</span>
+                                                                                                                <span class="level-validate-text level-validate-text-done">Terverifikasi</span>
+                                                                                                            </button>
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            @endforeach
+                                                                                        </div>
+                                                                                    @endif
+
+                                                                                    <div class="mt-2">
+                                                                                        <label class="form-label mb-1">Catatan Verifikasi (opsional)</label>
+                                                                                        <textarea name="verify_note" class="form-control keg-field" rows="3">{{ $row->verify_note }}</textarea>
+                                                                                    </div>
+                                                                                </section>
+                                                                            </div>
+                                                                            <div class="d-flex justify-content-end gap-2 mt-3">
+                                                                                <button
+                                                                                    type="button"
+                                                                                    class="btn keg-form-action-btn is-reset"
+                                                                                    data-verify-reset-btn>
+                                                                                    Reset Verifikasi
+                                                                                </button>
+                                                                                <button
+                                                                                    type="submit"
+                                                                                    class="btn keg-form-action-btn is-verify"
+                                                                                    name="verified"
+                                                                                    value="1"
+                                                                                    @if ($currentPickedDocCount <= 0)
+                                                                                        disabled
+                                                                                        title="Verifikasi memerlukan dokumen terpilih pada Edit Data."
+                                                                                    @endif>
+                                                                                    Simpan Verifikasi
+                                                                                </button>
+                                                                            </div>
+                                                                        </form>
+                                                                    @endif
+
+                                                                    @if ($isQaVerifier)
+                                                                        <form method="POST" action="{{ route('elements.store', $slug) }}" class="mt-3">
+                                                                            @csrf
+                                                                            <input type="hidden" name="row_id" value="{{ $row->id }}">
+                                                                            <input type="hidden" name="action" value="qa_verify">
+
+                                                                            <div class="edit-pane-wrap validate-pane-wrap {{ $isQaVerified ? 'is-verified' : 'is-pending' }} {{ $qaValidateToneClass }}" data-validate-pane-wrap>
+                                                                                <section class="edit-pane is-active">
+                                                                                    <label class="form-label mb-1">Hasil Pengisian Catatan / Analisis Bukti Per Level (Verifikasi QA)</label>
+                                                                                    @if (!$isVerified)
+                                                                                        <div class="keg-level-docs-empty">Verifikasi final QA menunggu verifikasi dari Koordinator/Admin.</div>
+                                                                                    @elseif ($filledLevelNotes->isEmpty())
+                                                                                        <div class="keg-level-docs-empty">Belum ada catatan/analisis per level yang diisi.</div>
+                                                                                    @else
+                                                                                        <div class="row g-2">
+                                                                                            @foreach ($filledLevelNotes as $levelNote)
+                                                                                                @php
+                                                                                                    $isQaLevelValidated = (int) data_get($savedQaLevelValidationState, (string) $levelNote['level'], 0) === 1;
+                                                                                                @endphp
+                                                                                                <div class="col-md-6">
+                                                                                                    <div
+                                                                                                        class="level-validate-card level-validate-l{{ $levelNote['level'] }} {{ $isQaLevelValidated ? 'is-validated' : '' }}"
+                                                                                                        data-level-validate-field>
+                                                                                                        <label class="form-label small mb-1 hint-bubble-label">
+                                                                                                            <span>Level {{ $levelNote['level'] }}</span>
+                                                                                                            @if (!empty($levelHints[$levelNote['level']] ?? null))
+                                                                                                                <span
+                                                                                                                    class="hint-bubble-trigger"
+                                                                                                                    role="button"
+                                                                                                                    tabindex="0"
+                                                                                                                    aria-label="Hint Level {{ $levelNote['level'] }}"
+                                                                                                                    data-hint="{{ $levelHints[$levelNote['level']] }}">?</span>
+                                                                                                            @endif
+                                                                                                        </label>
+                                                                                                        <textarea class="form-control keg-field" rows="2" readonly>{{ $levelNote['value'] }}</textarea>
+                                                                                                        <input type="hidden" name="qa_level_validation[{{ $levelNote['level'] }}]" value="{{ $isQaLevelValidated ? '1' : '0' }}" data-level-validate-input>
+                                                                                                        <div class="d-flex justify-content-end mt-2">
+                                                                                                            <button
+                                                                                                                type="button"
+                                                                                                                class="level-validate-btn level-validate-l{{ $levelNote['level'] }} {{ $isQaLevelValidated ? 'is-validated' : '' }}"
+                                                                                                                data-level-validate-btn
+                                                                                                                data-level="{{ $levelNote['level'] }}"
+                                                                                                                aria-label="Verifikasi final QA isian level {{ $levelNote['level'] }}"
+                                                                                                                aria-pressed="{{ $isQaLevelValidated ? 'true' : 'false' }}"
+                                                                                                                title="{{ $isQaLevelValidated ? 'Klik untuk batalkan verifikasi QA level ini' : 'Klik untuk verifikasi QA level ini' }}">
+                                                                                                                <span class="level-validate-icon" aria-hidden="true"></span>
+                                                                                                                <span class="level-validate-text level-validate-text-default">Verifikasi</span>
+                                                                                                                <span class="level-validate-text level-validate-text-processing">Memverifikasi...</span>
+                                                                                                                <span class="level-validate-text level-validate-text-done">Terverifikasi</span>
+                                                                                                            </button>
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            @endforeach
+                                                                                        </div>
+                                                                                    @endif
+
+                                                                                    <div class="mt-2">
+                                                                                        <label class="form-label mb-1">Hasil Verifikasi QA</label>
+                                                                                        <textarea name="qa_verify_note" class="form-control keg-field" rows="3">{{ $row->qa_verify_note }}</textarea>
+                                                                                    </div>
+                                                                                    <div class="mt-2">
+                                                                                        <label class="form-label mb-1">Rekomendasi Tindak Lanjut</label>
+                                                                                        <textarea name="qa_follow_up_recommendation" class="form-control keg-field" rows="3">{{ $row->qa_follow_up_recommendation }}</textarea>
+                                                                                    </div>
+                                                                                </section>
+                                                                            </div>
+
+                                                                            <div class="d-flex justify-content-end gap-2 mt-3">
+                                                                                <button
+                                                                                    type="submit"
+                                                                                    class="btn keg-form-action-btn is-reset"
+                                                                                    name="qa_verified"
+                                                                                    value="0"
+                                                                                    {{ $isVerified ? '' : 'disabled title=Verifikasi final QA menunggu verifikasi dari Koordinator/Admin.' }}>
+                                                                                    Reset Final QA
+                                                                                </button>
+                                                                                <button
+                                                                                    type="submit"
+                                                                                    class="btn keg-form-action-btn is-verify"
+                                                                                    name="qa_verified"
+                                                                                    value="1"
+                                                                                    {{ $isVerified ? '' : 'disabled title=Verifikasi final QA menunggu verifikasi dari Koordinator/Admin.' }}>
+                                                                                    {{ $isQaVerified ? 'Perbarui Final QA' : 'Simpan Final QA' }}
+                                                                                </button>
+                                                                            </div>
+                                                                        </form>
+                                                                    @endif
+                                                                </section>
+                                                            </div>
                                                         </section>
                                                     @endif
                                                 </div>
@@ -658,7 +868,7 @@
             </div>
         </div>
 
-        @if ($isVerifikator && count($verifyNotes))
+        @if (($isVerifikator || $isQaVerifier) && count($verifyNotes))
             <div class="note-card">
                 <div class="fw-semibold mb-2">Catatan verifikasi yang sudah diisi</div>
                 <ul class="note-list">
@@ -762,11 +972,35 @@
             const infoModalTransitionMs = 220;
             const docDropdownTransitionMs = 320;
             const editorRowTransitionMs = 340;
+            const qaToggleButton = page.querySelector('[data-qa-toggle]');
             let infoModalCloseTimer = null;
             let resetVerifyModalCloseTimer = null;
             let clearRowModalCloseTimer = null;
             let pendingResetVerifyForm = null;
             let pendingClearRowForm = null;
+
+            function applyQaDisplay(showQa) {
+                page.classList.toggle('qa-display-off', !showQa);
+                if (!qaToggleButton) {
+                    return;
+                }
+
+                qaToggleButton.setAttribute('aria-pressed', showQa ? 'true' : 'false');
+                qaToggleButton.classList.toggle('is-active', showQa);
+                const label = showQa
+                    ? (qaToggleButton.getAttribute('data-label-on') || 'Sembunyikan QA')
+                    : (qaToggleButton.getAttribute('data-label-off') || 'Tampilkan QA');
+                qaToggleButton.textContent = label;
+            }
+
+            if (qaToggleButton && qaToggleButton.dataset.qaToggleBound !== '1') {
+                qaToggleButton.dataset.qaToggleBound = '1';
+                qaToggleButton.addEventListener('click', () => {
+                    const showQaNow = page.classList.contains('qa-display-off');
+                    applyQaDisplay(showQaNow);
+                });
+            }
+            applyQaDisplay(false);
 
             function flashElementClass(element, className, durationMs = 1200) {
                 if (!element || !className) {

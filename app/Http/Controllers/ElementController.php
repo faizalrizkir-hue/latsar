@@ -360,16 +360,48 @@ class ElementController extends Controller
                 ];
             })
             ->values();
+        $scoreComponentsQa = $subtopicSummaries
+            ->map(function ($item) use ($configuredWeights, $defaultWeight) {
+                $subtopicSlug = (string) ($item['slug'] ?? '');
+                $weight = (float) ($configuredWeights->get($subtopicSlug, $defaultWeight));
+                $score = is_numeric($item['qa_score'] ?? null)
+                    ? (float) $item['qa_score']
+                    : 0.0;
+
+                return [
+                    'slug' => $subtopicSlug,
+                    'title' => (string) ($item['title'] ?? $subtopicSlug),
+                    'score' => $score,
+                    'weight' => $weight,
+                    'weighted_score' => $score * $weight,
+                ];
+            })
+            ->values();
 
         $subtopicCount = $subtopicSummaries->count();
         $elementScore = (float) number_format((float) $scoreComponents->sum('weighted_score'), 2, '.', '');
         $weightedTotal = (float) number_format($elementScore * $elementWeight, 2, '.', '');
         $levelData = $this->mapLevel($elementScore);
+        $hasQaData = $subtopicSummaries
+            ->contains(fn ($item) => is_numeric($item['qa_score'] ?? null));
+        $elementScoreQa = $hasQaData
+            ? (float) number_format((float) $scoreComponentsQa->sum('weighted_score'), 2, '.', '')
+            : 0.0;
+        $weightedTotalQa = $hasQaData
+            ? (float) number_format($elementScoreQa * $elementWeight, 2, '.', '')
+            : 0.0;
+        $levelDataQa = $hasQaData
+            ? $this->mapLevel($elementScoreQa)
+            : ['level' => null, 'predikat' => 'Belum Dinilai'];
 
         $totalRows = (int) $subtopicSummaries->sum('rows_total');
         $totalVerifiedRows = (int) $subtopicSummaries->sum('rows_verified');
+        $totalQaVerifiedRows = (int) $subtopicSummaries->sum('rows_qa_verified');
         $completion = $totalRows > 0
             ? (int) round(($totalVerifiedRows / $totalRows) * 100)
+            : 0;
+        $completionQa = $totalRows > 0
+            ? (int) round(($totalQaVerifiedRows / $totalRows) * 100)
             : 0;
 
         return view($summaryView, [
@@ -377,14 +409,20 @@ class ElementController extends Controller
             'slug' => $slug,
             'subtopicSummaries' => $subtopicSummaries,
             'scoreComponents' => $scoreComponents,
+            'scoreComponentsQa' => $scoreComponentsQa,
             'elementScore' => $elementScore,
+            'elementScoreQa' => $elementScoreQa,
             'elementWeight' => $elementWeight,
             'weightedTotal' => $weightedTotal,
+            'weightedTotalQa' => $weightedTotalQa,
             'levelData' => $levelData,
+            'levelDataQa' => $levelDataQa,
             'subtopicCount' => $subtopicCount,
             'totalRows' => $totalRows,
             'totalVerifiedRows' => $totalVerifiedRows,
+            'totalQaVerifiedRows' => $totalQaVerifiedRows,
             'completion' => $completion,
+            'completionQa' => $completionQa,
             'summaryStyles' => $summaryStyles,
             'summaryHeaderCode' => $summaryHeaderCode,
             'summaryHeaderSubtitle' => $summaryHeaderSubtitle,
@@ -422,7 +460,13 @@ class ElementController extends Controller
         }
 
         $this->ensureKegiatanRows($slug, $moduleConfig);
-        $rows = $moduleModelClass::orderBy('id')->get(['id', 'level', 'skor', 'verified']);
+        $supportsQaVerification = $this->moduleSupportsQaVerification($table);
+        $selectColumns = ['id', 'level', 'skor', 'verified'];
+        if ($supportsQaVerification) {
+            $selectColumns[] = 'qa_verified';
+            $selectColumns[] = 'qa_level_validation_state';
+        }
+        $rows = $moduleModelClass::orderBy('id')->get($selectColumns);
 
         $summaryScore = 0.0;
         foreach ($rows as $row) {
@@ -442,6 +486,42 @@ class ElementController extends Controller
         $progress = $rowsTotal > 0
             ? (int) round(($rowsVerified / $rowsTotal) * 100)
             : 0;
+        $qaRowsVerified = 0;
+        $qaProgress = 0;
+        $summaryScoreQa = null;
+        $levelDataQa = ['level' => null, 'predikat' => 'Belum Dinilai'];
+        $qaLevelInfo = [];
+
+        if ($supportsQaVerification) {
+            $summaryScoreQaRaw = 0.0;
+            $qaHasData = false;
+            foreach ($rows as $row) {
+                $isQaVerified = (int) ($row->qa_verified ?? 0) === 1;
+                if (!$isQaVerified) {
+                    continue;
+                }
+
+                $qaRowsVerified++;
+                $qaLevel = $this->maxValidatedLevelFromState($row->qa_level_validation_state ?? null);
+                if ($qaLevel === null && is_numeric($row->level)) {
+                    $qaLevel = (int) $row->level;
+                }
+
+                if ($qaLevel !== null) {
+                    $summaryScoreQaRaw += $this->scoreForKegiatanLevel((float) $qaLevel, (int) $row->id, $moduleWeights);
+                    $qaHasData = true;
+                }
+            }
+
+            $qaProgress = $rowsTotal > 0
+                ? (int) round(($qaRowsVerified / $rowsTotal) * 100)
+                : 0;
+            if ($qaHasData) {
+                $summaryScoreQa = (float) number_format($summaryScoreQaRaw, 2, '.', '');
+                $levelDataQa = $this->mapLevel((float) $summaryScoreQa);
+                $qaLevelInfo = (array) ($moduleInfoLevels->get((int) ($levelDataQa['level'] ?? 0), []));
+            }
+        }
 
         return [
             'slug' => $slug,
@@ -455,6 +535,13 @@ class ElementController extends Controller
             'rows_total' => $rowsTotal,
             'rows_verified' => $rowsVerified,
             'progress' => $progress,
+            'qa_score' => $summaryScoreQa,
+            'qa_level' => $levelDataQa['level'],
+            'qa_predikat' => (string) ($levelDataQa['predikat'] ?? 'Belum Dinilai'),
+            'qa_level_description' => (string) ($qaLevelInfo['description'] ?? ''),
+            'qa_level_score_range' => (string) ($qaLevelInfo['score_range'] ?? ''),
+            'rows_qa_verified' => $qaRowsVerified,
+            'qa_progress' => $qaProgress,
         ];
     }
 
@@ -472,6 +559,13 @@ class ElementController extends Controller
             'rows_total' => 0,
             'rows_verified' => 0,
             'progress' => 0,
+            'qa_score' => null,
+            'qa_level' => null,
+            'qa_predikat' => 'Belum Dinilai',
+            'qa_level_description' => '',
+            'qa_level_score_range' => '',
+            'rows_qa_verified' => 0,
+            'qa_progress' => 0,
         ];
     }
 
@@ -509,6 +603,8 @@ class ElementController extends Controller
                 ->route('elements.show', Str::before($slug, '_'))
                 ->with('error', 'Tabel modul belum tersedia. Jalankan migrasi terlebih dahulu.');
         }
+        $supportsQaVerification = $this->moduleSupportsQaVerification($moduleTable);
+        $canQaVerify = $supportsQaVerification && $this->canUserQaVerifySlug($user, $slug);
 
         $this->ensureKegiatanRows($slug, $moduleConfig);
 
@@ -524,6 +620,32 @@ class ElementController extends Controller
         }
         $summaryScore = (float)number_format($summaryScore, 2, '.', '');
         $levelData = $this->mapLevel($summaryScore);
+        $summaryScoreQa = null;
+        $summaryQaHasData = false;
+        $levelDataQa = ['level' => null, 'predikat' => 'Belum Dinilai'];
+        if ($supportsQaVerification) {
+            $summaryScoreQaRaw = 0.0;
+            foreach ($rows as $row) {
+                if ((int) ($row->qa_verified ?? 0) !== 1) {
+                    continue;
+                }
+
+                $qaLevel = $this->maxValidatedLevelFromState($row->qa_level_validation_state ?? null);
+                if ($qaLevel === null && is_numeric($row->level)) {
+                    $qaLevel = (int) $row->level;
+                }
+
+                if ($qaLevel !== null) {
+                    $summaryScoreQaRaw += $this->scoreForKegiatanLevel((float) $qaLevel, (int) $row->id, $moduleWeights);
+                    $summaryQaHasData = true;
+                }
+            }
+
+            if ($summaryQaHasData) {
+                $summaryScoreQa = (float) number_format($summaryScoreQaRaw, 2, '.', '');
+                $levelDataQa = $this->mapLevel((float) $summaryScoreQa);
+            }
+        }
 
         $verifyNotes = $rows->filter(function ($r) {
             return trim((string)($r->verify_note ?? '')) !== '';
@@ -581,7 +703,12 @@ class ElementController extends Controller
             'summaryScore' => $summaryScore,
             'summaryLevel' => $levelData['level'],
             'summaryPredikat' => $levelData['predikat'],
+            'summaryScoreQa' => $summaryScoreQa,
+            'summaryLevelQa' => $levelDataQa['level'],
+            'summaryPredikatQa' => $levelDataQa['predikat'],
+            'summaryQaHasData' => $summaryQaHasData,
             'canVerify' => $canVerify,
+            'canQaVerify' => $canQaVerify,
             'weights' => $moduleWeights,
             'verifyNotes' => $verifyNotes,
             'dmsFiles' => $dmsFiles,
@@ -625,6 +752,15 @@ class ElementController extends Controller
         $this->ensureKegiatanRows($slug, $moduleConfig);
         $row = $moduleModelClass::findOrFail($id);
         $canVerify = $this->canUserVerifySlug($user, $slug);
+        $supportsQaVerification = $this->moduleSupportsQaVerification($moduleTable);
+        $supportsQaFollowUpRecommendation = $supportsQaVerification && Schema::hasColumn($moduleTable, 'qa_follow_up_recommendation');
+        $canQaVerify = $supportsQaVerification && $this->canUserQaVerifySlug($user, $slug);
+        $userRole = strtolower(trim((string) ($user['role'] ?? '')));
+        $isQaRole = $userRole === 'qa';
+
+        if ($isQaRole && in_array($action, ['save', 'clear', 'verify'], true)) {
+            return back()->withErrors('Akun QA BPKP hanya dapat melakukan verifikasi final.');
+        }
 
         if ($action === 'save') {
             $isVerifiedRow = (int) $row->verified === 1;
@@ -747,6 +883,11 @@ class ElementController extends Controller
                 $row->verified = 0;
             }
 
+            $hasDataChanges = $row->isDirty();
+            if ($supportsQaVerification && $hasDataChanges) {
+                $this->resetQaVerificationOnRow($row);
+            }
+
             if (!$row->isDirty()) {
                 return back()->with('status', 'Tidak ada perubahan data. Riwayat tidak diperbarui.');
             }
@@ -787,6 +928,9 @@ class ElementController extends Controller
             $row->verified = 0;
             $row->level = '-';
             $row->skor = null;
+            if ($supportsQaVerification) {
+                $this->resetQaVerificationOnRow($row);
+            }
             $row->save();
 
             if (Schema::hasTable($moduleEditLogTable)) {
@@ -850,6 +994,10 @@ class ElementController extends Controller
             $row->skor = $isVerified ? $this->scoreForKegiatanLevel($levelVal, (int)$row->id, $moduleWeights) : null;
             $row->level_validation_state = $isVerified ? $levelValidationState : null;
             $row->verify_note = $isVerified ? ($validated['verify_note'] ?? null) : null;
+            $hasVerificationChanges = $row->isDirty();
+            if ($supportsQaVerification && $hasVerificationChanges) {
+                $this->resetQaVerificationOnRow($row);
+            }
 
             if (!$row->isDirty()) {
                 return back()->with('status', 'Tidak ada perubahan verifikasi. Riwayat tidak diperbarui.');
@@ -879,6 +1027,87 @@ class ElementController extends Controller
             }
 
             return back()->with('status', $isVerified ? 'Data diverifikasi.' : 'Status verifikasi direset.');
+        }
+
+        if ($action === 'qa_verify') {
+            if (!$supportsQaVerification) {
+                return back()->withErrors('Kolom verifikasi final QA belum tersedia. Jalankan migrasi terlebih dahulu.');
+            }
+            if (!$canQaVerify) {
+                return back()->withErrors('Akses verifikasi final hanya untuk QA BPKP/Admin.');
+            }
+            $validated = $request->validate([
+                'qa_verified' => 'required|boolean',
+                'qa_verify_note' => 'nullable|string|max:500',
+                'qa_follow_up_recommendation' => 'nullable|string|max:1000',
+                'qa_level_validation' => 'nullable|array',
+                'qa_level_validation.*' => 'nullable|boolean',
+            ]);
+            $isQaVerified = (int) $validated['qa_verified'] === 1;
+
+            if ($isQaVerified && (int) ($row->verified ?? 0) !== 1) {
+                return back()->withErrors('Verifikasi final QA hanya bisa dilakukan setelah verifikator memverifikasi data.');
+            }
+
+            $qaLevelValidationState = collect(range(1, 5))
+                ->mapWithKeys(function ($level) use ($validated) {
+                    $isValid = (int) data_get($validated, 'qa_level_validation.'.$level, 0) === 1;
+                    return [(string) $level => $isValid ? 1 : 0];
+                })
+                ->all();
+
+            $qaValidatedLevels = collect($qaLevelValidationState)
+                ->filter(fn ($isValid) => (int) $isValid === 1)
+                ->keys()
+                ->map(fn ($level) => (int) $level)
+                ->filter(fn ($level) => $level >= 1 && $level <= 5)
+                ->values();
+
+            if ($isQaVerified && $qaValidatedLevels->isEmpty()) {
+                return back()->withErrors('Klik tombol Verifikasi pada minimal 1 level sebelum menyimpan verifikasi final QA.');
+            }
+
+            if ($isQaVerified) {
+                $maxValidatedLevel = (int) ($qaValidatedLevels->max() ?? 0);
+                $missingChainLevels = collect(range(1, $maxValidatedLevel))
+                    ->reject(fn ($level) => $qaValidatedLevels->contains($level))
+                    ->values();
+
+                if ($missingChainLevels->isNotEmpty()) {
+                    return back()->withErrors('Verifikasi final QA per level harus berurutan. Verifikasi Level 1 terlebih dahulu, lalu Level 2, dan seterusnya.');
+                }
+            }
+
+            $row->qa_verified = $isQaVerified ? 1 : 0;
+            $row->qa_verified_by = $isQaVerified ? ($username !== '' ? $username : null) : null;
+            $row->qa_verified_at = $isQaVerified ? now() : null;
+            $row->qa_verify_note = $isQaVerified ? ($validated['qa_verify_note'] ?? null) : null;
+            if ($supportsQaFollowUpRecommendation) {
+                $row->qa_follow_up_recommendation = $isQaVerified
+                    ? ($validated['qa_follow_up_recommendation'] ?? null)
+                    : null;
+            }
+            $row->qa_level_validation_state = $isQaVerified
+                ? json_encode($qaLevelValidationState, JSON_UNESCAPED_UNICODE)
+                : null;
+
+            if (!$row->isDirty()) {
+                return back()->with('status', 'Tidak ada perubahan verifikasi final QA. Riwayat tidak diperbarui.');
+            }
+
+            $row->save();
+
+            if (Schema::hasTable($moduleEditLogTable)) {
+                $moduleEditLogModelClass::query()->create([
+                    'row_id' => (int) $row->id,
+                    'pernyataan' => (string) ($row->pernyataan ?? ''),
+                    'username' => $username !== '' ? $username : null,
+                    'display_name' => trim((string) ($user['display_name'] ?? '')) ?: null,
+                    'action' => $isQaVerified ? 'qa_verify' : 'qa_verify_reset',
+                ]);
+            }
+
+            return back()->with('status', $isQaVerified ? 'Verifikasi final QA disimpan.' : 'Verifikasi final QA direset.');
         }
 
         abort(400, 'Aksi tidak dikenal.');
@@ -1166,6 +1395,90 @@ class ElementController extends Controller
         $assignedCoordinator = strtolower((string) ElementTeamAssignment::coordinatorUsernameForSlug($slug));
 
         return $assignedCoordinator !== '' && $assignedCoordinator === $username;
+    }
+
+    private function canUserQaVerifySlug(array $user, string $slug): bool
+    {
+        $role = strtolower(trim((string) ($user['role'] ?? '')));
+        if (in_array($role, ['administrator', 'admin', 'superadmin'], true)) {
+            return true;
+        }
+
+        if ($role !== 'qa') {
+            return false;
+        }
+
+        return ElementTeamAssignment::canUserAccessSlug($user, $slug);
+    }
+
+    private function moduleSupportsQaVerification(string $moduleTable): bool
+    {
+        if ($moduleTable === '' || !Schema::hasTable($moduleTable)) {
+            return false;
+        }
+
+        foreach (['qa_verified', 'qa_verified_by', 'qa_verified_at', 'qa_verify_note', 'qa_level_validation_state'] as $column) {
+            if (!Schema::hasColumn($moduleTable, $column)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function normalizeLevelValidationState(mixed $state): array
+    {
+        if (is_string($state)) {
+            $decoded = json_decode($state, true);
+            $state = is_array($decoded) ? $decoded : [];
+        }
+
+        if (!is_array($state)) {
+            return [];
+        }
+
+        return collect($state)
+            ->mapWithKeys(function ($value, $key) {
+                $level = (int) $key;
+                if ($level < 1 || $level > 5) {
+                    return [];
+                }
+
+                return [(string) $level => ((int) $value === 1 ? 1 : 0)];
+            })
+            ->all();
+    }
+
+    private function maxValidatedLevelFromState(mixed $state): ?int
+    {
+        $normalizedState = $this->normalizeLevelValidationState($state);
+        $validatedLevels = collect($normalizedState)
+            ->filter(fn ($value) => (int) $value === 1)
+            ->keys()
+            ->map(fn ($level) => (int) $level)
+            ->filter(fn ($level) => $level >= 1 && $level <= 5)
+            ->values();
+
+        if ($validatedLevels->isEmpty()) {
+            return null;
+        }
+
+        return (int) $validatedLevels->max();
+    }
+
+    private function resetQaVerificationOnRow(object $row): void
+    {
+        $row->qa_verified = 0;
+        $row->qa_verified_by = null;
+        $row->qa_verified_at = null;
+        $row->qa_verify_note = null;
+        $row->qa_level_validation_state = null;
+        if (method_exists($row, 'getTable')) {
+            $table = (string) $row->getTable();
+            if ($table !== '' && Schema::hasTable($table) && Schema::hasColumn($table, 'qa_follow_up_recommendation')) {
+                $row->qa_follow_up_recommendation = null;
+            }
+        }
     }
 
     private function normalizeStatementKey(string $statement): string

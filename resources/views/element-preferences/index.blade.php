@@ -1,7 +1,7 @@
 @extends('layouts.dashboard-shell')
 
 @push('head')
-    <link rel="stylesheet" href="/css/element-preferences.css">
+    <link rel="stylesheet" href="/css/element-preferences.css?v={{ @filemtime(public_path('css/element-preferences.css')) }}">
 @endpush
 
 @section('content')
@@ -105,22 +105,27 @@
                 Tabel preferensi belum tersedia. Jalankan <code>php artisan migrate</code> terlebih dahulu.
             </div>
         @else
-            <form method="POST" action="{{ route('element-preferences.update') }}" class="pref-form mt-3" id="elementPreferenceForm">
+            <form
+                method="POST"
+                action="{{ route('element-preferences.update') }}"
+                class="pref-form mt-3"
+                id="elementPreferenceForm"
+                data-reset-data-action="{{ route('element-preferences.reset-data') }}"
+            >
                 @csrf
-
-                <div class="pref-toolbar card shadow-sm pref-lift">
-                    <div class="pref-toolbar-text">
-                        Bobot diisi dalam persen. Sistem akan normalisasi otomatis saat disimpan.
+                    <div class="pref-toolbar card shadow-sm pref-lift">
+                        <div class="pref-toolbar-text">
+                            Bobot diisi dalam persen. Sistem akan normalisasi otomatis saat disimpan.
+                        </div>
+                        <div class="pref-toolbar-actions">
+                            <button type="button" class="btn btn-outline-danger" data-pref-reset-data-trigger>Reset Data</button>
+                            <button type="button" class="btn btn-outline-primary" data-add-element>Tambah Element</button>
+                            <button type="submit" class="btn btn-primary">Simpan Preferensi</button>
+                        </div>
                     </div>
-                    <div class="pref-toolbar-actions">
-                        <button type="button" class="btn btn-outline-danger" data-pref-reset-data-trigger>Reset Data</button>
-                        <button type="button" class="btn btn-outline-primary" data-add-element>Tambah Element</button>
-                        <button type="submit" class="btn btn-primary">Simpan Preferensi</button>
-                    </div>
-                </div>
 
-                <div class="pref-element-stack" data-elements-container>
-                    @foreach($elements as $element)
+                    <div class="pref-element-stack" data-elements-container>
+                        @foreach($elements as $element)
                         @php
                             $elementSlug = (string) ($element['slug'] ?? '');
                             if ($elementSlug === '') {
@@ -398,12 +403,8 @@
                                 </div>
                             </div>
                         </details>
-                    @endforeach
-                </div>
-            </form>
-
-            <form method="POST" action="{{ route('element-preferences.reset-data') }}" class="d-none" data-pref-reset-data-form>
-                @csrf
+                        @endforeach
+                    </div>
             </form>
         @endif
     </div>
@@ -430,9 +431,13 @@
     const page = document.querySelector('.element-preferences-page');
     if (!page) return;
 
+    const preferenceForm = document.getElementById('elementPreferenceForm');
+    if (!preferenceForm) return;
+
     const elementsContainer = page.querySelector('[data-elements-container]');
     if (!elementsContainer) return;
-    const resetDataForm = page.querySelector('[data-pref-reset-data-form]');
+    const updateActionUrl = preferenceForm.getAttribute('action') || '';
+    const resetDataActionUrl = preferenceForm.dataset.resetDataAction || updateActionUrl;
 
     const confirmModal = document.getElementById('prefActionConfirmModal');
     const confirmTitle = document.getElementById('prefActionConfirmModalTitle');
@@ -1443,7 +1448,6 @@
         const resetDataTrigger = event.target.closest('[data-pref-reset-data-trigger]');
         if (resetDataTrigger) {
             event.preventDefault();
-            if (!resetDataForm) return;
 
             openConfirmModal({
                 title: 'Reset Data Element',
@@ -1452,7 +1456,10 @@
                 kind: 'danger',
                 trigger: resetDataTrigger,
                 onConfirm: () => {
-                    resetDataForm.submit();
+                    if (resetDataActionUrl !== '') {
+                        preferenceForm.setAttribute('action', resetDataActionUrl);
+                    }
+                    preferenceForm.submit();
                 },
             });
             return;
@@ -1655,34 +1662,41 @@
         }
     });
 
-    const preferenceForm = document.getElementById('elementPreferenceForm');
-    if (preferenceForm) {
-        preferenceForm.addEventListener('submit', () => {
-            const elementCards = Array.from(elementsContainer.querySelectorAll('[data-element-card]'));
-            elementCards.forEach((elementCard, index) => {
-                const titleInput = elementCard.querySelector('[data-element-title-input], .pref-element-title-field input');
-                if (!titleInput) return;
+    preferenceForm.addEventListener('submit', (event) => {
+        const isResetDataSubmission = preferenceForm.getAttribute('action') === resetDataActionUrl;
 
-                const cleanName = stripElementPrefix(titleInput.value);
-                const canonicalTitle = buildElementDisplayTitleFromSlug(
-                    elementCard.dataset.elementSlug || '',
-                    cleanName,
-                    index + 1
-                );
-                titleInput.value = canonicalTitle;
+        if (isResetDataSubmission) {
+            return;
+        }
 
-                const subtopicCards = Array.from(elementCard.querySelectorAll('[data-subtopic-card]'));
-                subtopicCards.forEach((subtopicCard, subtopicIndex) => {
-                    const subtopicTitleInput = subtopicCard.querySelector('[data-subtopic-title-input], .pref-subtopic-title-wrap input[name*="[title]"]');
-                    if (!subtopicTitleInput) return;
+        if (updateActionUrl !== '') {
+            preferenceForm.setAttribute('action', updateActionUrl);
+        }
 
-                    const cleanSubtopicName = stripSubtopicPrefix(subtopicTitleInput.value);
-                    const canonicalSubtopicTitle = buildSubtopicDisplayTitle(cleanSubtopicName, subtopicIndex + 1);
-                    subtopicTitleInput.value = canonicalSubtopicTitle;
-                });
+        const elementCards = Array.from(elementsContainer.querySelectorAll('[data-element-card]'));
+        elementCards.forEach((elementCard, index) => {
+            const titleInput = elementCard.querySelector('[data-element-title-input], .pref-element-title-field input');
+            if (!titleInput) return;
+
+            const cleanName = stripElementPrefix(titleInput.value);
+            const canonicalTitle = buildElementDisplayTitleFromSlug(
+                elementCard.dataset.elementSlug || '',
+                cleanName,
+                index + 1
+            );
+            titleInput.value = canonicalTitle;
+
+            const subtopicCards = Array.from(elementCard.querySelectorAll('[data-subtopic-card]'));
+            subtopicCards.forEach((subtopicCard, subtopicIndex) => {
+                const subtopicTitleInput = subtopicCard.querySelector('[data-subtopic-title-input], .pref-subtopic-title-wrap input[name*="[title]"]');
+                if (!subtopicTitleInput) return;
+
+                const cleanSubtopicName = stripSubtopicPrefix(subtopicTitleInput.value);
+                const canonicalSubtopicTitle = buildSubtopicDisplayTitle(cleanSubtopicName, subtopicIndex + 1);
+                subtopicTitleInput.value = canonicalSubtopicTitle;
             });
         });
-    }
+    });
 
     page.querySelectorAll('[data-element-card]').forEach((elementCard) => {
         const shouldOpen = String(elementCard.dataset.defaultOpen || '') === '1';
@@ -1698,7 +1712,6 @@
         }
         updateElementMeta(elementCard);
     });
-
     validateWeightGroups();
 })();
 </script>

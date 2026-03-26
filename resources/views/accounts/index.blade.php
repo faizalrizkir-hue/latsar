@@ -46,6 +46,7 @@
                                     $roles = [
                                         'administrator' => 'Administrator',
                                         'koordinator' => 'Koordinator',
+                                        'qa' => 'QA BPKP',
                                         'auditor' => 'Anggota Tim',
                                     ];
                                 @endphp
@@ -93,6 +94,9 @@
                                         if (in_array($roleKey, ['administrator','admin','superadmin'])) {
                                             $roleClass = 'badge-role-admin';
                                             $roleLabel = 'Administrator';
+                                        } elseif ($roleKey === 'qa') {
+                                            $roleClass = 'badge-role-qa';
+                                            $roleLabel = 'QA BPKP';
                                         } elseif ($roleKey === 'koordinator') {
                                             $roleClass = 'badge-role-koordinator';
                                             $roleLabel = 'Koordinator';

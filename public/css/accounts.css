@@ -150,6 +150,7 @@
     border-top:1px solid rgba(148,163,184,0.12);
 }
 .accounts-page .badge-role-admin{background:#dc2626;color:#fff;}
+.accounts-page .badge-role-qa{background:#0ea5a3;color:#fff;}
 .accounts-page .badge-role-koordinator{background:#2563eb;color:#fff;}
 .accounts-page .badge-role-anggota{background:#475569;color:#fff;}
 

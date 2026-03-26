@@ -25,3 +25,8 @@
 :root[data-theme="dark"] .element1-summary-page .subtopic-level-desc{
     color:#9cb0cd;
 }
+
+:root[data-theme="dark"] .element1-summary-page .subtopic-level-desc.qa-level-font,
+:root[data-theme="dark"] .element1-summary-page .subtopic-predikat.qa-level-font{
+    color:#c5d6ef;
+}

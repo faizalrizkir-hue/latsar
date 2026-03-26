@@ -8,6 +8,7 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ElementController;
 use App\Http\Controllers\ElementPreferenceController;
+use App\Http\Controllers\AoiController;
 
 // In Codespaces / PHP built-in server, static files can sometimes be routed into Laravel.
 // These routes ensure public assets are still served correctly.
@@ -53,6 +54,7 @@ Route::middleware('auth.session')->group(function () {
     Route::get('/elements', [ElementController::class, 'index'])->name('elements.index');
     Route::get('/elements/{slug}', [ElementController::class, 'show'])->name('elements.show');
     Route::post('/elements/{slug}', [ElementController::class, 'store'])->name('elements.store');
+    Route::get('/area-of-improvement', [AoiController::class, 'index'])->name('aoi.index');
 
     Route::middleware('admin.session')->group(function () {
         Route::get('/accounts', [AccountController::class, 'index'])->name('accounts.index');

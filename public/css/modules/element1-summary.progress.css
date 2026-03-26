@@ -32,6 +32,16 @@
     pointer-events:none;
 }
 
+.element1-summary-page .element1-summary-progress.is-qa{
+    border-color:#c6d7e9;
+    background:linear-gradient(180deg,#f6f8fc,#eef3fb);
+}
+
+.element1-summary-page .element1-summary-progress-fill.is-qa{
+    background:linear-gradient(90deg,#0f766e 0%, #0d9488 48%, #14b8a6 100%);
+    box-shadow:0 0 0 1px rgba(13,148,136,0.18), 0 4px 12px rgba(13,148,136,0.22);
+}
+
 @keyframes element1ProgressGrow{
     from{transform:scaleX(0);}
     to{transform:scaleX(1);}

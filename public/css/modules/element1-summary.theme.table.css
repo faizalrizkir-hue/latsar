@@ -57,3 +57,7 @@
 :root[data-theme="dark"] .element1-summary-page .element1-summary-table .text-muted{
     color:#b7c7de !important;
 }
+
+:root[data-theme="dark"] .element1-summary-page .keg-dual-metric-label{
+    color:#afc0d8;
+}

@@ -122,6 +122,116 @@ body.keg-modal-open {
     color: var(--muted);
 }
 
+.keg-page .qa-only {
+    opacity: 1;
+    max-height: 1200px;
+    overflow: hidden;
+    transition: opacity 220ms ease, max-height 320ms cubic-bezier(0.22, 1, 0.36, 1), margin 220ms ease;
+}
+
+.keg-page.qa-display-off .qa-only {
+    opacity: 0;
+    pointer-events: none;
+    max-height: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    border-width: 0 !important;
+}
+
+.keg-page.qa-display-off .keg-score-wrap > .qa-only,
+.keg-page.qa-display-off .element1-stat-split-item.qa-only {
+    flex-basis: 0 !important;
+    min-width: 0 !important;
+    width: 0 !important;
+}
+
+.keg-page.qa-display-off .qa-mandiri-prefix,
+.keg-page.qa-display-off .qa-mandiri-suffix,
+.keg-page.qa-display-off .keg-dual-metric-row:not(.qa-only) .keg-dual-metric-label {
+    display: none !important;
+}
+
+#kegPage.qa-display-off .keg-dual-metric-row:not(.qa-only) {
+    justify-content: center;
+    gap: 0;
+}
+
+#kegPage .keg-score-wrap {
+    gap: 0.58rem;
+    transition: gap 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+#kegPage .keg-score-wrap > .keg-chip {
+    transition: opacity 220ms ease;
+}
+
+#kegPage .keg-score-wrap > .qa-only {
+    transition:
+        opacity 220ms ease,
+        flex-basis 300ms cubic-bezier(0.22, 1, 0.36, 1),
+        min-width 300ms cubic-bezier(0.22, 1, 0.36, 1),
+        width 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+#kegPage.qa-display-off .keg-score-wrap > .qa-only {
+    margin-left: 0 !important;
+}
+
+@media (min-width: 993px) {
+    #kegPage .keg-score-wrap {
+        flex-wrap: nowrap;
+    }
+}
+
+.qa-toggle-btn {
+    margin-left: 0.2rem;
+    border: 1px solid #b9cceb;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #f5f9ff, #e6efff);
+    color: #2f4c78;
+    font-size: 0.79rem;
+    font-weight: 800;
+    line-height: 1;
+    padding: 0.52rem 0.9rem;
+    box-shadow: 0 8px 16px rgba(15, 23, 42, 0.1);
+    transition: transform 0.18s ease, box-shadow 0.22s ease, border-color 0.18s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.qa-toggle-btn:hover {
+    transform: translateY(-1px);
+    border-color: #9eb8e1;
+    background: linear-gradient(180deg, #f9fbff, #e9f2ff);
+    box-shadow: 0 10px 18px rgba(15, 23, 42, 0.14);
+}
+
+.qa-toggle-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 6px 13px rgba(15, 23, 42, 0.12);
+}
+
+.qa-toggle-btn.is-active {
+    border-color: #87d4b3;
+    background: linear-gradient(180deg, #e5f7ee, #d1f1e2);
+    color: #0f5e3a;
+    box-shadow: 0 9px 17px rgba(16, 163, 97, 0.18);
+}
+
+.qa-toggle-btn:focus-visible {
+    outline: 2px solid #7ea8ec;
+    outline-offset: 2px;
+}
+
+.keg-table-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-bottom: 0.7rem;
+}
+
 .keg-submeta {
     margin-top: 0.45rem;
     display: inline-flex;
@@ -735,8 +845,15 @@ body.keg-modal-open {
 .keg-score-wrap {
     display: flex;
     align-items: stretch;
+    justify-content: flex-end;
     gap: 0.65rem;
     flex-wrap: wrap;
+}
+
+.keg-score-wrap > .qa-only {
+    flex: 0 0 130px;
+    min-width: 130px;
+    transition: flex-basis 320ms cubic-bezier(0.22, 1, 0.36, 1), min-width 320ms cubic-bezier(0.22, 1, 0.36, 1), width 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .keg-chip {
@@ -839,6 +956,13 @@ body.keg-modal-open {
     background: linear-gradient(160deg, #ebddff, #be9bff);
     color: #4c2c8c;
     --level-glow-rgb: 124, 58, 237;
+}
+
+.keg-chip.level.pending {
+    border-color: #c7d4e7;
+    background: linear-gradient(160deg, #e9eff8, #d7e1f1);
+    color: #4f617d;
+    --level-glow-rgb: 100, 116, 139;
 }
 
 @keyframes kegLevelAura {
@@ -986,6 +1110,112 @@ body.keg-modal-open {
     text-justify: inter-word;
 }
 
+.keg-page .qa-level-font {
+    font-family: "Georgia", "Times New Roman", serif;
+    font-style: italic;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+
+.keg-page .subtopic-level-desc.qa-level-font {
+    color: #4f6789;
+}
+
+.qa-final-status {
+    margin-top: 0.34rem;
+    border: 1px solid #d5e3f6;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #f7faff, #ecf2fd);
+    color: #3a5276;
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 0.44rem;
+    max-width: 100%;
+    padding: 0.32rem 0.5rem;
+    box-shadow: 0 8px 14px rgba(15, 23, 42, 0.08);
+}
+
+.qa-final-status-icon {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    top: 1px;
+}
+
+.qa-final-status-icon svg {
+    width: 12px;
+    height: 12px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.qa-final-status-text {
+    font-size: 0.74rem;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.qa-final-status.is-pending {
+    border-color: #efcf97;
+    background: linear-gradient(180deg, #fff9ec, #fff1d7);
+    color: #7b5a1f;
+    box-shadow: 0 8px 14px rgba(217, 119, 6, 0.14);
+}
+
+.qa-final-status.is-pending .qa-final-status-icon {
+    border-color: #efc47e;
+    background: linear-gradient(180deg, #ffe6bb, #ffd59d);
+    color: #9a5c00;
+}
+
+.qa-final-status.is-pending .qa-final-status-icon::after {
+    content: "";
+    position: absolute;
+    top: -3px;
+    right: -2px;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+    animation: qaPendingPulse 1.45s ease-in-out infinite;
+}
+
+.qa-final-status.is-done {
+    border-color: #a8d6c0;
+    background: linear-gradient(180deg, #edf9f2, #e2f4e9);
+    color: #1f6a46;
+    box-shadow: 0 8px 14px rgba(22, 163, 74, 0.14);
+}
+
+.qa-final-status.is-done .qa-final-status-icon {
+    border-color: #8dd1b0;
+    background: linear-gradient(180deg, #d7f3e4, #c4ead7);
+    color: #0f8a4a;
+}
+
+@keyframes qaPendingPulse {
+    0%,
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+    }
+
+    50% {
+        transform: scale(1.1);
+        box-shadow: 0 0 0 6px rgba(245, 158, 11, 0);
+    }
+}
+
 .keg-lock-note {
     margin-bottom: 0.62rem;
     border: 1px solid #f2dcb2;
@@ -1118,6 +1348,24 @@ body.keg-modal-open {
     border: 1px solid #c7d7ed;
     background: #f5f9ff;
     color: #34455f;
+}
+
+.keg-dual-metric {
+    display: grid;
+    gap: 0.36rem;
+}
+
+.keg-dual-metric-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.keg-dual-metric-label {
+    color: #607390;
+    font-size: 0.72rem;
+    font-weight: 700;
 }
 
 .aksi {
@@ -1253,6 +1501,13 @@ body.keg-modal-open {
     box-shadow: 0 8px 16px rgba(16, 163, 97, 0.2);
 }
 
+.btn-verify.is-qa-verified {
+    color: #0f4fba;
+    background: linear-gradient(180deg, #d9e8ff, #c2d9ff);
+    border-color: #9bbcf3;
+    box-shadow: 0 8px 16px rgba(37, 99, 235, 0.24);
+}
+
 .btn-verify.is-pending:hover:not(:disabled) {
     background: linear-gradient(180deg, #ebeff6, #dbe3ef);
     border-color: #b5c2d5;
@@ -1271,10 +1526,31 @@ body.keg-modal-open {
     box-shadow: 0 11px 20px rgba(16, 163, 97, 0.28);
 }
 
+.btn-verify.is-qa-verified:hover:not(:disabled) {
+    background: linear-gradient(180deg, #e2eeff, #cde0ff);
+    border-color: #8fb3f2;
+    box-shadow: 0 11px 20px rgba(37, 99, 235, 0.3);
+}
+
 .btn-verify.is-verified:active:not(:disabled) {
     background: linear-gradient(180deg, #b9e6cb, #9ed9bb);
     border-color: #71c59f;
     box-shadow: 0 7px 14px rgba(16, 163, 97, 0.2);
+}
+
+.btn-verify.is-qa-verified:active:not(:disabled) {
+    background: linear-gradient(180deg, #c6dcff, #aecbfb);
+    border-color: #84aaee;
+    box-shadow: 0 7px 14px rgba(37, 99, 235, 0.22);
+}
+
+.qa-double-check .tick-back {
+    opacity: 0.72;
+}
+
+.qa-double-check .tick-front,
+.qa-double-check .tick-back {
+    stroke-width: 2.15;
 }
 
 .btn-clear {
