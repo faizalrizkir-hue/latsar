@@ -377,6 +377,8 @@
         }
     } elseif ($routeName === 'aoi.index') {
         $pushHeadnavCrumb($headnavCrumbs, 'Area Of Improvement (AoI)', route('aoi.index'));
+    } elseif (is_string($routeName) && Str::startsWith($routeName, 'informasi-umum.')) {
+        $pushHeadnavCrumb($headnavCrumbs, 'Informasi Umum', route('informasi-umum.index'));
     } elseif ($routeName === 'profile.edit') {
         $pushHeadnavCrumb($headnavCrumbs, 'Edit Profil', route('profile.edit'));
     } elseif ($routeName === 'accounts.index') {
@@ -476,7 +478,7 @@
             <li><a href="{{ route('aoi.index') }}"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="14" height="14" rx="2"/><path d="M11 4v14M4 11h14"/><path d="M19 16v6M16 19h6"/></svg></span><span class="nav-text">Area Of Improvement (AoI)</span></a></li>
             @if($userRoleKey !== 'qa')
                 <li><a href="{{ route('dms.index') }}"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 8a3 3 0 0 1 3-3h4l2 2h6a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3Z"/><path d="M3 9h18"/></svg></span><span class="nav-text">Data Management System</span></a></li>
-                <li><a href="#"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 10.5v5"/><path d="M12 7.5h.01"/></svg></span><span class="nav-text">Informasi Umum</span></a></li>
+                <li><a href="{{ route('informasi-umum.index') }}"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 10.5v5"/><path d="M12 7.5h.01"/></svg></span><span class="nav-text">Informasi Umum</span></a></li>
             @endif
         </ul>
     </aside>

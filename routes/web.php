@@ -9,6 +9,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ElementController;
 use App\Http\Controllers\ElementPreferenceController;
 use App\Http\Controllers\AoiController;
+use App\Http\Controllers\GeneralInformationController;
 
 // In Codespaces / PHP built-in server, static files can sometimes be routed into Laravel.
 // These routes ensure public assets are still served correctly.
@@ -55,6 +56,7 @@ Route::middleware('auth.session')->group(function () {
     Route::get('/elements/{slug}', [ElementController::class, 'show'])->name('elements.show');
     Route::post('/elements/{slug}', [ElementController::class, 'store'])->name('elements.store');
     Route::get('/area-of-improvement', [AoiController::class, 'index'])->name('aoi.index');
+    Route::get('/informasi-umum', [GeneralInformationController::class, 'index'])->name('informasi-umum.index');
 
     Route::middleware('admin.session')->group(function () {
         Route::get('/accounts', [AccountController::class, 'index'])->name('accounts.index');
@@ -65,5 +67,6 @@ Route::middleware('auth.session')->group(function () {
         Route::post('/element-preferences', [ElementPreferenceController::class, 'update'])->name('element-preferences.update');
         Route::post('/element-preferences/reset', [ElementPreferenceController::class, 'reset'])->name('element-preferences.reset');
         Route::post('/element-preferences/reset-data', [ElementPreferenceController::class, 'resetData'])->name('element-preferences.reset-data');
+        Route::post('/informasi-umum', [GeneralInformationController::class, 'update'])->name('informasi-umum.update');
     });
 });
