@@ -25,8 +25,13 @@
 @php
     use Illuminate\Support\Str;
 
-    $navElementsShapeReady = collect((array) ($navElements ?? []))
-        ->every(fn ($item) => is_array($item) && trim((string) ($item['slug'] ?? '')) !== '');
+    $rawNavElements = $navElements ?? [];
+    $navElementsSource = is_iterable($rawNavElements)
+        ? collect($rawNavElements)
+        : collect();
+    $navElementsShapeReady = $navElementsSource->contains(
+        fn ($item) => is_array($item) && trim((string) ($item['slug'] ?? '')) !== ''
+    );
 
     $layoutDataReady = isset(
         $navElements,
@@ -53,7 +58,7 @@
     $notificationCount = (int) ($notificationCount ?? $notificationItems->count());
     $notificationUnreadCount = (int) ($notificationUnreadCount ?? $notificationCount);
     $notificationRealtimeChannels = array_values(array_filter((array) ($notificationRealtimeChannels ?? [])));
-    $navElements = collect((array) ($navElements ?? []))
+    $navElements = $navElementsSource
         ->map(function ($item) {
             if (!is_array($item)) {
                 return null;
