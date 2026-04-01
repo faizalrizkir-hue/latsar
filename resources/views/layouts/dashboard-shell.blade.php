@@ -25,6 +25,9 @@
 @php
     use Illuminate\Support\Str;
 
+    $navElementsShapeReady = collect((array) ($navElements ?? []))
+        ->every(fn ($item) => is_array($item) && trim((string) ($item['slug'] ?? '')) !== '');
+
     $layoutDataReady = isset(
         $navElements,
         $notificationItems,
@@ -34,7 +37,7 @@
         $toastQueue,
         $idleTimeoutMs,
         $notificationRealtimeChannels
-    );
+    ) && $navElementsShapeReady;
 
     if (!$layoutDataReady) {
         $fallbackLayoutData = app(\App\Services\DashboardShellDataBuilder::class)->build(get_defined_vars());
@@ -50,7 +53,77 @@
     $notificationCount = (int) ($notificationCount ?? $notificationItems->count());
     $notificationUnreadCount = (int) ($notificationUnreadCount ?? $notificationCount);
     $notificationRealtimeChannels = array_values(array_filter((array) ($notificationRealtimeChannels ?? [])));
-    $navElements = collect((array) ($navElements ?? []))->filter(fn ($item) => is_array($item))->values();
+    $navElements = collect((array) ($navElements ?? []))
+        ->map(function ($item) {
+            if (!is_array($item)) {
+                return null;
+            }
+
+            $slug = trim((string) ($item['slug'] ?? ''));
+            if ($slug === '') {
+                return null;
+            }
+
+            $elementTitle = trim((string) ($item['title'] ?? ''));
+            if ($elementTitle === '') {
+                $elementTitle = Str::headline($slug);
+            }
+
+            $navTitle = trim((string) ($item['nav_title'] ?? ''));
+            if ($navTitle === '') {
+                $navTitle = $elementTitle;
+            }
+
+            $iconLabel = trim((string) ($item['icon_label'] ?? ''));
+            if ($iconLabel === '' && preg_match('/^element(\d+)$/i', $slug, $matches)) {
+                $iconLabel = (string) ($matches[1] ?? 'E');
+            }
+            if ($iconLabel === '') {
+                $iconLabel = 'E';
+            }
+
+            $coveragePercent = (int) ($item['coverage_percent'] ?? 0);
+            if ($coveragePercent > 0) {
+                $coveragePercent = max(8, $coveragePercent);
+            }
+            $coveragePercent = min(100, $coveragePercent);
+
+            $subtopics = collect((array) ($item['subtopics'] ?? []))
+                ->map(function ($subtopic) {
+                    if (!is_array($subtopic)) {
+                        return null;
+                    }
+
+                    $subtopicSlug = trim((string) ($subtopic['slug'] ?? ''));
+                    if ($subtopicSlug === '') {
+                        return null;
+                    }
+
+                    $subtopicTitle = trim((string) ($subtopic['title'] ?? ''));
+                    if ($subtopicTitle === '') {
+                        $subtopicTitle = Str::headline(str_replace('_', ' ', $subtopicSlug));
+                    }
+
+                    return [
+                        'slug' => $subtopicSlug,
+                        'title' => $subtopicTitle,
+                    ];
+                })
+                ->filter(fn ($subtopic) => is_array($subtopic))
+                ->values()
+                ->all();
+
+            return [
+                'slug' => $slug,
+                'title' => $elementTitle,
+                'nav_title' => $navTitle,
+                'icon_label' => Str::upper($iconLabel),
+                'coverage_percent' => $coveragePercent,
+                'subtopics' => $subtopics,
+            ];
+        })
+        ->filter(fn ($item) => is_array($item))
+        ->values();
     $headnavCrumbs = collect((array) ($headnavCrumbs ?? []))->filter(fn ($item) => is_array($item))->values()->all();
     $toastQueue = array_values((array) ($toastQueue ?? []));
     $idleTimeoutMs = max(60_000, (int) ($idleTimeoutMs ?? (int) config('session.idle_timeout', 60) * 60 * 1000));
@@ -79,11 +152,12 @@
             <li><a href="{{ route('dashboard') }}"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 14a8 8 0 1 1 16 0"/><path d="M12 14l4-4"/><circle cx="12" cy="14" r="1.2"/></svg></span><span class="nav-text">Dashboard</span></a></li>
             <li class="nav-section-label" aria-hidden="true"><span>Penilaian Element</span></li>
             @foreach($navElements as $elementNav)
+            @continue(empty($elementNav['slug']))
             <li class="has-sub" style="--nav-progress: {{ (int) ($elementNav['coverage_percent'] ?? 0) }}%;">
                 <a class="nav-toggle" data-sub-toggle="{{ $elementNav['slug'] }}">
-                    <span class="nav-icon">{{ $elementNav['icon_label'] }}</span>
-                    <span class="nav-text">{{ $elementNav['nav_title'] }}</span>
-                    <span class="chevron">›</span>
+                    <span class="nav-icon">{{ $elementNav['icon_label'] ?? 'E' }}</span>
+                    <span class="nav-text">{{ $elementNav['nav_title'] ?? ($elementNav['title'] ?? 'Element') }}</span>
+                    <span class="chevron">&rsaquo;</span>
                 </a>
                 <ul class="nav-sub" id="sub-{{ $elementNav['slug'] }}">
                     <li class="nav-sub-parent">
@@ -92,11 +166,12 @@
                             <span>Rekapitulasi Element</span>
                         </a>
                     </li>
-                    @foreach($elementNav['subtopics'] as $subtopicNav)
+                    @foreach(($elementNav['subtopics'] ?? []) as $subtopicNav)
+                        @continue(empty($subtopicNav['slug']))
                         <li class="nav-sub-child">
                             <a href="{{ route('elements.show', $subtopicNav['slug']) }}">
-                                <span class="sub-icon">•</span>
-                                <span>{{ $subtopicNav['title'] }}</span>
+                                <span class="sub-icon">&bull;</span>
+                                <span>{{ $subtopicNav['title'] ?? Str::headline(str_replace('_', ' ', (string) $subtopicNav['slug'])) }}</span>
                             </a>
                         </li>
                     @endforeach
