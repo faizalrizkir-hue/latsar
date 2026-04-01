@@ -93,8 +93,11 @@
             }
             $coveragePercent = min(100, $coveragePercent);
 
-            $subtopics = collect((array) ($item['subtopics'] ?? []))
+            $subtopics = collect($item['subtopics'] ?? [])
                 ->map(function ($subtopic) {
+                    if (is_object($subtopic) && method_exists($subtopic, 'toArray')) {
+                        $subtopic = $subtopic->toArray();
+                    }
                     if (!is_array($subtopic)) {
                         return null;
                     }

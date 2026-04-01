@@ -196,7 +196,8 @@ class DashboardShellDataBuilder
                         ];
                     })
                     ->filter(fn ($item) => $item['slug'] !== '')
-                    ->values();
+                    ->values()
+                    ->all();
 
                 $elementNumber = $resolveElementNumber($elementSlug, $elementTitle, $elementIndex + 1);
                 $navTitle = is_numeric($elementNumber) ? 'Element '.$elementNumber : $elementTitle;
@@ -241,7 +242,8 @@ class DashboardShellDataBuilder
                             ];
                         })
                         ->filter(fn ($item) => ($item['slug'] ?? '') !== '')
-                        ->values();
+                        ->values()
+                        ->all();
 
                     $elementNumber = $resolveElementNumber((string) $elementSlug, $elementTitle);
                     $navTitle = is_numeric($elementNumber) ? 'Element '.$elementNumber : $elementTitle;
