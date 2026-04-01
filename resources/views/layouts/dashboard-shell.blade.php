@@ -29,9 +29,19 @@
     $navElementsSource = is_iterable($rawNavElements)
         ? collect($rawNavElements)
         : collect();
-    $navElementsShapeReady = $navElementsSource->contains(
+    $navElementsHasValidSlug = $navElementsSource->contains(
         fn ($item) => is_array($item) && trim((string) ($item['slug'] ?? '')) !== ''
     );
+    $navElementsHasValidSubtopic = $navElementsSource->contains(function ($item): bool {
+        if (!is_array($item) || !is_iterable($item['subtopics'] ?? null)) {
+            return false;
+        }
+
+        return collect($item['subtopics'])->contains(
+            fn ($subtopic) => is_array($subtopic) && trim((string) ($subtopic['slug'] ?? '')) !== ''
+        );
+    });
+    $navElementsShapeReady = $navElementsHasValidSlug && $navElementsHasValidSubtopic;
 
     $layoutDataReady = isset(
         $navElements,
