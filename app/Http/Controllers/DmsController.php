@@ -161,7 +161,7 @@ class DmsController extends Controller
             if (Str::startsWith($path, ['http://', 'https://', '/'])) {
                 $url = $path;
             } elseif (Str::startsWith($path, 'uploads/')) {
-                $url = '/latsar/' . $path;
+                $url = asset($path);
             } else {
                 $url = Storage::disk($f->storage_driver ?? 'public')->url($path);
             }
