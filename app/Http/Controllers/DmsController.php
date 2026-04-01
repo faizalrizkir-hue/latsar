@@ -7,13 +7,16 @@ use App\Models\DmsDocument;
 use App\Models\DmsFile;
 use App\Models\Notification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 
 class DmsController extends Controller
 {
+    private const FILTER_CATALOG_CACHE_KEY = 'dms:filters:v1';
+    private const COUNTS_CACHE_KEY = 'dms:counts:v1';
+
     public function index(Request $request)
     {
         if (!Session::has('user')) {
@@ -21,7 +24,8 @@ class DmsController extends Controller
         }
 
         $filters = $this->buildFilters($request);
-        [$documents, $counts] = $this->buildQuery($filters);
+        $counts = $this->cachedCounts();
+        $catalog = $this->cachedFilterCatalog();
 
         $typeOptions = [
             'Manajemen Pengawasan' => [
@@ -38,17 +42,12 @@ class DmsController extends Controller
             'Lainnya' => ['Dokumen Lainnya'],
         ];
 
-        $types = DmsDocument::query()->select('type')->distinct()->orderBy('type')->pluck('type');
-        $tags = DmsDocument::query()->select('tag')->distinct()->orderBy('tag')->pluck('tag');
-        $years = DmsDocument::query()->select('year')->distinct()->orderByDesc('year')->pluck('year');
-
         return view('dms.index', [
-            'documents' => $documents,
             'filters' => $filters,
             'counts' => $counts,
-            'types' => $types,
-            'tags' => $tags,
-            'years' => $years,
+            'types' => $catalog['types'],
+            'tags' => $catalog['tags'],
+            'years' => $catalog['years'],
             'typeOptions' => $typeOptions,
             'notifications' => Notification::feedForUser((array) Session::get('user', []), null, 50),
             'pageTitle' => 'Data Management System',
@@ -135,6 +134,7 @@ class DmsController extends Controller
                 'uploaded_at' => now(),
             ]);
         }
+        $this->forgetListingCaches();
 
         return redirect()->route('dms.index')->with('status', 'Dokumen berhasil ditambahkan.');
     }
@@ -231,6 +231,7 @@ class DmsController extends Controller
                 $request->input('new_doc_name', [])
             );
         }
+        $this->forgetListingCaches();
 
         return redirect()->route('dms.index')->with('status', 'Dokumen diperbarui.');
     }
@@ -239,6 +240,7 @@ class DmsController extends Controller
     {
         $document = DmsDocument::findOrFail($id);
         $document->delete();
+        $this->forgetListingCaches();
 
         return back()->with('status', 'Dokumen dipindahkan ke trash.');
     }
@@ -250,6 +252,7 @@ class DmsController extends Controller
             return back()->with('error', 'Dokumen di trash, pulihkan terlebih dahulu.');
         }
         $document->update(['status' => 'Arsip']);
+        $this->forgetListingCaches();
 
         // sinkronkan status pada file terkait
         // tidak mengubah nomor/nama berkas pada arsip
@@ -264,6 +267,7 @@ class DmsController extends Controller
             return back()->with('error', 'Dokumen di trash, pulihkan terlebih dahulu.');
         }
         $document->update(['status' => 'Aktif']);
+        $this->forgetListingCaches();
 
         // tidak mengubah nomor/nama berkas saat unarchive
 
@@ -274,6 +278,7 @@ class DmsController extends Controller
     {
         $document = DmsDocument::withTrashed()->findOrFail($id);
         $document->restore();
+        $this->forgetListingCaches();
 
         return back()->with('status', 'Dokumen dipulihkan.');
     }
@@ -344,76 +349,6 @@ class DmsController extends Controller
         }
     }
 
-    /**
-     * @return array{documents:\Illuminate\Contracts\Pagination\LengthAwarePaginator,counts:array}
-     */
-    private function buildQuery(array $filters): array
-    {
-        $base = DmsDocument::query()->with(['files']);
-        if ($filters['view'] === 'trash') {
-            $base->onlyTrashed();
-        } else {
-            $base->when(true, fn ($q) => $q->whereNull('deleted_at'));
-        }
-
-        if ($filters['view'] === 'archive') {
-            $base->where('status', 'Arsip');
-        } elseif ($filters['view'] === '' && empty($filters['status'])) {
-            // default tampilkan aktif jika tidak ada filter status
-            $base->where('status', 'Aktif');
-        }
-
-        if (!empty($filters['status'])) {
-            $base->whereIn('status', $filters['status']);
-        }
-        if ($filters['q'] !== '') {
-            $q = $filters['q'];
-            $base->where(function ($qb) use ($q) {
-                $qb->where('doc_no', 'like', "%{$q}%")
-                    ->orWhere('title', 'like', "%{$q}%")
-                    ->orWhere('type', 'like', "%{$q}%")
-                    ->orWhere('tag', 'like', "%{$q}%")
-                    ->orWhere('uploader', 'like', "%{$q}%")
-                    ->orWhere('description', 'like', "%{$q}%");
-            });
-        }
-        if ($filters['doc_no'] !== '') {
-            $base->where('doc_no', 'like', '%' . $filters['doc_no'] . '%');
-        }
-        if (!empty($filters['type'])) {
-            $base->whereIn('type', $filters['type']);
-        }
-        if (!empty($filters['tag'])) {
-            $base->whereIn('tag', $filters['tag']);
-        }
-        if ($filters['year_from']) {
-            $base->where('year', '>=', (int)$filters['year_from']);
-        }
-        if ($filters['year_to']) {
-            $base->where('year', '<=', (int)$filters['year_to']);
-        }
-
-        $sortMap = [
-            'no' => 'doc_no',
-            'name' => 'title',
-            'title' => 'title',
-            'type' => 'type',
-            'year' => 'year',
-            'updated' => 'updated_at',
-        ];
-        $column = $sortMap[$filters['sort']] ?? 'updated_at';
-        $direction = $filters['dir'] === 'asc' ? 'asc' : 'desc';
-        $documents = $base->orderBy($column, $direction)->paginate(15)->appends($filters['query']);
-
-        $counts = [
-            'active' => DmsDocument::where('status', 'Aktif')->count(),
-            'archive' => DmsDocument::where('status', 'Arsip')->count(),
-            'trash' => DmsDocument::onlyTrashed()->count(),
-        ];
-
-        return [$documents, $counts];
-    }
-
     private function buildFilters(Request $request): array
     {
         $filters = [
@@ -430,5 +365,43 @@ class DmsController extends Controller
         ];
         $filters['query'] = $request->query();
         return $filters;
+    }
+
+    /**
+     * @return array{types:\Illuminate\Support\Collection,tags:\Illuminate\Support\Collection,years:\Illuminate\Support\Collection}
+     */
+    private function cachedFilterCatalog(): array
+    {
+        return Cache::remember(
+            self::FILTER_CATALOG_CACHE_KEY,
+            now()->addMinutes(5),
+            static fn (): array => [
+                'types' => DmsDocument::query()->select('type')->distinct()->orderBy('type')->pluck('type'),
+                'tags' => DmsDocument::query()->select('tag')->distinct()->orderBy('tag')->pluck('tag'),
+                'years' => DmsDocument::query()->select('year')->distinct()->orderByDesc('year')->pluck('year'),
+            ]
+        );
+    }
+
+    /**
+     * @return array{active:int,archive:int,trash:int}
+     */
+    private function cachedCounts(): array
+    {
+        return Cache::remember(
+            self::COUNTS_CACHE_KEY,
+            now()->addMinute(),
+            static fn (): array => [
+                'active' => DmsDocument::where('status', 'Aktif')->count(),
+                'archive' => DmsDocument::where('status', 'Arsip')->count(),
+                'trash' => DmsDocument::onlyTrashed()->count(),
+            ]
+        );
+    }
+
+    private function forgetListingCaches(): void
+    {
+        Cache::forget(self::FILTER_CATALOG_CACHE_KEY);
+        Cache::forget(self::COUNTS_CACHE_KEY);
     }
 }
