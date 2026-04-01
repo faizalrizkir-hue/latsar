@@ -59,10 +59,11 @@ class NotificationController extends Controller
         $scopeSlug = trim((string) $request->input('scope', $request->query('scope', '')));
         $sessionUser = (array) Session::get('user', []);
         $username = trim((string) ($sessionUser['username'] ?? ''));
+        $notifications = Notification::feedForUser($sessionUser, $scopeSlug, 50)->values();
+        $readMapOverride = null;
 
-        if ($username !== '' && Schema::hasTable('notification_reads')) {
-            $notificationIds = Notification::queryForUser($sessionUser, $scopeSlug)
-                ->limit(50)
+        if ($username !== '' && Schema::hasTable('notification_reads') && $notifications->isNotEmpty()) {
+            $notificationIds = $notifications
                 ->pluck('id')
                 ->map(fn ($id) => (int) $id)
                 ->filter(fn (int $id) => $id > 0)
@@ -87,21 +88,38 @@ class NotificationController extends Controller
                     ['notification_id', 'username'],
                     ['read_at', 'updated_at']
                 );
+
+                $readMapOverride = collect($notificationIds)
+                    ->flip()
+                    ->all();
             }
         }
 
-        return response()->json($this->buildFeedPayload($sessionUser, $scopeSlug));
+        return response()->json(
+            $this->buildFeedPayloadFromNotifications($sessionUser, $notifications, $readMapOverride)
+        );
     }
 
     private function buildFeedPayload(array $sessionUser, string $scopeSlug): array
     {
         $notifications = Notification::feedForUser($sessionUser, $scopeSlug, 50)->values();
+        return $this->buildFeedPayloadFromNotifications($sessionUser, $notifications);
+    }
+
+    /**
+     * @param array<int, mixed>|null $readMapOverride
+     */
+    private function buildFeedPayloadFromNotifications(
+        array $sessionUser,
+        Collection $notifications,
+        ?array $readMapOverride = null
+    ): array {
         $latestNotification = $notifications->first();
         $signature = $latestNotification
             ? trim((string) (($latestNotification->id ?? '0').'|'.($latestNotification->created_at?->timestamp ?? 0)))
             : '';
 
-        $readMap = $this->readMapForUser($sessionUser, $notifications);
+        $readMap = $readMapOverride ?? $this->readMapForUser($sessionUser, $notifications);
         $unreadCount = $notifications
             ->filter(fn (Notification $notification) => !isset($readMap[(int) ($notification->id ?? 0)]))
             ->count();

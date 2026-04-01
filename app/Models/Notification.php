@@ -17,10 +17,6 @@ class Notification extends Model
 
     private static array $columnExistsCache = [];
 
-    protected $with = [
-        'coordinatorAccount',
-    ];
-
     protected $fillable = [
         'element_slug',
         'subtopic_slug',
@@ -38,7 +34,8 @@ class Notification extends Model
 
     public function coordinatorAccount(): BelongsTo
     {
-        return $this->belongsTo(Account::class, 'coordinator_username', 'username');
+        return $this->belongsTo(Account::class, 'coordinator_username', 'username')
+            ->select(['username', 'display_name', 'profile_photo', 'role']);
     }
 
     public static function queryForUser(array $sessionUser, ?string $scopeSlug = null): Builder
@@ -107,7 +104,29 @@ class Notification extends Model
     public static function feedForUser(array $sessionUser, ?string $scopeSlug = null, int $limit = 50): Collection
     {
         $limit = max(1, min(100, (int) $limit));
-        return self::queryForUser($sessionUser, $scopeSlug)->limit($limit)->get();
+        $feedColumns = collect([
+            'id',
+            'element_slug',
+            'subtopic_slug',
+            'subtopic_title',
+            'statement',
+            'coordinator_name',
+            'coordinator_username',
+            'created_at',
+        ])
+            ->filter(fn (string $column): bool => self::hasColumn($column))
+            ->values()
+            ->all();
+
+        if ($feedColumns === []) {
+            return collect();
+        }
+
+        return self::queryForUser($sessionUser, $scopeSlug)
+            ->select($feedColumns)
+            ->with(['coordinatorAccount'])
+            ->limit($limit)
+            ->get();
     }
 
     public static function createScoped(array $attributes): ?self
