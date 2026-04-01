@@ -1,7 +1,46 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ENV_FILE="${1:-.env}"
+ENV_FILE=".env"
+REQUIRE_REALTIME=1
+
+print_usage() {
+  cat <<'USAGE'
+Usage:
+  bash scripts/deploy/preflight.sh [ENV_FILE] [--skip-realtime]
+
+Options:
+  --skip-realtime  Lewati validasi kredensial Reverb (untuk hosting tanpa websocket).
+  -h, --help       Tampilkan bantuan.
+USAGE
+}
+
+env_file_set=0
+for arg in "$@"; do
+  case "$arg" in
+    --skip-realtime)
+      REQUIRE_REALTIME=0
+      ;;
+    -h|--help)
+      print_usage
+      exit 0
+      ;;
+    --*)
+      echo "ERROR: opsi tidak dikenal: $arg"
+      print_usage
+      exit 1
+      ;;
+    *)
+      if [[ $env_file_set -eq 1 ]]; then
+        echo "ERROR: hanya boleh satu ENV_FILE."
+        print_usage
+        exit 1
+      fi
+      ENV_FILE="$arg"
+      env_file_set=1
+      ;;
+  esac
+done
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "ERROR: file '$ENV_FILE' tidak ditemukan."
@@ -61,6 +100,11 @@ warn_if_not_equals() {
 
 echo "== LATSAR production preflight =="
 echo "ENV file: ${ENV_FILE}"
+if [[ $REQUIRE_REALTIME -eq 1 ]]; then
+  echo "Mode: realtime required"
+else
+  echo "Mode: realtime optional (--skip-realtime)"
+fi
 
 require_equals "APP_ENV" "production"
 require_equals "APP_DEBUG" "false"
@@ -71,12 +115,15 @@ require_not_empty "DB_HOST"
 require_not_empty "DB_PORT"
 require_not_empty "DB_DATABASE"
 require_not_empty "DB_USERNAME"
-require_not_empty "REVERB_APP_ID"
-require_not_empty "REVERB_APP_KEY"
-require_not_empty "REVERB_APP_SECRET"
-require_not_empty "REVERB_HOST"
-require_not_empty "REVERB_PORT"
-require_not_empty "REVERB_SCHEME"
+
+if [[ $REQUIRE_REALTIME -eq 1 ]]; then
+  require_not_empty "REVERB_APP_ID"
+  require_not_empty "REVERB_APP_KEY"
+  require_not_empty "REVERB_APP_SECRET"
+  require_not_empty "REVERB_HOST"
+  require_not_empty "REVERB_PORT"
+  require_not_empty "REVERB_SCHEME"
+fi
 
 app_url="$(get_env_value "APP_URL")"
 if [[ -n "$app_url" && ! "$app_url" =~ ^https:// ]]; then
@@ -85,7 +132,16 @@ if [[ -n "$app_url" && ! "$app_url" =~ ^https:// ]]; then
 fi
 
 warn_if_not_equals "SESSION_SECURE_COOKIE" "true"
-warn_if_not_equals "BROADCAST_CONNECTION" "reverb"
+
+if [[ $REQUIRE_REALTIME -eq 1 ]]; then
+  warn_if_not_equals "BROADCAST_CONNECTION" "reverb"
+else
+  current_broadcast="$(get_env_value "BROADCAST_CONNECTION")"
+  if [[ "$current_broadcast" == "reverb" ]]; then
+    echo "WARN: mode --skip-realtime aktif tetapi BROADCAST_CONNECTION masih 'reverb'."
+    warnings=$((warnings + 1))
+  fi
+fi
 
 echo
 if [[ $errors -gt 0 ]]; then

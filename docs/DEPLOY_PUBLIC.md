@@ -48,6 +48,16 @@ bash scripts/deploy/preflight.sh .env
 .\scripts\deploy\preflight.ps1 -EnvFile .env
 ```
 
+Untuk hosting tanpa websocket (realtime dibatasi), gunakan mode optional:
+
+```bash
+bash scripts/deploy/preflight.sh .env --skip-realtime
+```
+
+```powershell
+.\scripts\deploy\preflight.ps1 -EnvFile .env -SkipRealtime
+```
+
 ## 4) First Deploy (Server)
 
 Jalankan dari root project:
@@ -171,3 +181,9 @@ Uji manual minimal:
 4. Restart service queue + reverb.
 
 Jika migrasi tidak backward-compatible, siapkan backup DB sebelum deploy dan gunakan prosedur restore DB.
+
+## 9) Untuk Subdomain Pemerintah
+
+Jika deploy ke subdomain pemerintah (`*.jakarta.go.id`), pakai checklist khusus:
+
+- `docs/GOV_HOSTING_SUBDOMAIN_CHECKLIST.md`

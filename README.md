@@ -105,6 +105,7 @@ Important:
 Panduan deploy publik (domain + SSL + queue/reverb + rollback) ada di:
 
 - `docs/DEPLOY_PUBLIC.md`
+- `docs/GOV_HOSTING_SUBDOMAIN_CHECKLIST.md` (khusus deployment subdomain pemerintah)
 
 Template environment production:
 
@@ -118,6 +119,16 @@ bash scripts/deploy/preflight.sh .env
 
 ```powershell
 .\scripts\deploy\preflight.ps1 -EnvFile .env
+```
+
+Jika hosting tidak mengizinkan websocket/realtime:
+
+```bash
+bash scripts/deploy/preflight.sh .env --skip-realtime
+```
+
+```powershell
+.\scripts\deploy\preflight.ps1 -EnvFile .env -SkipRealtime
 ```
 
 ## About Laravel

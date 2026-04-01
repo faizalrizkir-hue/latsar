@@ -1,5 +1,6 @@
 param(
-    [string]$EnvFile = ".env"
+    [string]$EnvFile = ".env",
+    [switch]$SkipRealtime
 )
 
 $ErrorActionPreference = "Stop"
@@ -102,6 +103,11 @@ function Warn-IfNotEquals {
 
 Write-Host "== LATSAR production preflight =="
 Write-Host "ENV file: $EnvFile"
+if ($SkipRealtime.IsPresent) {
+    Write-Host "Mode: realtime optional (-SkipRealtime)"
+} else {
+    Write-Host "Mode: realtime required"
+}
 
 Require-Equals -Key "APP_ENV" -Expected "production"
 Require-Equals -Key "APP_DEBUG" -Expected "false"
@@ -112,12 +118,15 @@ Require-NotEmpty -Key "DB_HOST"
 Require-NotEmpty -Key "DB_PORT"
 Require-NotEmpty -Key "DB_DATABASE"
 Require-NotEmpty -Key "DB_USERNAME"
-Require-NotEmpty -Key "REVERB_APP_ID"
-Require-NotEmpty -Key "REVERB_APP_KEY"
-Require-NotEmpty -Key "REVERB_APP_SECRET"
-Require-NotEmpty -Key "REVERB_HOST"
-Require-NotEmpty -Key "REVERB_PORT"
-Require-NotEmpty -Key "REVERB_SCHEME"
+
+if (-not $SkipRealtime.IsPresent) {
+    Require-NotEmpty -Key "REVERB_APP_ID"
+    Require-NotEmpty -Key "REVERB_APP_KEY"
+    Require-NotEmpty -Key "REVERB_APP_SECRET"
+    Require-NotEmpty -Key "REVERB_HOST"
+    Require-NotEmpty -Key "REVERB_PORT"
+    Require-NotEmpty -Key "REVERB_SCHEME"
+}
 
 $appUrl = Get-EnvValue -Key "APP_URL"
 if (-not [string]::IsNullOrWhiteSpace($appUrl) -and -not $appUrl.StartsWith("https://")) {
@@ -125,7 +134,14 @@ if (-not [string]::IsNullOrWhiteSpace($appUrl) -and -not $appUrl.StartsWith("htt
 }
 
 Warn-IfNotEquals -Key "SESSION_SECURE_COOKIE" -Expected "true"
-Warn-IfNotEquals -Key "BROADCAST_CONNECTION" -Expected "reverb"
+if (-not $SkipRealtime.IsPresent) {
+    Warn-IfNotEquals -Key "BROADCAST_CONNECTION" -Expected "reverb"
+} else {
+    $broadcastConnection = Get-EnvValue -Key "BROADCAST_CONNECTION"
+    if ($broadcastConnection -eq "reverb") {
+        Add-WarningMessage "mode -SkipRealtime aktif tetapi BROADCAST_CONNECTION masih 'reverb'."
+    }
+}
 
 Write-Host ""
 if ($errors -gt 0) {
