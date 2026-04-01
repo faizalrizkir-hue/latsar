@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Account;
 use App\Models\ElementTeamAssignment;
 use App\Models\Notification;
+use App\Support\DashboardNavNormalizer;
 use Illuminate\Support\Str;
 use Illuminate\Support\ViewErrorBag;
 
@@ -268,10 +269,11 @@ class DashboardShellDataBuilder
             $navElements = $fallbackElements;
         }
 
-        $maxSubtopicCount = max(1, (int) $navElements->max(fn ($item) => collect((array) ($item['subtopics'] ?? []))->count()));
+        $navElements = DashboardNavNormalizer::sanitize($navElements);
+        $maxSubtopicCount = max(1, (int) $navElements->max(fn ($item) => collect($item['subtopics'] ?? [])->count()));
         $navElements = $navElements
             ->map(function (array $item) use ($maxSubtopicCount): array {
-                $subtopicCount = collect((array) ($item['subtopics'] ?? []))->count();
+                $subtopicCount = collect($item['subtopics'] ?? [])->count();
                 $coveragePercent = (int) round(($subtopicCount / $maxSubtopicCount) * 100);
 
                 $item['subtopic_count'] = $subtopicCount;

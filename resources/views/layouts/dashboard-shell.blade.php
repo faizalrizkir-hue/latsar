@@ -26,22 +26,7 @@
     use Illuminate\Support\Str;
 
     $rawNavElements = $navElements ?? [];
-    $navElementsSource = is_iterable($rawNavElements)
-        ? collect($rawNavElements)
-        : collect();
-    $navElementsHasValidSlug = $navElementsSource->contains(
-        fn ($item) => is_array($item) && trim((string) ($item['slug'] ?? '')) !== ''
-    );
-    $navElementsHasValidSubtopic = $navElementsSource->contains(function ($item): bool {
-        if (!is_array($item) || !is_iterable($item['subtopics'] ?? null)) {
-            return false;
-        }
-
-        return collect($item['subtopics'])->contains(
-            fn ($subtopic) => is_array($subtopic) && trim((string) ($subtopic['slug'] ?? '')) !== ''
-        );
-    });
-    $navElementsShapeReady = $navElementsHasValidSlug && $navElementsHasValidSubtopic;
+    $navElementsShapeReady = \App\Support\DashboardNavNormalizer::hasRenderable($rawNavElements);
 
     $layoutDataReady = isset(
         $navElements,
@@ -68,80 +53,7 @@
     $notificationCount = (int) ($notificationCount ?? $notificationItems->count());
     $notificationUnreadCount = (int) ($notificationUnreadCount ?? $notificationCount);
     $notificationRealtimeChannels = array_values(array_filter((array) ($notificationRealtimeChannels ?? [])));
-    $navElements = $navElementsSource
-        ->map(function ($item) {
-            if (!is_array($item)) {
-                return null;
-            }
-
-            $slug = trim((string) ($item['slug'] ?? ''));
-            if ($slug === '') {
-                return null;
-            }
-
-            $elementTitle = trim((string) ($item['title'] ?? ''));
-            if ($elementTitle === '') {
-                $elementTitle = Str::headline($slug);
-            }
-
-            $navTitle = trim((string) ($item['nav_title'] ?? ''));
-            if ($navTitle === '') {
-                $navTitle = $elementTitle;
-            }
-
-            $iconLabel = trim((string) ($item['icon_label'] ?? ''));
-            if ($iconLabel === '' && preg_match('/^element(\d+)$/i', $slug, $matches)) {
-                $iconLabel = (string) ($matches[1] ?? 'E');
-            }
-            if ($iconLabel === '') {
-                $iconLabel = 'E';
-            }
-
-            $coveragePercent = (int) ($item['coverage_percent'] ?? 0);
-            if ($coveragePercent > 0) {
-                $coveragePercent = max(8, $coveragePercent);
-            }
-            $coveragePercent = min(100, $coveragePercent);
-
-            $subtopics = collect($item['subtopics'] ?? [])
-                ->map(function ($subtopic) {
-                    if (is_object($subtopic) && method_exists($subtopic, 'toArray')) {
-                        $subtopic = $subtopic->toArray();
-                    }
-                    if (!is_array($subtopic)) {
-                        return null;
-                    }
-
-                    $subtopicSlug = trim((string) ($subtopic['slug'] ?? ''));
-                    if ($subtopicSlug === '') {
-                        return null;
-                    }
-
-                    $subtopicTitle = trim((string) ($subtopic['title'] ?? ''));
-                    if ($subtopicTitle === '') {
-                        $subtopicTitle = Str::headline(str_replace('_', ' ', $subtopicSlug));
-                    }
-
-                    return [
-                        'slug' => $subtopicSlug,
-                        'title' => $subtopicTitle,
-                    ];
-                })
-                ->filter(fn ($subtopic) => is_array($subtopic))
-                ->values()
-                ->all();
-
-            return [
-                'slug' => $slug,
-                'title' => $elementTitle,
-                'nav_title' => $navTitle,
-                'icon_label' => Str::upper($iconLabel),
-                'coverage_percent' => $coveragePercent,
-                'subtopics' => $subtopics,
-            ];
-        })
-        ->filter(fn ($item) => is_array($item))
-        ->values();
+    $navElements = \App\Support\DashboardNavNormalizer::sanitize($navElements ?? []);
     $headnavCrumbs = collect((array) ($headnavCrumbs ?? []))->filter(fn ($item) => is_array($item))->values()->all();
     $toastQueue = array_values((array) ($toastQueue ?? []));
     $idleTimeoutMs = max(60_000, (int) ($idleTimeoutMs ?? (int) config('session.idle_timeout', 60) * 60 * 1000));
