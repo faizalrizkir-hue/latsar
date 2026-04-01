@@ -9,10 +9,16 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
+    private const LOGIN_MAX_ATTEMPTS = 5;
+
+    private const LOGIN_DECAY_SECONDS = 60;
+
     private ?string $lastRecaptchaError = null;
 
     public function showLoginForm()
@@ -22,15 +28,22 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
+        $throttleKey = $this->loginThrottleKey($request);
+        if (RateLimiter::tooManyAttempts($throttleKey, self::LOGIN_MAX_ATTEMPTS)) {
+            return $this->buildLoginThrottleResponse($request, RateLimiter::availableIn($throttleKey));
+        }
+
         $recaptchaSecret = (string) config('services.recaptcha.secret_key');
         $recaptchaSkipOnLocal = app()->environment('local') && (bool) config('services.recaptcha.skip_on_local', true);
         if ($recaptchaSecret !== '' && !$recaptchaSkipOnLocal) {
             $recaptchaToken = trim((string) $request->input('g-recaptcha-response', ''));
             if ($recaptchaToken === '') {
+                RateLimiter::hit($throttleKey, self::LOGIN_DECAY_SECONDS);
                 return $this->buildLoginErrorResponse($request, 'Verifikasi reCAPTCHA wajib diisi.');
             }
 
             if (!$this->verifyRecaptchaToken($recaptchaToken, $request->ip())) {
+                RateLimiter::hit($throttleKey, self::LOGIN_DECAY_SECONDS);
                 Log::warning('Login blocked by reCAPTCHA verification', [
                     'ip' => $request->ip(),
                     'username' => (string) $request->input('username', ''),
@@ -58,9 +71,11 @@ class AuthController extends Controller
         $isValid = $user && (Hash::check($credentials['password'], $user->password_hash) || hash_equals($user->password_hash, $credentials['password']));
 
         if (!$isValid) {
+            RateLimiter::hit($throttleKey, self::LOGIN_DECAY_SECONDS);
             return $this->buildLoginErrorResponse($request, 'Username atau password salah atau akun tidak aktif.');
         }
 
+        RateLimiter::clear($throttleKey);
         Session::put('user', [
             'id' => $user->id,
             'username' => $user->username,
@@ -117,6 +132,30 @@ class AuthController extends Controller
         }
 
         return back()->withErrors(['login' => $message])->withInput();
+    }
+
+    private function buildLoginThrottleResponse(Request $request, int $availableInSeconds)
+    {
+        $retrySeconds = max(1, $availableInSeconds);
+        $message = 'Terlalu banyak percobaan login. Coba lagi dalam '.$retrySeconds.' detik.';
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'ok' => false,
+                'message' => $message,
+                'retry_after' => $retrySeconds,
+            ], 429);
+        }
+
+        return back()->withErrors(['login' => $message])->withInput();
+    }
+
+    private function loginThrottleKey(Request $request): string
+    {
+        $username = Str::lower(trim((string) $request->input('username', '')));
+        $ip = trim((string) $request->ip());
+
+        return 'login:'.sha1($username.'|'.$ip);
     }
 
     private function verifyRecaptchaToken(string $token, ?string $ip): bool

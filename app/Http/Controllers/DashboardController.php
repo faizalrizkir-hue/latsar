@@ -17,6 +17,10 @@ use Illuminate\Support\Str;
 
 class DashboardController extends Controller
 {
+    private array $schemaTableExists = [];
+
+    private array $schemaColumnExists = [];
+
     public function __construct(
         private readonly ElementPreferenceService $elementPreferenceService
     ) {
@@ -298,13 +302,13 @@ class DashboardController extends Controller
         /** @var Model $model */
         $model = new $modelClass();
         $table = $model->getTable();
-        if (!Schema::hasTable($table)) {
+        if (!$this->hasTableCached($table)) {
             return null;
         }
 
         $weights = (array) ($moduleConfig['weights'] ?? []);
-        $supportsQaVerification = Schema::hasColumn($table, 'qa_verified')
-            && Schema::hasColumn($table, 'qa_level_validation_state');
+        $supportsQaVerification = $this->hasColumnCached($table, 'qa_verified')
+            && $this->hasColumnCached($table, 'qa_level_validation_state');
         $selectColumns = ['id', 'level', 'skor', 'verified'];
         if ($supportsQaVerification) {
             $selectColumns[] = 'qa_verified';
@@ -696,5 +700,41 @@ class DashboardController extends Controller
         }
 
         return (int) $validatedLevels->max();
+    }
+
+    private function hasTableCached(string $table): bool
+    {
+        $normalizedTable = trim($table);
+        if ($normalizedTable === '') {
+            return false;
+        }
+
+        if (array_key_exists($normalizedTable, $this->schemaTableExists)) {
+            return $this->schemaTableExists[$normalizedTable];
+        }
+
+        $exists = Schema::hasTable($normalizedTable);
+        $this->schemaTableExists[$normalizedTable] = $exists;
+
+        return $exists;
+    }
+
+    private function hasColumnCached(string $table, string $column): bool
+    {
+        $normalizedTable = trim($table);
+        $normalizedColumn = trim($column);
+        if ($normalizedTable === '' || $normalizedColumn === '') {
+            return false;
+        }
+
+        $cacheKey = $normalizedTable.'::'.$normalizedColumn;
+        if (array_key_exists($cacheKey, $this->schemaColumnExists)) {
+            return $this->schemaColumnExists[$cacheKey];
+        }
+
+        $exists = $this->hasTableCached($normalizedTable) && Schema::hasColumn($normalizedTable, $normalizedColumn);
+        $this->schemaColumnExists[$cacheKey] = $exists;
+
+        return $exists;
     }
 }

@@ -7,6 +7,7 @@ use App\Models\DmsDocument;
 use App\Models\DmsFile;
 use App\Models\Notification;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Storage;
@@ -26,21 +27,7 @@ class DmsController extends Controller
         $filters = $this->buildFilters($request);
         $counts = $this->cachedCounts();
         $catalog = $this->cachedFilterCatalog();
-
-        $typeOptions = [
-            'Manajemen Pengawasan' => [
-                'Surat Tugas',
-                'Laporan Hasil Pengawasan (LHP)',
-                'Program Kerja Pengawasan Tahunan (PKPT)',
-                'Tanda Bukti',
-                'Telaah Sejawat',
-            ],
-            'Sumber Daya Manusia' => ['Dokumen SDM'],
-            'Keuangan' => ['Dokumen Keuangan'],
-            'Pemanfaatan Sistem Informasi (SI)' => ['Dokumen Sistem Informasi (SI)'],
-            'Pedoman/Kebijakan' => ['Dokumen Pedoman/Kebijakan'],
-            'Lainnya' => ['Dokumen Lainnya'],
-        ];
+        $typeOptions = $this->dmsTypeOptions();
 
         return view('dms.index', [
             'filters' => $filters,
@@ -57,20 +44,7 @@ class DmsController extends Controller
 
     public function create()
     {
-        $typeOptions = [
-            'Manajemen Pengawasan' => [
-                'Surat Tugas',
-                'Laporan Hasil Pengawasan (LHP)',
-                'Program Kerja Pengawasan Tahunan (PKPT)',
-                'Tanda Bukti',
-                'Telaah Sejawat',
-            ],
-            'Sumber Daya Manusia' => ['Dokumen SDM'],
-            'Keuangan' => ['Dokumen Keuangan'],
-            'Pemanfaatan Sistem Informasi (SI)' => ['Dokumen Sistem Informasi (SI)'],
-            'Pedoman/Kebijakan' => ['Dokumen Pedoman/Kebijakan'],
-            'Lainnya' => ['Dokumen Lainnya'],
-        ];
+        $typeOptions = $this->dmsTypeOptions();
 
         return view('dms.upload', [
             'notifications' => Notification::feedForUser((array) Session::get('user', []), null, 50),
@@ -83,6 +57,7 @@ class DmsController extends Controller
 
     public function store(Request $request)
     {
+        $maxUploadKilobytes = $this->maxUploadKilobytes();
         $data = $request->validate([
             'title' => 'required|string|max:200',
             'year' => 'required|integer|min:2000|max:' . (date('Y') + 1),
@@ -93,7 +68,7 @@ class DmsController extends Controller
             'name' => 'required|array|min:1',
             'name.*' => 'required|string|max:200',
             'files' => 'required|array|min:1',
-            'files.*' => 'required|file|max:5120', // 5MB
+            'files.*' => ['required', 'file', 'max:'.$maxUploadKilobytes, $this->secureUploadRule()],
         ]);
 
         $uploader = Session::get('user')['display_name'] ?? (Session::get('user')['username'] ?? null);
@@ -125,7 +100,7 @@ class DmsController extends Controller
             $document->files()->create([
                 'doc_no' => $docNo,
                 'doc_name' => $names[$idx] ?? '',
-                'file_name' => $file->getClientOriginalName(),
+                'file_name' => $this->normalizedOriginalFileName($file),
                 'file_path' => $path,
                 'file_size' => $file->getSize(),
                 'size_bytes' => $file->getSize(),
@@ -142,20 +117,7 @@ class DmsController extends Controller
     public function edit(int $id)
     {
         $document = DmsDocument::with(['files'])->withTrashed()->findOrFail($id);
-        $typeOptions = [
-            'Manajemen Pengawasan' => [
-                'Surat Tugas',
-                'Laporan Hasil Pengawasan (LHP)',
-                'Program Kerja Pengawasan Tahunan (PKPT)',
-                'Tanda Bukti',
-                'Telaah Sejawat',
-            ],
-            'Sumber Daya Manusia' => ['Dokumen SDM'],
-            'Keuangan' => ['Dokumen Keuangan'],
-            'Pemanfaatan Sistem Informasi (SI)' => ['Dokumen Sistem Informasi (SI)'],
-            'Pedoman/Kebijakan' => ['Dokumen Pedoman/Kebijakan'],
-            'Lainnya' => ['Dokumen Lainnya'],
-        ];
+        $typeOptions = $this->dmsTypeOptions();
         $filesForEdit = $document->files->map(function ($f) {
             $path = $f->file_path;
             if (Str::startsWith($path, ['http://', 'https://', '/'])) {
@@ -189,6 +151,7 @@ class DmsController extends Controller
     public function update(Request $request, int $id)
     {
         $document = DmsDocument::withTrashed()->findOrFail($id);
+        $maxUploadKilobytes = $this->maxUploadKilobytes();
 
         $data = $request->validate([
             'year' => 'required|integer|min:2000|max:' . (date('Y') + 1),
@@ -196,7 +159,7 @@ class DmsController extends Controller
             'title' => 'required|string|max:200',
             'tag' => 'required|string|max:150',
             'files' => 'nullable|array',
-            'files.*' => 'file|max:5120',
+            'files.*' => ['file', 'max:'.$maxUploadKilobytes, $this->secureUploadRule()],
             'new_doc_no' => 'nullable|array',
             'new_doc_no.*' => 'nullable|string|max:100',
             'new_doc_name' => 'nullable|array',
@@ -206,7 +169,7 @@ class DmsController extends Controller
             'existing_doc_name' => 'nullable|array',
             'existing_doc_name.*' => 'nullable|string|max:200',
             'existing_file' => 'nullable|array',
-            'existing_file.*' => 'nullable|file|max:5120',
+            'existing_file.*' => ['nullable', 'file', 'max:'.$maxUploadKilobytes, $this->secureUploadRule()],
             'existing_delete' => 'nullable|array',
             'existing_delete.*' => 'in:1',
         ]);
@@ -292,8 +255,8 @@ class DmsController extends Controller
             $path = $file->store('dms', 'public');
             $document->files()->create([
                 'doc_no' => $docNos[$idx] ?? $document->doc_no,
-                'doc_name' => $docNames[$idx] ?? $file->getClientOriginalName(),
-                'file_name' => $file->getClientOriginalName(),
+                'doc_name' => $docNames[$idx] ?? $this->normalizedOriginalFileName($file),
+                'file_name' => $this->normalizedOriginalFileName($file),
                 'file_path' => $path,
                 'file_size' => $file->getSize(),
                 'size_bytes' => $file->getSize(),
@@ -336,7 +299,7 @@ class DmsController extends Controller
                 if ($file->file_path && Storage::disk($file->storage_driver ?? 'public')->exists($file->file_path)) {
                     Storage::disk($file->storage_driver ?? 'public')->delete($file->file_path);
                 }
-                $file->file_name = $uploaded->getClientOriginalName();
+                $file->file_name = $this->normalizedOriginalFileName($uploaded);
                 $file->file_path = $path;
                 $file->file_size = $uploaded->getSize();
                 $file->size_bytes = $uploaded->getSize();
@@ -347,6 +310,89 @@ class DmsController extends Controller
 
             $file->save();
         }
+    }
+
+    private function dmsTypeOptions(): array
+    {
+        $configured = (array) config('dms.type_options', []);
+        if ($configured !== []) {
+            return $configured;
+        }
+
+        return [
+            'Manajemen Pengawasan' => [
+                'Surat Tugas',
+                'Laporan Hasil Pengawasan (LHP)',
+                'Program Kerja Pengawasan Tahunan (PKPT)',
+                'Tanda Bukti',
+                'Telaah Sejawat',
+            ],
+            'Sumber Daya Manusia' => ['Dokumen SDM'],
+            'Keuangan' => ['Dokumen Keuangan'],
+            'Pemanfaatan Sistem Informasi (SI)' => ['Dokumen Sistem Informasi (SI)'],
+            'Pedoman/Kebijakan' => ['Dokumen Pedoman/Kebijakan'],
+            'Lainnya' => ['Dokumen Lainnya'],
+        ];
+    }
+
+    private function maxUploadKilobytes(): int
+    {
+        return max(256, (int) config('dms.upload.max_kilobytes', 5120));
+    }
+
+    private function secureUploadRule(): \Closure
+    {
+        $blockedExtensions = collect((array) config('dms.upload.blocked_extensions', []))
+            ->map(fn ($ext) => strtolower(trim((string) $ext)))
+            ->filter(fn ($ext) => $ext !== '')
+            ->values()
+            ->all();
+        $blockedMimePrefixes = collect((array) config('dms.upload.blocked_mime_prefixes', []))
+            ->map(fn ($mime) => strtolower(trim((string) $mime)))
+            ->filter(fn ($mime) => $mime !== '')
+            ->values()
+            ->all();
+
+        return function (string $attribute, mixed $value, \Closure $fail) use ($blockedExtensions, $blockedMimePrefixes): void {
+            if (!$value instanceof UploadedFile) {
+                return;
+            }
+
+            $extension = strtolower(trim((string) $value->getClientOriginalExtension()));
+            if ($extension !== '' && in_array($extension, $blockedExtensions, true)) {
+                $fail('Format berkas tidak diizinkan untuk alasan keamanan.');
+
+                return;
+            }
+
+            $mimeType = strtolower(trim((string) $value->getMimeType()));
+            if ($mimeType === '') {
+                return;
+            }
+
+            foreach ($blockedMimePrefixes as $blockedPrefix) {
+                if (Str::startsWith($mimeType, $blockedPrefix)) {
+                    $fail('Jenis berkas terdeteksi tidak aman.');
+
+                    return;
+                }
+            }
+        };
+    }
+
+    private function normalizedOriginalFileName(UploadedFile $file): string
+    {
+        $fileName = trim((string) $file->getClientOriginalName());
+        $fileName = str_replace('\\', '/', $fileName);
+        $fileName = basename($fileName);
+        $fileName = (string) preg_replace('/[\x00-\x1F\x7F]/u', '', $fileName);
+        $fileName = (string) preg_replace('/\s+/u', ' ', $fileName);
+        $fileName = trim($fileName);
+        if ($fileName === '') {
+            $fileName = 'berkas';
+        }
+
+        return Str::limit($fileName, 255, '');
     }
 
     private function buildFilters(Request $request): array

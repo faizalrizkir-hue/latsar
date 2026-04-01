@@ -48,7 +48,7 @@ class NotificationController extends Controller
 
     public function feed(Request $request): JsonResponse
     {
-        $scopeSlug = trim((string) $request->query('scope', ''));
+        $scopeSlug = $this->validatedScopeSlug($request, false);
         $sessionUser = (array) Session::get('user', []);
 
         return response()->json($this->buildFeedPayload($sessionUser, $scopeSlug));
@@ -56,7 +56,7 @@ class NotificationController extends Controller
 
     public function markRead(Request $request): JsonResponse
     {
-        $scopeSlug = trim((string) $request->input('scope', $request->query('scope', '')));
+        $scopeSlug = $this->validatedScopeSlug($request, true);
         $sessionUser = (array) Session::get('user', []);
         $username = trim((string) ($sessionUser['username'] ?? ''));
         $notifications = Notification::feedForUser($sessionUser, $scopeSlug, 50)->values();
@@ -305,5 +305,18 @@ class NotificationController extends Controller
         $compact = is_string($compact) && $compact !== '' ? $compact : $normalized;
 
         return Str::upper(Str::substr($compact, 0, 2));
+    }
+
+    private function validatedScopeSlug(Request $request, bool $preferInput = false): string
+    {
+        $scope = $preferInput
+            ? $request->input('scope', $request->query('scope', ''))
+            : $request->query('scope', '');
+        $validated = validator(
+            ['scope' => $scope],
+            ['scope' => ['nullable', 'string', 'max:100', 'regex:/^element\d+(?:_[a-z0-9_]+)?$/i']]
+        )->validate();
+
+        return trim((string) ($validated['scope'] ?? ''));
     }
 }

@@ -51,6 +51,10 @@ class ElementController extends Controller
 
     private ?array $cachedPageTitles = null;
 
+    private array $schemaTableExists = [];
+
+    private array $schemaColumnExists = [];
+
     private array $questionPresets = [
         'element1_kegiatan_asurans' => [
             1 => 'Ruang Lingkup dan Fokus',
@@ -452,7 +456,7 @@ class ElementController extends Controller
         }
 
         $table = (new $moduleModelClass())->getTable();
-        if (!Schema::hasTable($table)) {
+        if (!$this->hasTableCached($table)) {
             return array_merge($this->placeholderSubtopicSummary($slug), [
                 'code' => $subtopicCode,
                 'title' => $subtopicTitle,
@@ -598,7 +602,7 @@ class ElementController extends Controller
         }
 
         $moduleTable = (new $moduleModelClass())->getTable();
-        if (!Schema::hasTable($moduleTable)) {
+        if (!$this->hasTableCached($moduleTable)) {
             return redirect()
                 ->route('elements.show', Str::before($slug, '_'))
                 ->with('error', 'Tabel modul belum tersedia. Jalankan migrasi terlebih dahulu.');
@@ -689,7 +693,7 @@ class ElementController extends Controller
 
         $editLogs = collect();
         $editLogTable = (new $moduleEditLogModelClass())->getTable();
-        if (Schema::hasTable($editLogTable)) {
+        if ($this->hasTableCached($editLogTable)) {
             $editLogs = $moduleEditLogModelClass::query()
                 ->orderByDesc('created_at')
                 ->limit(120)
@@ -743,7 +747,7 @@ class ElementController extends Controller
         }
 
         $moduleTable = (new $moduleModelClass())->getTable();
-        if (!Schema::hasTable($moduleTable)) {
+        if (!$this->hasTableCached($moduleTable)) {
             return back()->withErrors('Tabel modul belum tersedia. Jalankan migrasi terlebih dahulu.');
         }
 
@@ -754,7 +758,8 @@ class ElementController extends Controller
         $row = $moduleModelClass::findOrFail($id);
         $canVerify = $this->canUserVerifySlug($user, $slug);
         $supportsQaVerification = $this->moduleSupportsQaVerification($moduleTable);
-        $supportsQaFollowUpRecommendation = $supportsQaVerification && Schema::hasColumn($moduleTable, 'qa_follow_up_recommendation');
+        $supportsQaFollowUpRecommendation = $supportsQaVerification
+            && $this->hasColumnCached($moduleTable, 'qa_follow_up_recommendation');
         $canQaVerify = $supportsQaVerification && $this->canUserQaVerifySlug($user, $slug);
         $userRole = strtolower(trim((string) ($user['role'] ?? '')));
         $isQaRole = $userRole === 'qa';
@@ -895,7 +900,7 @@ class ElementController extends Controller
 
             $row->save();
 
-            if (Schema::hasTable($moduleEditLogTable)) {
+            if ($this->hasTableCached($moduleEditLogTable)) {
                 $moduleEditLogModelClass::query()->create([
                     'row_id' => (int) $row->id,
                     'pernyataan' => (string) ($row->pernyataan ?? ''),
@@ -944,7 +949,7 @@ class ElementController extends Controller
             }
             $row->save();
 
-            if (Schema::hasTable($moduleEditLogTable)) {
+            if ($this->hasTableCached($moduleEditLogTable)) {
                 $moduleEditLogModelClass::query()->create([
                     'row_id' => (int) $row->id,
                     'pernyataan' => (string) ($row->pernyataan ?? ''),
@@ -1025,7 +1030,7 @@ class ElementController extends Controller
 
             $row->save();
 
-            if (Schema::hasTable($moduleEditLogTable)) {
+            if ($this->hasTableCached($moduleEditLogTable)) {
                 $moduleEditLogModelClass::query()->create([
                     'row_id' => (int) $row->id,
                     'pernyataan' => (string) ($row->pernyataan ?? ''),
@@ -1116,7 +1121,7 @@ class ElementController extends Controller
 
             $row->save();
 
-            if (Schema::hasTable($moduleEditLogTable)) {
+            if ($this->hasTableCached($moduleEditLogTable)) {
                 $moduleEditLogModelClass::query()->create([
                     'row_id' => (int) $row->id,
                     'pernyataan' => (string) ($row->pernyataan ?? ''),
@@ -1157,7 +1162,7 @@ class ElementController extends Controller
         }
 
         $table = (new $moduleModelClass())->getTable();
-        if (!Schema::hasTable($table)) {
+        if (!$this->hasTableCached($table)) {
             return;
         }
 
@@ -1479,7 +1484,7 @@ class ElementController extends Controller
             return false;
         }
 
-        if (!Schema::hasTable('element_team_assignments')) {
+        if (!$this->hasTableCached('element_team_assignments')) {
             return true;
         }
 
@@ -1509,12 +1514,12 @@ class ElementController extends Controller
 
     private function moduleSupportsQaVerification(string $moduleTable): bool
     {
-        if ($moduleTable === '' || !Schema::hasTable($moduleTable)) {
+        if ($moduleTable === '' || !$this->hasTableCached($moduleTable)) {
             return false;
         }
 
         foreach (['qa_verified', 'qa_verified_by', 'qa_verified_at', 'qa_verify_note', 'qa_level_validation_state'] as $column) {
-            if (!Schema::hasColumn($moduleTable, $column)) {
+            if (!$this->hasColumnCached($moduleTable, $column)) {
                 return false;
             }
         }
@@ -1562,6 +1567,42 @@ class ElementController extends Controller
         return (int) $validatedLevels->max();
     }
 
+    private function hasTableCached(string $table): bool
+    {
+        $normalizedTable = trim($table);
+        if ($normalizedTable === '') {
+            return false;
+        }
+
+        if (array_key_exists($normalizedTable, $this->schemaTableExists)) {
+            return $this->schemaTableExists[$normalizedTable];
+        }
+
+        $exists = Schema::hasTable($normalizedTable);
+        $this->schemaTableExists[$normalizedTable] = $exists;
+
+        return $exists;
+    }
+
+    private function hasColumnCached(string $table, string $column): bool
+    {
+        $normalizedTable = trim($table);
+        $normalizedColumn = trim($column);
+        if ($normalizedTable === '' || $normalizedColumn === '') {
+            return false;
+        }
+
+        $cacheKey = $normalizedTable.'::'.$normalizedColumn;
+        if (array_key_exists($cacheKey, $this->schemaColumnExists)) {
+            return $this->schemaColumnExists[$cacheKey];
+        }
+
+        $exists = $this->hasTableCached($normalizedTable) && Schema::hasColumn($normalizedTable, $normalizedColumn);
+        $this->schemaColumnExists[$cacheKey] = $exists;
+
+        return $exists;
+    }
+
     private function resetQaVerificationOnRow(object $row): void
     {
         $row->qa_verified = 0;
@@ -1571,7 +1612,7 @@ class ElementController extends Controller
         $row->qa_level_validation_state = null;
         if (method_exists($row, 'getTable')) {
             $table = (string) $row->getTable();
-            if ($table !== '' && Schema::hasTable($table) && Schema::hasColumn($table, 'qa_follow_up_recommendation')) {
+            if ($table !== '' && $this->hasTableCached($table) && $this->hasColumnCached($table, 'qa_follow_up_recommendation')) {
                 $row->qa_follow_up_recommendation = null;
             }
         }
@@ -1584,6 +1625,11 @@ class ElementController extends Controller
 
     private function dmsTypeOptions(): array
     {
+        $configured = (array) config('dms.type_options', []);
+        if ($configured !== []) {
+            return $configured;
+        }
+
         return [
             'Manajemen Pengawasan' => [
                 'Surat Tugas',
