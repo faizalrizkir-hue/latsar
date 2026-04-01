@@ -6,6 +6,7 @@ use App\Models\Account;
 use App\Models\ElementTeamAssignment;
 use App\Models\Notification;
 use App\Support\DashboardNavNormalizer;
+use App\Support\DashboardShellPayloadNormalizer;
 use Illuminate\Support\Str;
 use Illuminate\Support\ViewErrorBag;
 
@@ -29,12 +30,25 @@ class DashboardShellDataBuilder
         $notificationItems = isset($notifications)
             ? collect($notifications)
             : Notification::feedForUser($sessionUser, $notificationScopeSlug, 50);
+        $notificationItems = DashboardShellPayloadNormalizer::sanitizeNotificationItems($notificationItems);
 
         $notificationCount = $notificationItems->count();
         $notificationUnreadCount = $notificationCount;
         $latestNotification = $notificationCount > 0 ? $notificationItems->first() : null;
+        $latestNotificationId = trim((string) data_get($latestNotification, 'id', '0'));
+        $latestNotificationTimestamp = 0;
+        $latestNotificationCreatedAt = data_get($latestNotification, 'created_at');
+        if ($latestNotificationCreatedAt instanceof \DateTimeInterface) {
+            $latestNotificationTimestamp = $latestNotificationCreatedAt->getTimestamp();
+        } elseif (is_string($latestNotificationCreatedAt) && trim($latestNotificationCreatedAt) !== '') {
+            try {
+                $latestNotificationTimestamp = (int) \Illuminate\Support\Carbon::parse($latestNotificationCreatedAt)->timestamp;
+            } catch (\Throwable $e) {
+                $latestNotificationTimestamp = 0;
+            }
+        }
         $latestNotificationSignature = $latestNotification
-            ? trim((string) (($latestNotification->id ?? '0').'|'.($latestNotification->created_at?->timestamp ?? 0)))
+            ? trim($latestNotificationId.'|'.$latestNotificationTimestamp)
             : '';
 
         $notificationFeedUrl = route('notifications.feed');
@@ -75,7 +89,7 @@ class DashboardShellDataBuilder
                 $notificationRealtimeChannels[] = 'private-notifications.all';
             }
         }
-        $notificationRealtimeChannels = array_values(array_unique(array_filter($notificationRealtimeChannels)));
+        $notificationRealtimeChannels = DashboardShellPayloadNormalizer::sanitizeNotificationRealtimeChannels($notificationRealtimeChannels);
 
         $photoPath = $sessionUser['profile_photo'] ?? '';
         $photoUrl = '';
@@ -454,22 +468,7 @@ class DashboardShellDataBuilder
             $pushHeadnavCrumb($headnavCrumbs, $defaultHeadnavTitle);
         }
 
-        $headnavCrumbs = collect($headnavCrumbs)
-            ->map(function (array $crumb): array {
-                $crumb['label'] = trim((string) ($crumb['label'] ?? ''));
-                $crumb['url'] = ($crumb['url'] ?? null) ? trim((string) $crumb['url']) : null;
-                $crumb['is_current'] = false;
-
-                return $crumb;
-            })
-            ->filter(fn (array $crumb) => $crumb['label'] !== '')
-            ->values()
-            ->all();
-        $headnavCrumbCount = count($headnavCrumbs);
-        if ($headnavCrumbCount > 0) {
-            $headnavCrumbs[$headnavCrumbCount - 1]['is_current'] = true;
-            $headnavCrumbs[$headnavCrumbCount - 1]['url'] = null;
-        }
+        $headnavCrumbs = DashboardShellPayloadNormalizer::sanitizeHeadnavCrumbs($headnavCrumbs);
 
         $headnavTitle = implode(' / ', collect($headnavCrumbs)
             ->map(fn ($crumb) => trim((string) ($crumb['label'] ?? '')))
@@ -496,6 +495,7 @@ class DashboardShellDataBuilder
         if ($errors->any()) {
             $toastQueue[] = ['type' => 'error', 'title' => 'Periksa lagi', 'message' => $errors->first()];
         }
+        $toastQueue = DashboardShellPayloadNormalizer::sanitizeToastQueue($toastQueue);
 
         $idleTimeoutMinutes = max(1, (int) config('session.idle_timeout', 60));
         $idleTimeoutMs = $idleTimeoutMinutes * 60 * 1000;

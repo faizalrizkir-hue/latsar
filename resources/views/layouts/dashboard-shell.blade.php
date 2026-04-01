@@ -27,6 +27,7 @@
 
     $rawNavElements = $navElements ?? [];
     $navElementsShapeReady = \App\Support\DashboardNavNormalizer::hasRenderable($rawNavElements);
+    $headnavCrumbsShapeReady = \App\Support\DashboardShellPayloadNormalizer::hasRenderableHeadnavCrumbs($headnavCrumbs ?? []);
 
     $layoutDataReady = isset(
         $navElements,
@@ -37,7 +38,7 @@
         $toastQueue,
         $idleTimeoutMs,
         $notificationRealtimeChannels
-    ) && $navElementsShapeReady;
+    ) && $navElementsShapeReady && $headnavCrumbsShapeReady;
 
     if (!$layoutDataReady) {
         $fallbackLayoutData = app(\App\Services\DashboardShellDataBuilder::class)->build(get_defined_vars());
@@ -49,13 +50,15 @@
     }
 
     $sessionUser = is_array($sessionUser ?? null) ? $sessionUser : (is_array($user ?? null) ? $user : []);
-    $notificationItems = isset($notificationItems) ? collect($notificationItems) : collect();
+    $notificationItems = \App\Support\DashboardShellPayloadNormalizer::sanitizeNotificationItems($notificationItems ?? []);
     $notificationCount = (int) ($notificationCount ?? $notificationItems->count());
+    $notificationCount = max(0, $notificationCount);
     $notificationUnreadCount = (int) ($notificationUnreadCount ?? $notificationCount);
-    $notificationRealtimeChannels = array_values(array_filter((array) ($notificationRealtimeChannels ?? [])));
+    $notificationUnreadCount = max(0, min($notificationCount, $notificationUnreadCount));
+    $notificationRealtimeChannels = \App\Support\DashboardShellPayloadNormalizer::sanitizeNotificationRealtimeChannels($notificationRealtimeChannels ?? []);
     $navElements = \App\Support\DashboardNavNormalizer::sanitize($navElements ?? []);
-    $headnavCrumbs = collect((array) ($headnavCrumbs ?? []))->filter(fn ($item) => is_array($item))->values()->all();
-    $toastQueue = array_values((array) ($toastQueue ?? []));
+    $headnavCrumbs = \App\Support\DashboardShellPayloadNormalizer::sanitizeHeadnavCrumbs($headnavCrumbs ?? []);
+    $toastQueue = \App\Support\DashboardShellPayloadNormalizer::sanitizeToastQueue($toastQueue ?? []);
     $idleTimeoutMs = max(60_000, (int) ($idleTimeoutMs ?? (int) config('session.idle_timeout', 60) * 60 * 1000));
 @endphp
 <body class="legacy-page">
@@ -207,11 +210,11 @@
                         <div class="notify-list" id="notifyList">
                             @forelse($notificationItems as $notifIndex => $notif)
                                 @php
-                                    $notifyActorName = trim((string) ($notif->coordinator_name ?: ($notif->coordinatorAccount?->display_name ?? $notif->coordinator_username ?? 'Pengguna')));
-                                    $notifyActorRole = trim((string) ($notif->coordinator_role_label ?? 'Pengguna'));
-                                    $notifyActorPhotoUrl = $resolvePhotoUrl($notif->coordinatorAccount?->profile_photo ?? '');
+                                    $notifyActorName = trim((string) (data_get($notif, 'coordinator_name') ?: data_get($notif, 'coordinatorAccount.display_name') ?: data_get($notif, 'coordinator_username') ?: 'Pengguna'));
+                                    $notifyActorRole = trim((string) (data_get($notif, 'coordinator_role_label') ?? 'Pengguna'));
+                                    $notifyActorPhotoUrl = $resolvePhotoUrl((string) data_get($notif, 'coordinatorAccount.profile_photo', ''));
                                     $notifyActorInitials = $avatarLabel($notifyActorName, 'U');
-                                    $notifyTitle = trim((string) ($notif->subtopic_title ?? 'Notifikasi'));
+                                    $notifyTitle = trim((string) data_get($notif, 'subtopic_title', 'Notifikasi'));
                                     $notifyTitle = preg_replace('/^\s*element\s*\d+\s*[-:]?\s*/i', '', $notifyTitle);
                                     $notifyTitle = is_string($notifyTitle) ? trim($notifyTitle) : 'Notifikasi';
                                     $notifyTitle = preg_replace('/^\s*sub\s*topik\s*\d+\s*[-:]?\s*/i', '', $notifyTitle);
@@ -220,7 +223,7 @@
                                         $notifyTitle = 'Notifikasi';
                                     }
 
-                                    $notifyStatement = trim((string) ($notif->statement ?? ''));
+                                    $notifyStatement = trim((string) data_get($notif, 'statement', ''));
                                     if ($notifyStatement !== '' && !Str::contains($notifyStatement, '·')) {
                                         $normalized = preg_replace('/^.*?\bmelakukan\b\s*/iu', '', $notifyStatement);
                                         $normalized = is_string($normalized) ? $normalized : $notifyStatement;
@@ -259,6 +262,20 @@
                                         $notifyDetailText = trim((string) $notifyDetailText);
                                     }
 
+                                    $notifyCreatedAtRaw = data_get($notif, 'created_at');
+                                    $notifyCreatedAt = null;
+                                    if ($notifyCreatedAtRaw instanceof \Illuminate\Support\Carbon) {
+                                        $notifyCreatedAt = $notifyCreatedAtRaw;
+                                    } elseif ($notifyCreatedAtRaw instanceof \DateTimeInterface) {
+                                        $notifyCreatedAt = \Illuminate\Support\Carbon::instance($notifyCreatedAtRaw);
+                                    } elseif (is_string($notifyCreatedAtRaw) && trim($notifyCreatedAtRaw) !== '') {
+                                        try {
+                                            $notifyCreatedAt = \Illuminate\Support\Carbon::parse($notifyCreatedAtRaw);
+                                        } catch (\Throwable $e) {
+                                            $notifyCreatedAt = null;
+                                        }
+                                    }
+
                                     $notifyActionClass = match (Str::lower($notifyActionText)) {
                                         'isi data', 'isi/ubah data' => 'is-save',
                                         'hapus isian', 'bersihkan' => 'is-clear',
@@ -294,7 +311,7 @@
                                             @endif
                                         </div>
                                     @endif
-                                    <div class="meta">{{ $notif->created_at?->timezone('Asia/Jakarta')->format('d M Y H:i') }}</div>
+                                    <div class="meta">{{ $notifyCreatedAt?->timezone('Asia/Jakarta')->format('d M Y H:i') ?? '-' }}</div>
                                 </div>
                             @empty
                                 <div class="notify-item notify-item-empty">Belum ada notifikasi.</div>
