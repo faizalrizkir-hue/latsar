@@ -3,10 +3,13 @@
 namespace App\Services;
 
 use App\Models\ElementPreference;
+use App\Models\ElementProgressArchive;
+use App\Models\ElementProgressArchiveLoadLog;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class ElementPreferenceService
 {
@@ -19,6 +22,16 @@ class ElementPreferenceService
     public function hasPreferencesTable(): bool
     {
         return Schema::hasTable('element_preferences');
+    }
+
+    public function hasProgressArchiveTable(): bool
+    {
+        return Schema::hasTable('element_progress_archives');
+    }
+
+    public function hasProgressArchiveLoadLogTable(): bool
+    {
+        return Schema::hasTable('element_progress_archive_load_logs');
     }
 
     public function structure(): array
@@ -287,6 +300,228 @@ class ElementPreferenceService
             'tables' => array_keys($deletedByTable),
             'deleted_by_table' => $deletedByTable,
             'deleted_total' => (int) array_sum($deletedByTable),
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function progressArchives(): array
+    {
+        if (!$this->hasProgressArchiveTable()) {
+            return [];
+        }
+
+        return ElementProgressArchive::query()
+            ->orderByDesc('budget_year')
+            ->orderByDesc('updated_at')
+            ->get()
+            ->map(static function (ElementProgressArchive $archive): array {
+                return [
+                    'id' => (int) $archive->id,
+                    'budget_year' => (int) $archive->budget_year,
+                    'total_rows' => (int) $archive->total_rows,
+                    'archived_by' => trim((string) ($archive->archived_by ?? '')),
+                    'loaded_by' => trim((string) ($archive->loaded_by ?? '')),
+                    'updated_at' => $archive->updated_at,
+                    'last_loaded_at' => $archive->last_loaded_at,
+                ];
+            })
+            ->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function progressArchiveLoadLogs(int $limit = 20): array
+    {
+        if (!$this->hasProgressArchiveLoadLogTable()) {
+            return [];
+        }
+
+        $safeLimit = max(1, min(100, $limit));
+
+        return ElementProgressArchiveLoadLog::query()
+            ->orderByDesc('id')
+            ->limit($safeLimit)
+            ->get()
+            ->map(static function (ElementProgressArchiveLoadLog $log): array {
+                return [
+                    'id' => (int) $log->id,
+                    'archive_id' => (int) $log->archive_id,
+                    'budget_year' => (int) $log->budget_year,
+                    'restored_tables' => (int) $log->restored_tables,
+                    'restored_total' => (int) $log->restored_total,
+                    'restored_by_table' => is_array($log->restored_by_table) ? $log->restored_by_table : [],
+                    'loaded_by' => trim((string) ($log->loaded_by ?? '')),
+                    'created_at' => $log->created_at,
+                ];
+            })
+            ->all();
+    }
+
+    /**
+     * @return array{
+     *     archive_id: int,
+     *     budget_year: int,
+     *     total_tables: int,
+     *     total_rows: int,
+     *     replaced: bool
+     * }
+     */
+    public function archiveProgressByBudgetYear(int $budgetYear, ?string $archivedBy = null): array
+    {
+        if (!$this->hasProgressArchiveTable()) {
+            throw new RuntimeException('Tabel arsip progress belum tersedia.');
+        }
+
+        $normalizedYear = max(2000, min(2100, $budgetYear));
+        $snapshot = $this->buildProgressSnapshot();
+        $normalizedBy = $this->normalizeUpdatedBy($archivedBy);
+
+        $archive = ElementProgressArchive::query()->firstOrNew([
+            'budget_year' => $normalizedYear,
+        ]);
+        $isReplacingExisting = $archive->exists;
+
+        $archive->budget_year = $normalizedYear;
+        $archive->snapshot = $snapshot;
+        $archive->total_rows = (int) ($snapshot['total_rows'] ?? 0);
+        $archive->archived_by = $normalizedBy;
+        if (!$isReplacingExisting) {
+            $archive->loaded_by = null;
+            $archive->last_loaded_at = null;
+        }
+        $archive->save();
+
+        return [
+            'archive_id' => (int) $archive->id,
+            'budget_year' => $normalizedYear,
+            'total_tables' => (int) count((array) ($snapshot['tables'] ?? [])),
+            'total_rows' => (int) ($snapshot['total_rows'] ?? 0),
+            'replaced' => $isReplacingExisting,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     archive_id: int,
+     *     budget_year: int,
+     *     restored_tables: int,
+     *     restored_total: int,
+     *     restored_by_table: array<string, int>
+     * }
+     */
+    public function loadProgressArchive(int $archiveId, ?string $loadedBy = null): array
+    {
+        if (!$this->hasProgressArchiveTable()) {
+            throw new RuntimeException('Tabel arsip progress belum tersedia.');
+        }
+
+        $archive = ElementProgressArchive::query()->find($archiveId);
+        if (!$archive) {
+            throw new RuntimeException('Arsip progress tidak ditemukan.');
+        }
+
+        $snapshot = is_array($archive->snapshot) ? $archive->snapshot : [];
+        $snapshotTables = is_array($snapshot['tables'] ?? null)
+            ? (array) $snapshot['tables']
+            : [];
+        $excludedTables = array_flip($this->progressArchiveExcludedTables());
+        $snapshotTableNames = array_values(array_filter(
+            array_map(
+                static fn (string $table): string => trim($table),
+                array_map('strval', array_keys($snapshotTables))
+            ),
+            static fn (string $table): bool => $table !== '' && !isset($excludedTables[$table])
+        ));
+
+        $tablesToClear = array_values(array_unique(array_merge(
+            $this->progressArchiveTargetTables(),
+            $snapshotTableNames
+        )));
+
+        $restoredByTable = [];
+
+        DB::transaction(function () use ($tablesToClear, $snapshotTables, $excludedTables, &$restoredByTable): void {
+            foreach ($tablesToClear as $table) {
+                $tableName = trim((string) $table);
+                if ($tableName === '' || isset($excludedTables[$tableName]) || !Schema::hasTable($tableName)) {
+                    continue;
+                }
+
+                DB::table($tableName)->delete();
+                $restoredByTable[$tableName] = 0;
+            }
+
+            foreach ($snapshotTables as $table => $tableSnapshot) {
+                $tableName = trim((string) $table);
+                if ($tableName === '' || isset($excludedTables[$tableName]) || !Schema::hasTable($tableName)) {
+                    continue;
+                }
+
+                $allowedColumns = array_flip(Schema::getColumnListing($tableName));
+                if (count($allowedColumns) === 0) {
+                    continue;
+                }
+
+                $rows = is_array($tableSnapshot) ? ($tableSnapshot['rows'] ?? []) : [];
+                if (!is_array($rows) || count($rows) === 0) {
+                    continue;
+                }
+
+                $insertRows = [];
+                foreach ($rows as $row) {
+                    if (!is_array($row) || count($row) === 0) {
+                        continue;
+                    }
+
+                    $normalizedRow = array_intersect_key($row, $allowedColumns);
+                    if (count($normalizedRow) === 0) {
+                        continue;
+                    }
+
+                    $insertRows[] = $normalizedRow;
+                }
+
+                if (count($insertRows) === 0) {
+                    continue;
+                }
+
+                foreach (array_chunk($insertRows, 250) as $chunk) {
+                    DB::table($tableName)->insert($chunk);
+                }
+
+                $restoredByTable[$tableName] = count($insertRows);
+            }
+        });
+
+        $archive->loaded_by = $this->normalizeUpdatedBy($loadedBy);
+        $archive->last_loaded_at = now();
+        $archive->save();
+
+        $restoredTables = (int) count(array_filter($restoredByTable, static fn (int $count): bool => $count > 0));
+        $restoredTotal = (int) array_sum($restoredByTable);
+
+        if ($this->hasProgressArchiveLoadLogTable()) {
+            ElementProgressArchiveLoadLog::query()->create([
+                'archive_id' => (int) $archive->id,
+                'budget_year' => (int) $archive->budget_year,
+                'restored_tables' => $restoredTables,
+                'restored_total' => $restoredTotal,
+                'restored_by_table' => $restoredByTable,
+                'loaded_by' => $this->normalizeUpdatedBy($loadedBy),
+            ]);
+        }
+
+        $this->clearCache();
+
+        return [
+            'archive_id' => (int) $archive->id,
+            'budget_year' => (int) $archive->budget_year,
+            'restored_tables' => $restoredTables,
+            'restored_total' => $restoredTotal,
+            'restored_by_table' => $restoredByTable,
         ];
     }
 
@@ -1668,6 +1903,113 @@ class ElementPreferenceService
         }
 
         return $table !== '' ? $table : null;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function progressArchiveTargetTables(): array
+    {
+        $subtopicModules = array_merge(
+            array_values(array_filter((array) config('element_subtopic_modules.modules', []), 'is_array')),
+            array_values(array_filter($this->subtopicModules(false), 'is_array'))
+        );
+
+        $tables = [];
+        foreach ($subtopicModules as $module) {
+            $modelTable = $this->tableFromModelClass((string) ($module['model'] ?? ''));
+            if ($modelTable !== null && Schema::hasTable($modelTable)) {
+                $tables[$modelTable] = true;
+            }
+
+            $editLogTable = $this->tableFromModelClass((string) ($module['edit_log_model'] ?? ''));
+            if ($editLogTable !== null && Schema::hasTable($editLogTable)) {
+                $tables[$editLogTable] = true;
+            }
+        }
+
+        foreach ([
+            'element_preferences',
+            'element_assessments',
+            'element1_kegiatan_asurans_doc_selections',
+            'element1_kegiatan_asurans_row_doc_selections',
+        ] as $table) {
+            if (Schema::hasTable($table)) {
+                $tables[$table] = true;
+            }
+        }
+
+        return array_values(array_filter(
+            array_keys($tables),
+            fn (string $table): bool => !$this->isProgressArchiveExcludedTable($table)
+        ));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function progressArchiveExcludedTables(): array
+    {
+        return [
+            'notifications',
+            'notification_reads',
+        ];
+    }
+
+    private function isProgressArchiveExcludedTable(string $table): bool
+    {
+        return in_array(trim($table), $this->progressArchiveExcludedTables(), true);
+    }
+
+    /**
+     * @return array{
+     *     version: int,
+     *     captured_at: string,
+     *     tables: array<string, array{columns: array<int, string>, rows: array<int, array<string, mixed>>, count: int}>,
+     *     total_rows: int
+     * }
+     */
+    private function buildProgressSnapshot(): array
+    {
+        $tables = $this->progressArchiveTargetTables();
+        $snapshotTables = [];
+        $totalRows = 0;
+
+        foreach ($tables as $table) {
+            if (!Schema::hasTable($table)) {
+                continue;
+            }
+
+            $columns = Schema::getColumnListing($table);
+            if (count($columns) === 0) {
+                continue;
+            }
+
+            $query = DB::table($table);
+            if (in_array('id', $columns, true)) {
+                $query->orderBy('id');
+            }
+
+            $rows = $query
+                ->get($columns)
+                ->map(static fn ($row): array => (array) $row)
+                ->all();
+
+            $rowsCount = count($rows);
+            $snapshotTables[$table] = [
+                'columns' => $columns,
+                'rows' => $rows,
+                'count' => $rowsCount,
+            ];
+            $totalRows += $rowsCount;
+        }
+
+        return [
+            'version' => 1,
+            'captured_at' => now()->toIso8601String(),
+            'tables' => $snapshotTables,
+            'total_rows' => $totalRows,
+        ];
     }
 
     private function seedDefaultSubtopicRows(): void

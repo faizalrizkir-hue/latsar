@@ -16,8 +16,13 @@
                 <p class="aoi-subtitle">Daftar hasil verifikasi final QA dan rekomendasi tindak lanjut dari seluruh sub topik.</p>
             </div>
             <div class="aoi-hero-actions">
-                <button type="button" class="aoi-print-btn" data-aoi-print-btn>
-                    Print Rekap AoI
+                <button type="button" class="aoi-print-btn" data-aoi-print-btn aria-label="Print Rekap AoI" title="Print Rekap AoI">
+                    <svg class="aoi-print-btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M7 9V4h10v5"></path>
+                        <rect x="5" y="14" width="14" height="6" rx="1.5"></rect>
+                        <rect x="4" y="9" width="16" height="7" rx="2"></rect>
+                        <path d="M17 12h.01"></path>
+                    </svg>
                 </button>
             </div>
             <div class="aoi-total-chip">

@@ -485,6 +485,10 @@
     color: #9cb0cd;
 }
 
+:root[data-theme="dark"] .keg-page .subtopic-level-separator {
+    border-top-color: rgba(148, 163, 184, 0.44);
+}
+
 :root[data-theme="dark"] .row-history-time {
     color: #9cb3d2;
 }

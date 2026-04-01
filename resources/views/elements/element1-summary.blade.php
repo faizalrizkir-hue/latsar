@@ -9,7 +9,12 @@
 
 @push('head')
     @foreach ($summaryStyles as $stylePath)
-        <link rel="stylesheet" href="/{{ ltrim($stylePath, '/') }}">
+        @php
+            $resolvedStylePath = ltrim((string) $stylePath, '/');
+            $resolvedStyleFile = public_path($resolvedStylePath);
+            $resolvedStyleVersion = is_file($resolvedStyleFile) ? @filemtime($resolvedStyleFile) : null;
+        @endphp
+        <link rel="stylesheet" href="/{{ $resolvedStylePath }}{{ $resolvedStyleVersion ? '?v='.$resolvedStyleVersion : '' }}">
     @endforeach
 @endpush
 
@@ -69,7 +74,7 @@
 
         <div class="summary-grid element1-summary-grid mb-3">
             <article class="keg-card element1-stat-card">
-                <div class="element1-stat-label">Skor Tertimbang</div>
+                <div class="element1-stat-label">Skor Tertimbang Element</div>
                 <div class="element1-stat-split">
                     <div class="element1-stat-split-item is-mandiri-row">
                         <span class="element1-stat-split-label element1-mandiri-toggle-label">Mandiri</span>
@@ -88,7 +93,7 @@
                 </div>
             </article>
             <article class="keg-card element1-stat-card">
-                <div class="element1-stat-label">Skor</div>
+                <div class="element1-stat-label">Skor Element</div>
                 <div class="element1-stat-split">
                     <div class="element1-stat-split-item is-mandiri-row">
                         <span class="element1-stat-split-label element1-mandiri-toggle-label">Mandiri</span>
@@ -181,6 +186,9 @@
                                         <div class="subtopic-level-desc"><span class="qa-mandiri-prefix">Mandiri: </span>{{ $item['level_description'] }}</div>
                                     @endif
                                     @if(!empty($item['qa_level_description'] ?? null))
+                                        @if(!empty($item['level_description']))
+                                            <div class="subtopic-level-separator qa-only" aria-hidden="true"></div>
+                                        @endif
                                         <div class="subtopic-level-desc qa-only qa-level-font">QA: {{ $item['qa_level_description'] }}</div>
                                     @endif
                                 </td>

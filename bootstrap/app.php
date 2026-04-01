@@ -26,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'auth.session' => \App\Http\Middleware\EnsureLoggedIn::class,
             'admin.session' => \App\Http\Middleware\EnsureAdmin::class,
+            'db.lock' => \App\Http\Middleware\EnsureDatabaseServerLock::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

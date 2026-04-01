@@ -1611,6 +1611,12 @@
         padding: 0.5rem;
     }
 
+    .keg-info-modal {
+        align-items: flex-start;
+        justify-content: center;
+        overflow-y: auto;
+    }
+
     .keg-doc-dialog {
         width: calc(100vw - 1rem);
         max-height: 94vh;
@@ -1620,6 +1626,10 @@
     .keg-info-dialog {
         width: calc(100vw - 1rem);
         max-height: calc(100dvh - 1rem);
+    }
+
+    .keg-info-body {
+        max-height: calc(100dvh - 9rem);
     }
 
     .keg-doc-header {

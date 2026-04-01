@@ -69,7 +69,7 @@ class AccountController extends Controller
             'elementOptions' => self::ELEMENT_OPTIONS,
             'elementAssignments' => $elementAssignments,
             'hasElementAssignmentTable' => $hasElementAssignmentTable,
-            'notifications' => Notification::orderByDesc('created_at')->limit(50)->get(),
+            'notifications' => Notification::feedForUser((array) $user, null, 50),
         ]);
     }
 

@@ -50,7 +50,7 @@ class DmsController extends Controller
             'tags' => $tags,
             'years' => $years,
             'typeOptions' => $typeOptions,
-            'notifications' => Notification::orderByDesc('created_at')->limit(50)->get(),
+            'notifications' => Notification::feedForUser((array) Session::get('user', []), null, 50),
             'pageTitle' => 'Data Management System',
             'user' => Session::get('user'),
         ]);
@@ -74,7 +74,7 @@ class DmsController extends Controller
         ];
 
         return view('dms.upload', [
-            'notifications' => Notification::orderByDesc('created_at')->limit(50)->get(),
+            'notifications' => Notification::feedForUser((array) Session::get('user', []), null, 50),
             'pageTitle' => 'Tambah Dokumen',
             'user' => Session::get('user'),
             'typeOptions' => $typeOptions,
@@ -177,7 +177,7 @@ class DmsController extends Controller
 
         return view('dms.edit', [
             'document' => $document,
-            'notifications' => Notification::orderByDesc('created_at')->limit(50)->get(),
+            'notifications' => Notification::feedForUser((array) Session::get('user', []), null, 50),
             'pageTitle' => 'Edit Dokumen',
             'user' => Session::get('user'),
             'typeOptions' => $typeOptions,

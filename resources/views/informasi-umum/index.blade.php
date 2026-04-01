@@ -3,29 +3,7 @@
 @php
     $pageTitle = $pageTitle ?? 'Informasi Umum';
     $uuReferenceUrl = 'https://peraturan.bpk.go.id/Download/28013/UU%20Nomor%2023%20Tahun%202014.pdf';
-    $pedomanBasePath = 'uploads/pedoman';
-    $legalRegulations = [
-        [
-            'title' => 'UU Nomor 23 Tahun 2014 tentang Pemerintah Daerah',
-            'file_name' => '1. UU Nomor 23 Tahun 2014.pdf',
-        ],
-        [
-            'title' => 'Peraturan BPKP Nomor 6 Tahun 2025 tentang Peningkatan Kapabilitas Aparat Pengawasan Intern Pemerintah Pada Kementerian/Lembaga/Pemerintah Daerah',
-            'file_name' => '2. Peraturan BPKP Nomor 6 Tahun 2025.pdf',
-        ],
-        [
-            'title' => 'Surat Edaran Kemendagri Nomor 800.1.5/3320/SJ tentang Penilaian Kinerja Inspektur Daerah',
-            'file_name' => '3. Surat Edaran Kemendagri tentang Penilaian Kinerja Inspektur Daerah.pdf',
-        ],
-        [
-            'title' => 'Surat Edaran Bersama Nomor: 11 Tahun 2024; Nomor: 700.1/3013/SJ; Nomor: HK.01.00/SE.3/K/D3/2024 tentang Penguatan Aparat Pengawas Internal Pemerintah Daerah',
-            'file_name' => '4. Penguatan APIP Daerah Mendagri-KPK-BPKP.pdf',
-        ],
-        [
-            'title' => 'Rencana Strategis Inspektorat Provinsi DKI Jakarta Tahun 2025 - 2029',
-            'file_name' => '5. Rencana Strategis Inspektorat Provinsi DKI Jakarta 2025 - 2029.pdf',
-        ],
-    ];
+    $legalRegulations = is_array($legalRegulations ?? null) ? $legalRegulations : [];
     $profile = $profile ?? null;
     $fieldValue = static function (string $name, string $fallback = '') use ($profile): string {
         $currentValue = old($name);
@@ -94,24 +72,27 @@
                 </div>
                 <div class="general-card-body">
                     <div class="general-legal-list">
-                        @foreach($legalRegulations as $index => $regulation)
+                        @forelse($legalRegulations as $index => $regulation)
                             @php
                                 $fileName = trim((string) ($regulation['file_name'] ?? ''));
                                 $title = trim((string) ($regulation['title'] ?? ''));
-                                $filePath = $fileName !== '' ? public_path($pedomanBasePath.'/'.$fileName) : '';
-                                $isAvailable = $filePath !== '' && is_file($filePath);
-                                $fileUrl = $isAvailable
-                                    ? asset($pedomanBasePath.'/'.rawurlencode($fileName))
-                                    : null;
+                                $category = trim((string) ($regulation['category'] ?? ''));
+                                $fileUrl = trim((string) ($regulation['file_url'] ?? ''));
+                                $isAvailable = $fileUrl !== '';
                             @endphp
                             <article class="general-legal-item {{ $isAvailable ? '' : 'is-missing' }}">
                                 <div class="general-legal-item__badge">{{ $index + 1 }}</div>
                                 <div class="general-legal-item__content">
                                     <h4>{{ $title !== '' ? $title : 'Dokumen tanpa judul' }}</h4>
-                                    <p>{{ $fileName !== '' ? $fileName : 'File belum ditentukan' }}</p>
+                                    <p>
+                                        @if($category !== '')
+                                            {{ $category }} •
+                                        @endif
+                                        {{ $fileName !== '' ? $fileName : 'File belum ditentukan' }}
+                                    </p>
                                 </div>
                                 <div class="general-legal-item__action">
-                                    @if($isAvailable && $fileUrl)
+                                    @if($isAvailable)
                                         <a
                                             href="{{ $fileUrl }}"
                                             target="_blank"
@@ -125,7 +106,18 @@
                                     @endif
                                 </div>
                             </article>
-                        @endforeach
+                        @empty
+                            <article class="general-legal-item is-missing">
+                                <div class="general-legal-item__badge">-</div>
+                                <div class="general-legal-item__content">
+                                    <h4>Belum ada dokumen dasar hukum</h4>
+                                    <p>Tambahkan file PDF ke folder <strong>/public/uploads/pedoman</strong>.</p>
+                                </div>
+                                <div class="general-legal-item__action">
+                                    <span class="general-legal-open-btn is-disabled">Tidak Ada File</span>
+                                </div>
+                            </article>
+                        @endforelse
                     </div>
                 </div>
             </section>

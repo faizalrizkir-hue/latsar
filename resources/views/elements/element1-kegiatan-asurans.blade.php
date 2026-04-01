@@ -4,7 +4,7 @@
 @endphp
 
 @push('head')
-    <link rel="stylesheet" href="/css/element1-kegiatan-asurans.css">
+    <link rel="stylesheet" href="/css/element1-kegiatan-asurans.css?v={{ @filemtime(public_path('css/element1-kegiatan-asurans.css')) }}">
 @endpush
 
 @section('content')
@@ -114,7 +114,6 @@
                             @php
                                 $isVerified = (int) ($row->verified ?? 0) === 1;
                                 $isQaVerified = (int) ($row->qa_verified ?? 0) === 1;
-                                $qaVerifierName = trim((string) ($row->qa_verified_by ?? ''));
                                 $hasQaAccess = $isQaVerifier || $isVerifikator;
                                 $canOpenValidatePane = $hasQaAccess;
                                 $weight = ($weights[$row->id] ?? 0) * 100;
@@ -229,32 +228,13 @@
                                         <div class="subtopic-level-desc">{{ $currentLevelHint }}</div>
                                     @endif
                                     @if ($qaLevelHint !== '')
-                                        <div class="subtopic-level-desc qa-only qa-level-font">
-                                            QA: {{ $qaLevelHint }}
-                                        </div>
-                                    @endif
-                                    @if ($isVerified)
-                                        <div class="qa-final-status qa-only {{ $isQaVerified ? 'is-done' : 'is-pending' }}">
-                                            <span class="qa-final-status-icon" aria-hidden="true">
-                                                @if ($isQaVerified)
-                                                    <svg viewBox="0 0 24 24">
-                                                        <polyline points="2.8 13 6.7 16.9 9.6 14"></polyline>
-                                                        <polyline points="7.4 13 11.6 17.2 21.2 7.6"></polyline>
-                                                    </svg>
-                                                @else
-                                                    <svg viewBox="0 0 24 24">
-                                                        <circle cx="12" cy="12" r="8.5"></circle>
-                                                        <path d="M12 7.8v4.7l3 1.9"></path>
-                                                    </svg>
-                                                @endif
-                                            </span>
-                                            <span class="qa-final-status-text">
-                                            @if ($isQaVerified)
-                                                Final QA: Terverifikasi{{ $qaVerifierName !== '' ? ' oleh '.$qaVerifierName : '' }}.
-                                            @else
-                                                Final QA: Menunggu verifikasi final QA BPKP.
+                                        <div class="subtopic-level-qa-wrap">
+                                            @if ($currentLevelHint !== '')
+                                                <div class="subtopic-level-separator" aria-hidden="true"></div>
                                             @endif
-                                            </span>
+                                            <div class="subtopic-level-desc qa-level-font">
+                                                QA: {{ $qaLevelHint }}
+                                            </div>
                                         </div>
                                     @endif
                                     @if ($rowEditLogs->isNotEmpty())
@@ -1024,27 +1004,50 @@
                 return Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
             }
 
-            function syncResetVerifyModalToViewport() {
-                if (!resetVerifyModal || !resetVerifyModal.classList.contains('is-open')) {
+            function syncModalToViewport(modal) {
+                if (!modal || !modal.classList.contains('is-open')) {
                     return;
                 }
 
                 const scale = getViewportUiScale();
-                resetVerifyModal.style.top = `${Math.round(window.scrollY / scale)}px`;
-                resetVerifyModal.style.left = `${Math.round(window.scrollX / scale)}px`;
-                resetVerifyModal.style.width = `${Math.ceil(window.innerWidth / scale)}px`;
-                resetVerifyModal.style.height = `${Math.ceil(window.innerHeight / scale)}px`;
+                modal.style.top = `${Math.round(window.scrollY / scale)}px`;
+                modal.style.left = `${Math.round(window.scrollX / scale)}px`;
+                modal.style.width = `${Math.ceil(window.innerWidth / scale)}px`;
+                modal.style.height = `${Math.ceil(window.innerHeight / scale)}px`;
+            }
+
+            function clearModalViewportStyles(modal) {
+                if (!modal) {
+                    return;
+                }
+                modal.style.removeProperty('top');
+                modal.style.removeProperty('left');
+                modal.style.removeProperty('width');
+                modal.style.removeProperty('height');
+            }
+
+            function syncInfoModalToViewport() {
+                syncModalToViewport(infoModal);
+            }
+
+            function syncResetVerifyModalToViewport() {
+                syncModalToViewport(resetVerifyModal);
             }
 
             function clearResetVerifyModalViewportStyles() {
-                if (!resetVerifyModal) {
-                    return;
-                }
+                clearModalViewportStyles(resetVerifyModal);
+            }
 
-                resetVerifyModal.style.removeProperty('top');
-                resetVerifyModal.style.removeProperty('left');
-                resetVerifyModal.style.removeProperty('width');
-                resetVerifyModal.style.removeProperty('height');
+            function syncClearRowModalToViewport() {
+                syncModalToViewport(clearRowModal);
+            }
+
+            function clearInfoModalViewportStyles() {
+                clearModalViewportStyles(infoModal);
+            }
+
+            function clearClearRowModalViewportStyles() {
+                clearModalViewportStyles(clearRowModal);
             }
 
             function getSummaryLevelFromPage() {
@@ -1126,6 +1129,7 @@
                 infoModal.setAttribute('aria-hidden', 'false');
                 requestAnimationFrame(() => {
                     infoModal.classList.add('is-open');
+                    syncInfoModalToViewport();
                     syncModalBodyLock();
                     requestAnimationFrame(() => {
                         highlightInfoModalLevel();
@@ -1148,6 +1152,7 @@
                 infoModalCloseTimer = setTimeout(() => {
                     if (!infoModal.classList.contains('is-open')) {
                         infoModal.setAttribute('hidden', 'hidden');
+                        clearInfoModalViewportStyles();
                         syncModalBodyLock();
                     }
                     infoModalCloseTimer = null;
@@ -1195,6 +1200,7 @@
                 clearRowModal.setAttribute('aria-hidden', 'false');
                 requestAnimationFrame(() => {
                     clearRowModal.classList.add('is-open');
+                    syncClearRowModalToViewport();
                     syncModalBodyLock();
                     const confirmBtn = clearRowModal.querySelector('[data-clear-row-confirm]');
                     if (confirmBtn) {
@@ -1222,6 +1228,7 @@
                 clearRowModalCloseTimer = setTimeout(() => {
                     if (!clearRowModal.classList.contains('is-open')) {
                         clearRowModal.setAttribute('hidden', 'hidden');
+                        clearClearRowModalViewportStyles();
                         syncModalBodyLock();
                     }
                     clearRowModalCloseTimer = null;
@@ -2444,13 +2451,23 @@
             });
 
             window.addEventListener('resize', () => {
+                syncInfoModalToViewport();
                 syncResetVerifyModalToViewport();
+                syncClearRowModalToViewport();
                 page.querySelectorAll('[data-doc-dd].is-open').forEach((dropdown) => {
                     updateDocDropdownStickyOffsets(dropdown);
                 });
             });
-            window.addEventListener('scroll', syncResetVerifyModalToViewport, { passive: true });
-            window.addEventListener('pageshow', syncResetVerifyModalToViewport);
+            window.addEventListener('scroll', () => {
+                syncInfoModalToViewport();
+                syncResetVerifyModalToViewport();
+                syncClearRowModalToViewport();
+            }, { passive: true });
+            window.addEventListener('pageshow', () => {
+                syncInfoModalToViewport();
+                syncResetVerifyModalToViewport();
+                syncClearRowModalToViewport();
+            });
         })();
     </script>
 @endpush

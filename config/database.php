@@ -20,6 +20,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Database Server Lock
+    |--------------------------------------------------------------------------
+    |
+    | Guard against accidentally connecting to a different database server
+    | (for example when multiple MySQL/MariaDB services run on the same port).
+    |
+    */
+    'server_lock' => [
+        'database' => env('DB_DATABASE_LOCK', ''),
+        'uuid' => env('DB_SERVER_UUID_LOCK', ''),
+        'server_id' => env('DB_SERVER_ID_LOCK', ''),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Database Connections
     |--------------------------------------------------------------------------
     |

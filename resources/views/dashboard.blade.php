@@ -84,7 +84,7 @@
 
                 <div class="apip-overview-kpis">
                     <div class="apip-kpi">
-                        <div class="kpi-label">Skor Kapabilitas APIP <span class="qa-mandiri-suffix">(Mandiri)</span></div>
+                        <div class="kpi-label">Skor Kapabilitas APIP (Tertimbang) <span class="qa-mandiri-suffix">(Mandiri)</span></div>
                         <div class="kpi-value">{{ number_format((float) ($overallWeightedScore ?? 0), 2) }}</div>
                         <div class="kpi-note">Total skor tertimbang seluruh element</div>
                     </div>
@@ -94,7 +94,7 @@
                         <div class="kpi-note">{{ $overallPredikat }}</div>
                     </div>
                     <div class="apip-kpi qa-only">
-                        <div class="kpi-label">Skor Kapabilitas APIP (QA)</div>
+                        <div class="kpi-label">Skor Kapabilitas APIP (Tertimbang QA)</div>
                         <div class="kpi-value">{{ $overallLevelQa !== null ? number_format((float) ($overallWeightedScoreQa ?? 0), 2) : '-' }}</div>
                         <div class="kpi-note">Total skor tertimbang hasil verifikasi QA</div>
                     </div>
@@ -177,8 +177,8 @@
                         <tr>
                             <th>Element</th>
                             <th>Bobot</th>
-                            <th>Skor</th>
-                            <th>Skor Tertimbang</th>
+                            <th>Skor Element</th>
+                            <th>Skor Tertimbang Element</th>
                             <th>Level</th>
                             <th>Predikat</th>
                             <th>Aksi</th>
@@ -208,6 +208,7 @@
                                     <div class="row-meta element-level-note" title="{{ $elementDescription }}">
                                         <span class="qa-mandiri-prefix">Mandiri: </span>{{ $elementDescription }}
                                     </div>
+                                    <div class="row-meta qa-note-separator qa-only" aria-hidden="true"></div>
                                     <div class="row-meta element-level-note qa-only qa-level-font" title="{{ $elementQaDescription }}">
                                         QA: {{ $elementQaDescription }}
                                     </div>
@@ -352,6 +353,7 @@
                                                                 <div class="row-meta subtopic-level-note">
                                                                     <span class="qa-mandiri-prefix">Mandiri: </span>{{ (string) ($subtopic['level_note'] ?? $subtopic['description'] ?? 'Belum ada deskripsi level sub topik.') }}
                                                                 </div>
+                                                                <div class="row-meta qa-note-separator qa-only" aria-hidden="true"></div>
                                                                 <div class="row-meta subtopic-level-note qa-only qa-level-font">
                                                                     QA: {{ (string) ($subtopic['qa_level_note'] ?? $subtopic['qa_description'] ?? 'Belum ada deskripsi level QA sub topik.') }}
                                                                 </div>

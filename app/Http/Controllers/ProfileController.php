@@ -106,7 +106,7 @@ class ProfileController extends Controller
             'user' => $user,
             'account' => $account,
             'teamAssignmentSummary' => $teamAssignmentSummary,
-            'notifications' => Notification::orderByDesc('created_at')->limit(50)->get(),
+            'notifications' => Notification::feedForUser((array) $user, null, 50),
         ]);
     }
 

@@ -77,7 +77,7 @@ class DashboardController extends Controller
             : 0;
         $meterNeedleDegQa = (float) number_format(-90 + (180 * ($meterPercentQa / 100)), 2, '.', '');
 
-        $notifications = Notification::orderByDesc('created_at')->limit(50)->get();
+        $notifications = Notification::feedForUser((array) $sessionUser, null, 50);
         $account = Account::where('username', $sessionUser['username'] ?? '')->first();
         $accounts = [];
         if (in_array(strtolower($sessionUser['role'] ?? ''), ['administrator','admin','superadmin'])) {

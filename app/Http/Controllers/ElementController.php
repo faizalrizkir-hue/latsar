@@ -195,7 +195,7 @@ class ElementController extends Controller
         return view('elements.index', [
             'pages' => $pages,
             'user' => $user,
-            'notifications' => Notification::orderByDesc('created_at')->limit(50)->get(),
+            'notifications' => Notification::feedForUser((array) $user, null, 50),
         ]);
     }
 
@@ -430,7 +430,7 @@ class ElementController extends Controller
             'summaryInfoModalTitle' => $summaryInfoModalTitle,
             'summaryInfoLevels' => $summaryInfoLevels,
             'user' => Session::get('user'),
-            'notifications' => Notification::orderByDesc('created_at')->limit(50)->get(),
+            'notifications' => Notification::feedForUser((array) Session::get('user', []), $slug, 50),
         ]);
     }
 
@@ -714,7 +714,7 @@ class ElementController extends Controller
             'dmsFiles' => $dmsFiles,
             'editLogs' => $editLogs,
             'user' => $user,
-            'notifications' => Notification::orderByDesc('created_at')->limit(50)->get(),
+            'notifications' => Notification::feedForUser((array) $user, $slug, 50),
             'modulePageTitle' => $modulePageTitle,
             'moduleSubtopicCode' => $moduleSubtopicCode,
             'moduleSubtopicTitle' => $moduleSubtopicTitle,
@@ -731,6 +731,7 @@ class ElementController extends Controller
         $moduleEditLogModelClass = (string) ($moduleConfig['edit_log_model'] ?? Element1KegiatanAsuransEditLog::class);
         $moduleWeights = (array) ($moduleConfig['weights'] ?? $this->kegiatanWeights);
         $moduleNotificationTitle = (string) ($moduleConfig['notification_title'] ?? 'Element 1 - Kegiatan Asurans');
+        $moduleSubtopicTitle = (string) ($moduleConfig['subtopic_title'] ?? $moduleNotificationTitle);
         $moduleEditLogTable = (new $moduleEditLogModelClass())->getTable();
 
         $action = $request->input('action', 'save');
@@ -904,6 +905,16 @@ class ElementController extends Controller
                 ]);
             }
 
+            $this->emitActivityNotification(
+                $user,
+                $slug,
+                $moduleNotificationTitle,
+                $moduleSubtopicTitle,
+                (string) ($row->pernyataan ?? ''),
+                'save',
+                (int) $row->id
+            );
+
             return back()->with('status', 'Data disimpan.');
         }
 
@@ -942,6 +953,16 @@ class ElementController extends Controller
                     'action' => 'clear',
                 ]);
             }
+
+            $this->emitActivityNotification(
+                $user,
+                $slug,
+                $moduleNotificationTitle,
+                $moduleSubtopicTitle,
+                (string) ($row->pernyataan ?? ''),
+                'clear',
+                (int) $row->id
+            );
 
             return back()->with('status', 'Data dibersihkan.');
         }
@@ -987,7 +1008,6 @@ class ElementController extends Controller
                 }
             }
 
-            $wasVerified = (int)$row->verified === 1;
             $levelVal = $isVerified ? (float)$validatedLevels->max() : null;
             $row->verified = $isVerified ? 1 : 0;
             $row->level = $isVerified ? (string)$levelVal : '-';
@@ -1015,16 +1035,15 @@ class ElementController extends Controller
                 ]);
             }
 
-            if ($isVerified && !$wasVerified) {
-                Notification::create([
-                    'subtopic_title' => $moduleNotificationTitle,
-                    'statement' => $row->pernyataan,
-                    'row_id' => $row->id,
-                    'coordinator_name' => $user['display_name'] ?? ($user['username'] ?? 'Koordinator'),
-                    'coordinator_username' => $user['username'] ?? 'koordinator',
-                    'created_at' => now(),
-                ]);
-            }
+            $this->emitActivityNotification(
+                $user,
+                $slug,
+                $moduleNotificationTitle,
+                $moduleSubtopicTitle,
+                (string) ($row->pernyataan ?? ''),
+                $isVerified ? 'verify' : 'verify_reset',
+                (int) $row->id
+            );
 
             return back()->with('status', $isVerified ? 'Data diverifikasi.' : 'Status verifikasi direset.');
         }
@@ -1107,6 +1126,16 @@ class ElementController extends Controller
                 ]);
             }
 
+            $this->emitActivityNotification(
+                $user,
+                $slug,
+                $moduleNotificationTitle,
+                $moduleSubtopicTitle,
+                (string) ($row->pernyataan ?? ''),
+                $isQaVerified ? 'qa_verify' : 'qa_verify_reset',
+                (int) $row->id
+            );
+
             return back()->with('status', $isQaVerified ? 'Verifikasi final QA disimpan.' : 'Verifikasi final QA direset.');
         }
 
@@ -1179,6 +1208,73 @@ class ElementController extends Controller
             $score >= 1.99 => ['level' => 2, 'predikat' => 'Terstruktur'],
             default => ['level' => 1, 'predikat' => 'Rintisan'],
         };
+    }
+
+    private function emitActivityNotification(
+        array $user,
+        string $slug,
+        string $moduleNotificationTitle,
+        string $moduleSubtopicTitle,
+        string $statementTitle,
+        string $actionType,
+        ?int $rowId = null
+    ): void {
+        $elementSlug = ElementTeamAssignment::topLevelElementSlug($slug);
+        $actorName = trim((string) ($user['display_name'] ?? $user['username'] ?? 'Pengguna'));
+        $actionLabel = $this->notificationActionLabel($actionType);
+        $statementLabel = trim($statementTitle) !== '' ? trim($statementTitle) : 'Pernyataan';
+        $statementShort = Str::limit($statementLabel, 42, '…');
+        $notifyTitle = $this->compactNotificationTitle($moduleSubtopicTitle, $moduleNotificationTitle);
+        $body = trim($actionLabel.' · '.$statementShort);
+
+        Notification::createScoped([
+            'element_slug' => $elementSlug,
+            'subtopic_slug' => $slug,
+            'subtopic_title' => $notifyTitle,
+            'statement' => $body,
+            'row_id' => $rowId,
+            'coordinator_name' => $actorName !== '' ? $actorName : 'Pengguna',
+            'coordinator_username' => trim((string) ($user['username'] ?? '')) ?: 'system',
+        ]);
+    }
+
+    private function notificationActionLabel(string $actionType): string
+    {
+        return match ($actionType) {
+            'save' => 'Isi Data',
+            'clear' => 'Hapus Isian',
+            'verify' => 'Verifikasi',
+            'verify_reset' => 'Reset Verifikasi',
+            'qa_verify' => 'Verifikasi QA',
+            'qa_verify_reset' => 'Reset QA',
+            default => 'Pembaruan',
+        };
+    }
+
+    private function compactNotificationTitle(string $moduleSubtopicTitle, string $moduleNotificationTitle): string
+    {
+        $candidates = [
+            trim($moduleSubtopicTitle),
+            trim($moduleNotificationTitle),
+            'Notifikasi',
+        ];
+
+        foreach ($candidates as $candidate) {
+            if ($candidate === '') {
+                continue;
+            }
+
+            $value = preg_replace('/^\s*sub\s*topik\s*\d+\s*[-:]?\s*/i', '', $candidate);
+            $value = is_string($value) ? trim($value) : $candidate;
+            $value = preg_replace('/^\s*element\s*\d+\s*[-:]?\s*/i', '', $value);
+            $value = is_string($value) ? trim($value) : $candidate;
+            $value = trim((string) $value);
+            if ($value !== '') {
+                return Str::limit($value, 36, '…');
+            }
+        }
+
+        return 'Notifikasi';
     }
 
     private function pageTitles(): array
@@ -1596,7 +1692,7 @@ class ElementController extends Controller
             'legacyBody' => $body,
             'legacyStyles' => $styles,
             'user' => $user,
-            'notifications' => Notification::orderByDesc('created_at')->limit(50)->get(),
+            'notifications' => Notification::feedForUser((array) $user, $slug, 50),
         ]);
     }
 }

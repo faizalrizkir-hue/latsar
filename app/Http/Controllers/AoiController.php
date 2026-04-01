@@ -26,7 +26,7 @@ class AoiController extends Controller
             'items' => $items,
             'totalItems' => $items->count(),
             'user' => Session::get('user'),
-            'notifications' => Notification::orderByDesc('created_at')->limit(50)->get(),
+            'notifications' => Notification::feedForUser((array) Session::get('user', []), null, 50),
         ]);
     }
 

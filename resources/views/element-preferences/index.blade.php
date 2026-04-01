@@ -9,10 +9,24 @@
         $elements = collect((array) ($structure['elements'] ?? []))
             ->filter(fn ($item) => is_array($item))
             ->values();
+        $progressArchives = collect((array) ($progressArchives ?? []))
+            ->filter(fn ($item) => is_array($item))
+            ->values();
+        $progressArchiveLoadLogs = collect((array) ($progressArchiveLoadLogs ?? []))
+            ->filter(fn ($item) => is_array($item))
+            ->values();
+        $activeBudgetYear = (int) old('budget_year', now('Asia/Jakarta')->year);
         $formatPercent = static function (float $weight): string {
             $value = rtrim(rtrim(number_format($weight * 100, 2, '.', ''), '0'), '.');
 
             return $value === '' ? '0' : $value;
+        };
+        $formatArchiveDate = static function ($value): string {
+            if (!($value instanceof \Carbon\CarbonInterface)) {
+                return '-';
+            }
+
+            return $value->copy()->timezone('Asia/Jakarta')->translatedFormat('d M Y H:i');
         };
         $normalizeLevelDescriptions = static function ($source): array {
             $levels = [
@@ -76,6 +90,28 @@
 
             return $stripped !== '' ? $stripped : $normalized;
         };
+        $formatRestoredByTable = static function (array $restoredByTable): string {
+            $parts = [];
+            foreach ($restoredByTable as $table => $count) {
+                $tableName = trim((string) $table);
+                if ($tableName === '') {
+                    continue;
+                }
+
+                $rowCount = (int) $count;
+                if ($rowCount <= 0) {
+                    continue;
+                }
+
+                $parts[] = $tableName.' ('.$rowCount.')';
+            }
+
+            if (count($parts) === 0) {
+                return '';
+            }
+
+            return implode(' • ', array_slice($parts, 0, 4));
+        };
     @endphp
 
     <div class="element-preferences-page">
@@ -113,15 +149,122 @@
                 data-reset-data-action="{{ route('element-preferences.reset-data') }}"
             >
                 @csrf
-                    <div class="pref-toolbar card shadow-sm pref-lift">
-                        <div class="pref-toolbar-text">
-                            Bobot diisi dalam persen. Sistem akan normalisasi otomatis saat disimpan.
+                    <div class="pref-archive-panel card shadow-sm pref-lift">
+                        <div class="pref-archive-head">
+                            <h5 class="mb-1">Arsip Progress Penilaian Kapabilitas APIP</h5>
+                            <p class="mb-0 text-muted">Simpan snapshot penilaian tahun ini, lalu muat kembali kapan pun tanpa menghapus riwayat arsip lain.</p>
                         </div>
-                        <div class="pref-toolbar-actions">
-                            <button type="button" class="btn btn-outline-danger" data-pref-reset-data-trigger>Reset Data</button>
-                            <button type="button" class="btn btn-outline-primary" data-add-element>Tambah Element</button>
-                            <button type="submit" class="btn btn-primary">Simpan Preferensi</button>
+
+                        @if(!$hasProgressArchiveTable)
+                            <div class="pref-archive-empty">
+                                Fitur arsip progress belum aktif. Jalankan <code>php artisan migrate</code> untuk membuat tabel arsip.
+                            </div>
+                        @endif
+
+                        <div class="pref-archive-grid" @if(!$hasProgressArchiveTable) aria-disabled="true" @endif>
+                            <div class="pref-archive-group">
+                                <label class="form-label mb-1">Simpan Arsip</label>
+                                <div class="pref-archive-inline">
+                                    <input
+                                        type="number"
+                                        class="form-control"
+                                        min="2000"
+                                        max="2100"
+                                        step="1"
+                                        value="{{ $activeBudgetYear }}"
+                                        data-archive-year-input
+                                        @disabled(!$hasProgressArchiveTable)
+                                    >
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline-secondary"
+                                        data-archive-progress-trigger
+                                        @disabled(!$hasProgressArchiveTable)
+                                    >
+                                        Arsipkan
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="pref-archive-group">
+                                <label class="form-label mb-1">Pulihkan Isian Arsip</label>
+                                <div class="pref-archive-inline">
+                                    <select
+                                        class="form-select"
+                                        data-load-archive-select
+                                        @disabled(!$hasProgressArchiveTable)
+                                    >
+                                        <option value="">Pilih arsip tahun anggaran</option>
+                                        @foreach($progressArchives as $archive)
+                                            @php
+                                                $archiveId = (int) ($archive['id'] ?? 0);
+                                                $archiveYear = (int) ($archive['budget_year'] ?? 0);
+                                                $archiveRows = (int) ($archive['total_rows'] ?? 0);
+                                                $archiveBy = trim((string) ($archive['archived_by'] ?? ''));
+                                                $archiveUpdated = $formatArchiveDate($archive['updated_at'] ?? null);
+                                                $archiveLabel = 'TA '.$archiveYear.' • '.$archiveRows.' baris';
+                                                if ($archiveBy !== '') {
+                                                    $archiveLabel .= ' • '.$archiveBy;
+                                                }
+                                                if ($archiveUpdated !== '-') {
+                                                    $archiveLabel .= ' • '.$archiveUpdated;
+                                                }
+                                            @endphp
+                                            <option value="{{ $archiveId }}">{{ $archiveLabel }}</option>
+                                        @endforeach
+                                    </select>
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline-primary"
+                                        data-load-archive-trigger
+                                        @disabled(!$hasProgressArchiveTable || $progressArchives->isEmpty())
+                                    >
+                                        Pulihkan Arsip
+                                    </button>
+                                </div>
+                            </div>
                         </div>
+
+                        @if($hasProgressArchiveLoadLogTable)
+                            <div class="pref-archive-log">
+                                <div class="pref-archive-log-head">
+                                    <h6 class="mb-0">Riwayat Pemulihan Arsip</h6>
+                                    <span class="pref-archive-log-badge">{{ $progressArchiveLoadLogs->count() }} terbaru</span>
+                                </div>
+
+                                @if($progressArchiveLoadLogs->isEmpty())
+                                    <div class="pref-archive-log-empty">Belum ada aktivitas pemulihan arsip.</div>
+                                @else
+                                    <ul class="pref-archive-log-list">
+                                        @foreach($progressArchiveLoadLogs as $loadLog)
+                                            @php
+                                                $logYear = (int) ($loadLog['budget_year'] ?? 0);
+                                                $logRows = (int) ($loadLog['restored_total'] ?? 0);
+                                                $logTables = (int) ($loadLog['restored_tables'] ?? 0);
+                                                $logBy = trim((string) ($loadLog['loaded_by'] ?? ''));
+                                                $logDate = $formatArchiveDate($loadLog['created_at'] ?? null);
+                                                $logSummary = $formatRestoredByTable((array) ($loadLog['restored_by_table'] ?? []));
+                                            @endphp
+                                            <li class="pref-archive-log-item">
+                                                <div class="pref-archive-log-main">
+                                                    <strong>TA {{ $logYear > 0 ? $logYear : '-' }}</strong>
+                                                    <span class="pref-archive-log-meta">
+                                                        {{ $logDate !== '-' ? $logDate : 'Waktu tidak tersedia' }}
+                                                        @if($logBy !== '')
+                                                            • {{ $logBy }}
+                                                        @endif
+                                                    </span>
+                                                </div>
+                                                <div class="pref-archive-log-detail">{{ $logRows }} baris • {{ $logTables }} tabel dipulihkan</div>
+                                                @if($logSummary !== '')
+                                                    <div class="pref-archive-log-summary">{{ $logSummary }}</div>
+                                                @endif
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                @endif
+                            </div>
+                        @endif
                     </div>
 
                     <div class="pref-element-stack" data-elements-container>
@@ -405,6 +548,27 @@
                         </details>
                         @endforeach
                     </div>
+
+                    <div class="pref-toolbar card shadow-sm pref-lift">
+                        <div class="pref-toolbar-text">
+                            Bobot diisi dalam persen. Sistem akan normalisasi otomatis saat disimpan.
+                        </div>
+                        <div class="pref-toolbar-actions">
+                            <button type="button" class="btn btn-outline-danger" data-pref-reset-data-trigger>Reset Data</button>
+                            <button type="button" class="btn btn-outline-primary" data-add-element>Tambah Element</button>
+                            <button type="submit" class="btn btn-primary">Simpan Preferensi</button>
+                        </div>
+                    </div>
+            </form>
+
+            <form id="archiveProgressForm" method="POST" action="{{ route('element-preferences.archive-progress') }}" class="d-none">
+                @csrf
+                <input type="hidden" name="budget_year" value="">
+            </form>
+
+            <form id="loadArchiveForm" method="POST" action="{{ route('element-preferences.load-archive') }}" class="d-none">
+                @csrf
+                <input type="hidden" name="archive_id" value="">
             </form>
         @endif
     </div>
@@ -417,6 +581,17 @@
         <div class="dms-confirm-modal__eyebrow">Konfirmasi Tindakan</div>
         <h3 class="dms-confirm-modal__title" id="prefActionConfirmModalTitle">Konfirmasi</h3>
         <p class="dms-confirm-modal__body" id="prefActionConfirmModalMessage">Lanjutkan tindakan ini?</p>
+        <div class="dms-confirm-modal__verify" id="prefActionConfirmModalVerify" hidden>
+            <div class="dms-confirm-modal__verify-label" id="prefActionConfirmModalVerifyLabel">Ketik kata kunci untuk melanjutkan.</div>
+            <input
+                type="text"
+                class="form-control dms-confirm-modal__verify-input"
+                id="prefActionConfirmModalVerifyInput"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="">
+            <div class="dms-confirm-modal__verify-hint" id="prefActionConfirmModalVerifyHint"></div>
+        </div>
         <div class="dms-confirm-modal__actions">
             <button type="button" class="btn dms-confirm-modal__cancel" data-pref-confirm-close>Batal</button>
             <button type="button" class="btn dms-confirm-modal__confirm" id="prefActionConfirmModalConfirm">Lanjutkan</button>
@@ -434,6 +609,13 @@
     const preferenceForm = document.getElementById('elementPreferenceForm');
     if (!preferenceForm) return;
 
+    const archiveProgressForm = document.getElementById('archiveProgressForm');
+    const archiveProgressYearField = archiveProgressForm?.querySelector('input[name="budget_year"]') || null;
+    const loadArchiveForm = document.getElementById('loadArchiveForm');
+    const loadArchiveIdField = loadArchiveForm?.querySelector('input[name="archive_id"]') || null;
+    const archiveYearInput = page.querySelector('[data-archive-year-input]');
+    const loadArchiveSelect = page.querySelector('[data-load-archive-select]');
+
     const elementsContainer = page.querySelector('[data-elements-container]');
     if (!elementsContainer) return;
     const updateActionUrl = preferenceForm.getAttribute('action') || '';
@@ -443,6 +625,10 @@
     const confirmTitle = document.getElementById('prefActionConfirmModalTitle');
     const confirmMessage = document.getElementById('prefActionConfirmModalMessage');
     const confirmSubmit = document.getElementById('prefActionConfirmModalConfirm');
+    const confirmVerifyWrap = document.getElementById('prefActionConfirmModalVerify');
+    const confirmVerifyLabel = document.getElementById('prefActionConfirmModalVerifyLabel');
+    const confirmVerifyInput = document.getElementById('prefActionConfirmModalVerifyInput');
+    const confirmVerifyHint = document.getElementById('prefActionConfirmModalVerifyHint');
 
     const transitionMs = 180;
     const elementAccordionDurationMs = 360;
@@ -452,6 +638,7 @@
     let closeTimer = null;
     let pendingAction = null;
     let lastTrigger = null;
+    let confirmRequiredPhrase = '';
     const reducedMotionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
 
     const getViewportUiScale = () => {
@@ -818,6 +1005,65 @@
         });
     };
 
+    const normalizeVerificationValue = (value) => {
+        return String(value || '').trim().toLowerCase();
+    };
+
+    const resetConfirmVerificationState = () => {
+        confirmRequiredPhrase = '';
+        if (confirmVerifyWrap) {
+            confirmVerifyWrap.setAttribute('hidden', 'hidden');
+        }
+        if (confirmVerifyLabel) {
+            confirmVerifyLabel.textContent = 'Ketik kata kunci untuk melanjutkan.';
+        }
+        if (confirmVerifyInput) {
+            confirmVerifyInput.value = '';
+            confirmVerifyInput.placeholder = '';
+            confirmVerifyInput.classList.remove('is-valid', 'is-invalid');
+            confirmVerifyInput.removeAttribute('aria-invalid');
+        }
+        if (confirmVerifyHint) {
+            confirmVerifyHint.textContent = '';
+            confirmVerifyHint.classList.remove('is-danger');
+        }
+        if (confirmSubmit) {
+            confirmSubmit.disabled = false;
+        }
+    };
+
+    const syncConfirmVerificationState = () => {
+        if (!confirmSubmit) return;
+
+        if (confirmRequiredPhrase === '') {
+            confirmSubmit.disabled = false;
+            return;
+        }
+
+        const typed = normalizeVerificationValue(confirmVerifyInput?.value || '');
+        const expected = normalizeVerificationValue(confirmRequiredPhrase);
+        const isMatch = typed !== '' && typed === expected;
+
+        confirmSubmit.disabled = !isMatch;
+        if (!confirmVerifyInput) return;
+
+        if (typed === '') {
+            confirmVerifyInput.classList.remove('is-valid', 'is-invalid');
+            confirmVerifyInput.removeAttribute('aria-invalid');
+            if (confirmVerifyHint) {
+                confirmVerifyHint.classList.remove('is-danger');
+            }
+            return;
+        }
+
+        confirmVerifyInput.classList.toggle('is-valid', isMatch);
+        confirmVerifyInput.classList.toggle('is-invalid', !isMatch);
+        confirmVerifyInput.setAttribute('aria-invalid', isMatch ? 'false' : 'true');
+        if (confirmVerifyHint) {
+            confirmVerifyHint.classList.toggle('is-danger', !isMatch);
+        }
+    };
+
     const closeConfirmModal = () => {
         pendingAction = null;
         document.body.classList.remove('pref-modal-open');
@@ -840,6 +1086,7 @@
         }
 
         confirmSubmit?.classList.remove('is-danger', 'is-warning');
+        resetConfirmVerificationState();
 
         lastTrigger?.focus?.({ preventScroll: true });
         lastTrigger = null;
@@ -850,6 +1097,9 @@
         message = 'Lanjutkan tindakan ini?',
         label = 'Lanjutkan',
         kind = 'default',
+        requiredPhrase = '',
+        requiredPhraseLabel = '',
+        requiredPhraseHint = '',
         onConfirm = null,
         trigger = null,
     }) => {
@@ -865,12 +1115,31 @@
 
         pendingAction = onConfirm;
         lastTrigger = trigger;
+        confirmRequiredPhrase = String(requiredPhrase || '').trim();
 
         confirmTitle.textContent = title;
         confirmMessage.textContent = message;
         confirmSubmit.textContent = label;
+        confirmSubmit.disabled = false;
         confirmSubmit.classList.toggle('is-danger', kind === 'danger');
         confirmSubmit.classList.toggle('is-warning', kind === 'warning');
+
+        if (confirmVerifyWrap && confirmVerifyInput && confirmVerifyLabel && confirmVerifyHint) {
+            if (confirmRequiredPhrase !== '') {
+                confirmVerifyWrap.removeAttribute('hidden');
+                confirmVerifyLabel.textContent = requiredPhraseLabel || 'Ketik kata kunci untuk melanjutkan.';
+                confirmVerifyInput.value = '';
+                confirmVerifyInput.placeholder = requiredPhraseHint || `Ketik: ${confirmRequiredPhrase}`;
+                confirmVerifyHint.textContent = `Kata kunci: ${confirmRequiredPhrase}`;
+                confirmVerifyHint.classList.remove('is-danger');
+                confirmVerifyInput.classList.remove('is-valid', 'is-invalid');
+                confirmVerifyInput.removeAttribute('aria-invalid');
+                syncConfirmVerificationState();
+            } else {
+                resetConfirmVerificationState();
+            }
+        }
+
         confirmModal.setAttribute('data-kind', kind);
         confirmModal.removeAttribute('hidden');
         confirmModal.setAttribute('aria-hidden', 'false');
@@ -881,7 +1150,11 @@
             syncModalToViewport();
         });
         requestAnimationFrame(() => {
-            confirmSubmit.focus({ preventScroll: true });
+            if (confirmRequiredPhrase !== '' && confirmVerifyInput) {
+                confirmVerifyInput.focus({ preventScroll: true });
+            } else {
+                confirmSubmit.focus({ preventScroll: true });
+            }
         });
     };
 
@@ -903,6 +1176,22 @@
             detail: { title, message: safeMessage, type, duration },
         }));
     };
+
+    confirmVerifyInput?.addEventListener('input', () => {
+        syncConfirmVerificationState();
+    });
+
+    confirmVerifyInput?.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') return;
+        if (!confirmModal?.classList.contains('is-open')) return;
+        if (confirmSubmit?.disabled) {
+            event.preventDefault();
+            return;
+        }
+
+        event.preventDefault();
+        confirmSubmit?.click();
+    });
 
     const escapeHtml = (value) => {
         const text = String(value ?? '');
@@ -1460,6 +1749,69 @@
                         preferenceForm.setAttribute('action', resetDataActionUrl);
                     }
                     preferenceForm.submit();
+                },
+            });
+            return;
+        }
+
+        const archiveProgressTrigger = event.target.closest('[data-archive-progress-trigger]');
+        if (archiveProgressTrigger) {
+            event.preventDefault();
+            if (!archiveProgressForm || !archiveProgressYearField || !archiveYearInput) {
+                return;
+            }
+
+            const rawYear = String(archiveYearInput.value || '').trim();
+            const budgetYear = Number.parseInt(rawYear, 10);
+            if (!Number.isFinite(budgetYear) || budgetYear < 2000 || budgetYear > 2100) {
+                window.alert('Tahun anggaran harus diisi antara 2000 sampai 2100.');
+                archiveYearInput.focus();
+                return;
+            }
+
+            openConfirmModal({
+                title: 'Arsipkan Progress Penilaian',
+                message: `Semua progress penilaian aktif akan disimpan ke arsip Tahun Anggaran ${budgetYear}. Lanjutkan?`,
+                label: 'Arsipkan',
+                kind: 'warning',
+                trigger: archiveProgressTrigger,
+                onConfirm: () => {
+                    archiveProgressYearField.value = String(budgetYear);
+                    archiveProgressForm.submit();
+                },
+            });
+            return;
+        }
+
+        const loadArchiveTrigger = event.target.closest('[data-load-archive-trigger]');
+        if (loadArchiveTrigger) {
+            event.preventDefault();
+            if (!loadArchiveForm || !loadArchiveIdField || !loadArchiveSelect) {
+                return;
+            }
+
+            const archiveId = Number.parseInt(String(loadArchiveSelect.value || ''), 10);
+            if (!Number.isFinite(archiveId) || archiveId <= 0) {
+                window.alert('Pilih arsip tahun anggaran yang akan dimuat.');
+                loadArchiveSelect.focus();
+                return;
+            }
+
+            const selectedOption = loadArchiveSelect.options[loadArchiveSelect.selectedIndex];
+            const archiveLabel = selectedOption ? selectedOption.textContent?.trim() || `ID ${archiveId}` : `ID ${archiveId}`;
+
+            openConfirmModal({
+                title: 'Pulihkan Arsip Progress',
+                message: `Isian progress aktif akan diganti dengan arsip "${archiveLabel}". Notifikasi aktivitas tidak diubah. Tindakan ini tidak menghapus arsip. Lanjutkan?`,
+                label: 'Pulihkan Arsip',
+                kind: 'default',
+                requiredPhrase: 'Inspektorat PPK',
+                requiredPhraseLabel: 'Ketik kata kunci berikut untuk melanjutkan aksi ini:',
+                requiredPhraseHint: 'Ketik: Inspektorat PPK',
+                trigger: loadArchiveTrigger,
+                onConfirm: () => {
+                    loadArchiveIdField.value = String(archiveId);
+                    loadArchiveForm.submit();
                 },
             });
             return;
