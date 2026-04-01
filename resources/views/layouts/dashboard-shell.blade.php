@@ -603,10 +603,76 @@
     const notifyRealtimeState = {
         pusher: null,
         channels: [],
+        channelNames: [],
         fallbackTimer: null,
+        refreshTimer: null,
+        queuedRefresh: false,
+        queuedRefreshSilent: true,
+        lastRefreshAt: 0,
         isFetching: false,
         isMarkingRead: false,
         initialized: false,
+    };
+    const NOTIFY_REFRESH_DEBOUNCE_MS = 180;
+    const NOTIFY_REFRESH_MIN_INTERVAL_MS = 450;
+    const normalizeChannelNames = (channelNames = []) => Array.from(new Set(
+        (Array.isArray(channelNames) ? channelNames : [])
+            .map((value) => String(value || '').trim())
+            .filter((value) => value !== '')
+    ));
+    const resolveRealtimeChannelNames = (notifyButton) => {
+        if(!notifyButton){
+            return [];
+        }
+
+        const channelsRaw=String(notifyButton.dataset.notifyRealtimeChannels || '[]').trim();
+        let channelNames=[];
+        try{
+            const parsedChannels=JSON.parse(channelsRaw);
+            if(Array.isArray(parsedChannels)){
+                channelNames=parsedChannels;
+            }
+        }catch(_error){
+            channelNames=[];
+        }
+
+        channelNames = normalizeChannelNames(channelNames);
+        if(channelNames.length > 0){
+            return channelNames;
+        }
+
+        const scopedElement=String(notifyButton.dataset.notifyScopeElement || '').trim();
+        return scopedElement !== ''
+            ? [`private-notifications.element.${scopedElement}`]
+            : ['private-notifications.all'];
+    };
+    const scheduleNotificationRefresh = ({silent = true, delayMs = NOTIFY_REFRESH_DEBOUNCE_MS} = {}) => {
+        notifyRealtimeState.queuedRefresh = true;
+        notifyRealtimeState.queuedRefreshSilent = notifyRealtimeState.queuedRefreshSilent && Boolean(silent);
+
+        const now = Date.now();
+        const minIntervalDelay = Math.max(
+            0,
+            (notifyRealtimeState.lastRefreshAt + NOTIFY_REFRESH_MIN_INTERVAL_MS) - now
+        );
+        const normalizedDelay = Math.max(0, Number(delayMs) || 0);
+        const finalDelay = Math.max(normalizedDelay, minIntervalDelay);
+
+        if(notifyRealtimeState.refreshTimer){
+            return;
+        }
+
+        notifyRealtimeState.refreshTimer = window.setTimeout(() => {
+            notifyRealtimeState.refreshTimer = null;
+            if(!notifyRealtimeState.queuedRefresh){
+                return;
+            }
+
+            const nextSilent = notifyRealtimeState.queuedRefreshSilent;
+            notifyRealtimeState.queuedRefresh = false;
+            notifyRealtimeState.queuedRefreshSilent = true;
+            refreshNotifications({silent: nextSilent});
+        }, finalDelay);
     };
     const escapeHtml = (value = '') => String(value)
         .replace(/&/g, '&amp;')
@@ -614,12 +680,19 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
+    const toNonNegativeInt = (value, fallback = 0) => {
+        const parsed = Number(value);
+        if(!Number.isFinite(parsed)){
+            return Math.max(0, Math.floor(Number(fallback) || 0));
+        }
+        return Math.max(0, Math.floor(parsed));
+    };
     function setNotifyReadVisual(){
         const notifyButton=getNotifyButton();
         const notifyCount=getNotifyCount();
         if(!notifyButton || !notifyCount) return;
-        const countValue=Math.max(0, Number(notifyButton.dataset.notifyCount || '0'));
-        const unreadCount=Math.max(0, Number(notifyButton.dataset.notifyUnread || '0'));
+        const countValue=toNonNegativeInt(notifyButton.dataset.notifyCount, 0);
+        const unreadCount=Math.min(countValue, toNonNegativeInt(notifyButton.dataset.notifyUnread, 0));
         const showBadge=unreadCount > 0;
         const showReadMark=unreadCount <= 0 && countValue > 0;
         notifyButton.classList.toggle('has-alert', showBadge);
@@ -696,7 +769,7 @@
             : '';
 
         return `
-            <div class="notify-item${isRead ? '' : ' is-unread'}" style="--notify-order:${Number(index || 0)};">
+            <div class="notify-item${isRead ? '' : ' is-unread'}" style="--notify-order:${toNonNegativeInt(index, 0)};">
                 <div class="notify-item-top">
                     <div class="notify-avatar" aria-hidden="true">${avatarHtml}</div>
                     <div class="notify-actor">
@@ -729,13 +802,16 @@
         const notifyList=getNotifyList();
         if(!notifyButton || !notifyCount || !notifyList) return;
 
-        const previousCount=Math.max(0, Number(notifyButton.dataset.notifyCount || '0'));
-        const previousUnread=Math.max(0, Number(notifyButton.dataset.notifyUnread || '0'));
+        const previousCount=toNonNegativeInt(notifyButton.dataset.notifyCount, 0);
+        const previousUnread=toNonNegativeInt(notifyButton.dataset.notifyUnread, 0);
         const previousSignature=String(notifyButton.dataset.notifySignature || '').trim();
-        const countValue=Math.max(0, Number(payload?.count || 0));
-        const unreadCount=Math.max(0, Number(payload?.unread_count ?? countValue));
-        const signature=String(payload?.signature || '').trim();
-        const items=Array.isArray(payload?.items) ? payload.items : [];
+        const countValue=toNonNegativeInt(payload?.count, 0);
+        const unreadCount=Math.min(countValue, toNonNegativeInt(payload?.unread_count, countValue));
+        const rawSignature=String(payload?.signature || '').trim();
+        const signature=rawSignature !== '' ? rawSignature : previousSignature;
+        const items=Array.isArray(payload?.items)
+            ? payload.items.filter((item) => item && typeof item === 'object')
+            : [];
         const shouldRenderList =
             forceListRender
             || signature !== previousSignature
@@ -764,7 +840,11 @@
     }
     async function refreshNotifications({silent=true} = {}){
         const notifyButton=getNotifyButton();
-        if(!notifyButton || notifyRealtimeState.isFetching || notifyRealtimeState.isMarkingRead){
+        if(!notifyButton){
+            return;
+        }
+        if(notifyRealtimeState.isFetching || notifyRealtimeState.isMarkingRead){
+            scheduleNotificationRefresh({silent, delayMs: NOTIFY_REFRESH_DEBOUNCE_MS});
             return;
         }
         const feedUrlRaw=String(notifyButton.dataset.notifyFeedUrl || '').trim();
@@ -772,6 +852,8 @@
             return;
         }
         notifyRealtimeState.isFetching=true;
+        notifyRealtimeState.queuedRefresh=false;
+        notifyRealtimeState.queuedRefreshSilent=true;
         try{
             const feedUrl=new URL(feedUrlRaw, window.location.origin);
             const scopeSlug=String(notifyButton.dataset.notifyScope || '').trim();
@@ -798,6 +880,10 @@
             }
         }finally{
             notifyRealtimeState.isFetching=false;
+            notifyRealtimeState.lastRefreshAt=Date.now();
+            if(notifyRealtimeState.queuedRefresh){
+                scheduleNotificationRefresh({silent: notifyRealtimeState.queuedRefreshSilent, delayMs: NOTIFY_REFRESH_DEBOUNCE_MS});
+            }
         }
     }
     function isEventRelevantToScope(payload){
@@ -820,8 +906,78 @@
             return;
         }
         notifyRealtimeState.fallbackTimer=window.setInterval(() => {
-            refreshNotifications({silent:true});
+            scheduleNotificationRefresh({silent:true, delayMs: 0});
         }, 30000);
+    }
+    function bindNotificationRealtimeChannel(channelName){
+        if(!notifyRealtimeState.pusher){
+            return null;
+        }
+
+        const channel=notifyRealtimeState.pusher.subscribe(channelName);
+        const handler=(payload) => {
+            if(!isEventRelevantToScope(payload)){
+                return;
+            }
+            scheduleNotificationRefresh({silent:true, delayMs: NOTIFY_REFRESH_DEBOUNCE_MS});
+        };
+        channel.bind('notification.feed.updated', handler);
+
+        return {
+            name: channelName,
+            channel,
+            handler,
+        };
+    }
+    function syncNotificationRealtimeChannels(){
+        if(!notifyRealtimeState.pusher){
+            return;
+        }
+
+        const notifyButton=getNotifyButton();
+        if(!notifyButton){
+            return;
+        }
+
+        const desiredChannelNames = resolveRealtimeChannelNames(notifyButton);
+        const desiredNameSet = new Set(desiredChannelNames);
+
+        notifyRealtimeState.channels = notifyRealtimeState.channels.filter((entry) => {
+            if(!entry || typeof entry.name !== 'string' || !desiredNameSet.has(entry.name)){
+                const staleName = String(entry?.name || '').trim();
+                try{
+                    entry?.channel?.unbind?.('notification.feed.updated', entry?.handler);
+                }catch(_error){
+                    // ignore stale binding cleanup errors
+                }
+                if(staleName !== ''){
+                    try{
+                        notifyRealtimeState.pusher?.unsubscribe(staleName);
+                    }catch(_error){
+                        // ignore stale channel cleanup errors
+                    }
+                }
+                return false;
+            }
+            return true;
+        });
+
+        const activeNameSet = new Set(
+            notifyRealtimeState.channels
+                .map((entry) => String(entry?.name || '').trim())
+                .filter((name) => name !== '')
+        );
+        desiredChannelNames.forEach((channelName) => {
+            if(activeNameSet.has(channelName)){
+                return;
+            }
+            const entry = bindNotificationRealtimeChannel(channelName);
+            if(entry){
+                notifyRealtimeState.channels.push(entry);
+            }
+        });
+
+        notifyRealtimeState.channelNames = desiredChannelNames;
     }
     function bootNotificationRealtime(){
         if(notifyRealtimeState.initialized){
@@ -847,25 +1003,6 @@
         const wsPort=Number.isFinite(reverbPort) && reverbPort > 0 ? reverbPort : (useTls ? 443 : 80);
         const authEndpoint=String(notifyButton.dataset.notifyAuthUrl || '').trim();
         const csrfToken=String(notifyButton.dataset.notifyCsrfToken || '').trim();
-        const channelsRaw=String(notifyButton.dataset.notifyRealtimeChannels || '[]').trim();
-
-        let channelNames=[];
-        try{
-            const parsedChannels=JSON.parse(channelsRaw);
-            if(Array.isArray(parsedChannels)){
-                channelNames=parsedChannels
-                    .map((value)=>String(value || '').trim())
-                    .filter((value)=>value !== '');
-            }
-        }catch(_error){
-            channelNames=[];
-        }
-        if(channelNames.length === 0){
-            const scopedElement=String(notifyButton.dataset.notifyScopeElement || '').trim();
-            channelNames=scopedElement !== ''
-                ? [`private-notifications.element.${scopedElement}`]
-                : ['private-notifications.all'];
-        }
 
         try{
             window.Pusher.logToConsole=false;
@@ -886,21 +1023,11 @@
                     },
                 } : {}),
             });
-
-            notifyRealtimeState.channels = channelNames.map((channelName) => {
-                const channel=notifyRealtimeState.pusher.subscribe(channelName);
-                channel.bind('notification.feed.updated', (payload) => {
-                    if(!isEventRelevantToScope(payload)){
-                        return;
-                    }
-                    refreshNotifications({silent:true});
-                });
-
-                return channel;
-            });
+            syncNotificationRealtimeChannels();
 
             notifyRealtimeState.pusher.connection.bind('connected', () => {
-                refreshNotifications({silent:true});
+                syncNotificationRealtimeChannels();
+                scheduleNotificationRefresh({silent:true, delayMs: 0});
             });
         }catch(error){
             console.warn('Koneksi realtime notifikasi gagal diinisialisasi.', error);
@@ -1022,16 +1149,20 @@
     });
     window.addEventListener('focus', syncIdleLogoutDeadline);
     window.addEventListener('pageshow', syncIdleLogoutDeadline);
-    window.addEventListener('pageshow', () => refreshNotifications({silent:true}));
+    window.addEventListener('pageshow', () => {
+        syncNotificationRealtimeChannels();
+        scheduleNotificationRefresh({silent:true, delayMs: 0});
+    });
     document.addEventListener('livewire:navigated', () => {
         resetIdleLogout(true);
         syncNotifyReadState();
-        refreshNotifications({silent:true});
+        syncNotificationRealtimeChannels();
+        scheduleNotificationRefresh({silent:true, delayMs: 0});
     });
     resetIdleLogout(true);
     syncNotifyReadState();
     bootNotificationRealtime();
-    refreshNotifications({silent:true});
+    scheduleNotificationRefresh({silent:true, delayMs: 0});
     // Delegated handlers keep profile/notification dropdown functional after wire:navigate.
     document.addEventListener('click',(e)=>{
         const notifyButton=e.target.closest('#notifyButton');
