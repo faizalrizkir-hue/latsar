@@ -7,6 +7,47 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Development in Windows Laragon (No WSL)
+
+Project ini saat ini dijalankan utama di Windows + Laragon, tanpa WSL.
+
+1. Start service Laragon (MySQL + web server).
+2. Set PHP binary Laragon:
+
+```powershell
+$php = "C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe"
+```
+
+3. Sinkronisasi project:
+
+```powershell
+& $php artisan optimize:clear
+& $php artisan migrate --force
+& $php artisan db:seed --force
+```
+
+4. Jalankan proses aplikasi:
+
+```powershell
+# Terminal 1
+& $php artisan serve --host=127.0.0.1 --port=8000
+
+# Terminal 2
+& $php artisan reverb:start --host=127.0.0.1 --port=8080
+
+# Terminal 3
+npm run dev
+```
+
+Jika port MySQL bentrok (`3306`), jalankan script ini sebagai Administrator:
+
+```powershell
+.\scripts\fix-db-conflict-laragon.ps1
+```
+
+Handover operasional lokal: `docs/HANDOVER.md`.
+Snapshot konteks teknis: `docs/PROJECT_CONTEXT.md`.
+
 ## Development in GitHub Codespaces
 
 You can develop this project from anywhere using GitHub Codespaces.
