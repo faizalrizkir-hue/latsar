@@ -6,6 +6,7 @@
     <title>{{ $pageTitle ?? 'LATSAR' }}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="/css/dashboard.css?v={{ @filemtime(public_path('css/dashboard.css')) }}">
+    <script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
     <script>
         // Terapkan tema tersimpan sedini mungkin supaya tidak kedip dan tidak kembali ke gelap
         (function(){
@@ -24,19 +25,63 @@
 @php
     use Illuminate\Support\Str;
     use App\Models\Account;
+    use App\Models\Notification;
     use App\Models\ElementTeamAssignment;
     use App\Services\ElementPreferenceService;
-    $notificationItems = $notifications ?? collect();
-    $notificationCount = count($notificationItems);
+    $sessionUser = is_array($user ?? null) ? $user : [];
+    $notificationScopeSlug = trim((string) ($notificationScopeSlug ?? (string) request()->route('slug', '')));
+    $notificationScopeElementSlug = ElementTeamAssignment::topLevelElementSlug($notificationScopeSlug);
+    $notificationScopeLabel = '';
+    if (preg_match('/^element(\d+)$/i', $notificationScopeElementSlug, $matches)) {
+        $notificationScopeLabel = 'Penugasan Element '.($matches[1] ?? '');
+    }
+    $notificationItems = isset($notifications)
+        ? collect($notifications)
+        : Notification::feedForUser($sessionUser, $notificationScopeSlug, 50);
+    $notificationCount = $notificationItems->count();
+    $notificationUnreadCount = $notificationCount;
     $latestNotification = $notificationCount > 0 ? $notificationItems->first() : null;
     $latestNotificationSignature = $latestNotification
         ? trim((string) (($latestNotification->id ?? '0') . '|' . ($latestNotification->created_at?->timestamp ?? 0)))
         : '';
-    $userRoleKey = strtolower((string) ($user['role'] ?? ''));
+    $notificationFeedUrl = route('notifications.feed');
+    $notificationAuthUrl = route('notifications.auth');
+    $notificationMarkReadUrl = route('notifications.mark-read');
+    $reverbConnection = (array) config('broadcasting.connections.reverb', []);
+    $reverbOptions = (array) ($reverbConnection['options'] ?? []);
+    $reverbAppKey = trim((string) ($reverbConnection['key'] ?? ''));
+    $reverbHost = trim((string) ($reverbOptions['host'] ?? '127.0.0.1'));
+    $reverbPort = (int) ($reverbOptions['port'] ?? 8080);
+    $reverbScheme = strtolower(trim((string) ($reverbOptions['scheme'] ?? 'http')));
+    if ($reverbScheme !== 'https') {
+        $reverbScheme = 'http';
+    }
+    $notificationRealtimeEnabled = $reverbAppKey !== '' && strtolower((string) config('broadcasting.default', '')) === 'reverb';
+    $userRoleKey = strtolower((string) ($sessionUser['role'] ?? ''));
     $canManageAccounts = in_array($userRoleKey, ['administrator', 'admin', 'superadmin'], true);
-    $photoPath = $user['profile_photo'] ?? '';
+    $notificationRealtimeChannels = [];
+    if ($notificationScopeElementSlug !== '') {
+        $notificationRealtimeChannels[] = 'private-notifications.element.'.$notificationScopeElementSlug;
+    } elseif (in_array($userRoleKey, ['administrator', 'admin', 'superadmin', 'qa'], true)) {
+        $notificationRealtimeChannels[] = 'private-notifications.all';
+    } else {
+        $assignedNotificationElementSlugs = ElementTeamAssignment::assignedElementSlugsForUser($sessionUser);
+        if (is_array($assignedNotificationElementSlugs) && count($assignedNotificationElementSlugs) > 0) {
+            foreach ($assignedNotificationElementSlugs as $assignedElementSlug) {
+                $assignedElementSlug = trim((string) $assignedElementSlug);
+                if ($assignedElementSlug === '') {
+                    continue;
+                }
+                $notificationRealtimeChannels[] = 'private-notifications.element.'.$assignedElementSlug;
+            }
+        } else {
+            $notificationRealtimeChannels[] = 'private-notifications.all';
+        }
+    }
+    $notificationRealtimeChannels = array_values(array_unique(array_filter($notificationRealtimeChannels)));
+    $photoPath = $sessionUser['profile_photo'] ?? '';
     $photoUrl = '';
-    $userRoleLabel = $user['role_label'] ?? Account::roleLabel($user['role'] ?? null);
+    $userRoleLabel = $sessionUser['role_label'] ?? Account::roleLabel($sessionUser['role'] ?? null);
     $resolvePhotoUrl = static function (?string $path): string {
         $photoPath = trim((string) $path);
 
@@ -67,7 +112,7 @@
         return Str::upper(Str::substr($compact, 0, 2));
     };
     $elementPreferenceService = app(ElementPreferenceService::class);
-    $visibleElementNavSlugs = ElementTeamAssignment::assignedElementSlugsForUser($user);
+    $visibleElementNavSlugs = ElementTeamAssignment::assignedElementSlugsForUser($sessionUser);
     $subtopicModulesForNav = collect($elementPreferenceService->subtopicModules(true))
         ->filter(fn ($item) => is_array($item));
     $subtopicTitleBySlug = $subtopicModulesForNav
@@ -535,13 +580,26 @@
                         aria-controls="notifyDropdown"
                         aria-label="Notifikasi"
                         data-notify-count="{{ $notificationCount }}"
+                        data-notify-unread="{{ $notificationUnreadCount }}"
                         data-notify-signature="{{ $latestNotificationSignature }}"
+                        data-notify-feed-url="{{ $notificationFeedUrl }}"
+                        data-notify-auth-url="{{ $notificationAuthUrl }}"
+                        data-notify-mark-read-url="{{ $notificationMarkReadUrl }}"
+                        data-notify-csrf-token="{{ csrf_token() }}"
+                        data-notify-scope="{{ $notificationScopeSlug }}"
+                        data-notify-scope-element="{{ $notificationScopeElementSlug }}"
+                        data-notify-realtime-channels='@json($notificationRealtimeChannels)'
+                        data-notify-realtime-enabled="{{ $notificationRealtimeEnabled ? '1' : '0' }}"
+                        data-notify-realtime-key="{{ $reverbAppKey }}"
+                        data-notify-realtime-host="{{ $reverbHost }}"
+                        data-notify-realtime-port="{{ $reverbPort }}"
+                        data-notify-realtime-scheme="{{ $reverbScheme }}"
                     >
                         <svg viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px;">
                             <path d="M6 17h12l-1-2v-5a5 5 0 1 0-10 0v5l-1 2Z"/>
                             <path d="M9 17a3 3 0 0 0 6 0"/>
                         </svg>
-                        <span class="notify-count" id="notifyCount">{{ $notificationCount }}</span>
+                        <span class="notify-count" id="notifyCount">{{ $notificationUnreadCount }}</span>
                     </button>
                     <div class="notify-dropdown" id="notifyDropdown" role="menu" aria-label="Notifikasi">
                         <div class="notify-header">
@@ -558,15 +616,69 @@
                             </span>
                         </div>
                         <div class="notify-list" id="notifyList">
-                            @forelse($notificationItems as $notif)
+                            @forelse($notificationItems as $notifIndex => $notif)
                                 @php
                                     $notifyActorName = trim((string) ($notif->coordinator_name ?: ($notif->coordinatorAccount?->display_name ?? $notif->coordinator_username ?? 'Pengguna')));
-                                    $notifyActorUsername = trim((string) ($notif->coordinator_username ?? ''));
                                     $notifyActorRole = trim((string) ($notif->coordinator_role_label ?? 'Pengguna'));
                                     $notifyActorPhotoUrl = $resolvePhotoUrl($notif->coordinatorAccount?->profile_photo ?? '');
                                     $notifyActorInitials = $avatarLabel($notifyActorName, 'U');
+                                    $notifyTitle = trim((string) ($notif->subtopic_title ?? 'Notifikasi'));
+                                    $notifyTitle = preg_replace('/^\s*element\s*\d+\s*[-:]?\s*/i', '', $notifyTitle);
+                                    $notifyTitle = is_string($notifyTitle) ? trim($notifyTitle) : 'Notifikasi';
+                                    $notifyTitle = preg_replace('/^\s*sub\s*topik\s*\d+\s*[-:]?\s*/i', '', $notifyTitle);
+                                    $notifyTitle = is_string($notifyTitle) ? trim($notifyTitle) : 'Notifikasi';
+                                    if ($notifyTitle === '') {
+                                        $notifyTitle = 'Notifikasi';
+                                    }
+
+                                    $notifyStatement = trim((string) ($notif->statement ?? ''));
+                                    if ($notifyStatement !== '' && !Str::contains($notifyStatement, '·')) {
+                                        $normalized = preg_replace('/^.*?\bmelakukan\b\s*/iu', '', $notifyStatement);
+                                        $normalized = is_string($normalized) ? $normalized : $notifyStatement;
+                                        $normalized = preg_replace('/\bpada\s+element\s+\d+.*?:\s*/iu', '', $normalized);
+                                        $normalized = is_string($normalized) ? trim($normalized) : $notifyStatement;
+
+                                        $legacyActionMap = [
+                                            'reset verifikasi final qa' => 'Reset QA',
+                                            'verifikasi final qa' => 'Verifikasi QA',
+                                            'reset verifikasi qa' => 'Reset QA',
+                                            'verifikasi qa' => 'Verifikasi QA',
+                                            'reset verifikasi' => 'Reset Verifikasi',
+                                            'verifikasi' => 'Verifikasi',
+                                            'pembersihan data' => 'Hapus Isian',
+                                            'pengisian/perubahan data' => 'Isi Data',
+                                            'isi/ubah data' => 'Isi Data',
+                                        ];
+
+                                        foreach ($legacyActionMap as $legacyAction => $compactAction) {
+                                            if (Str::startsWith(Str::lower($normalized), $legacyAction)) {
+                                                $rest = trim((string) Str::substr($normalized, Str::length($legacyAction)));
+                                                $normalized = $compactAction.($rest !== '' ? ' · '.$rest : '');
+                                                break;
+                                            }
+                                        }
+
+                                        $notifyStatement = $normalized;
+                                    }
+                                    $notifyStatement = Str::limit($notifyStatement, 64, '…');
+
+                                    $notifyActionText = '';
+                                    $notifyDetailText = $notifyStatement;
+                                    if (Str::contains($notifyStatement, '·')) {
+                                        [$notifyActionText, $notifyDetailText] = array_pad(explode('·', $notifyStatement, 2), 2, '');
+                                        $notifyActionText = trim((string) $notifyActionText);
+                                        $notifyDetailText = trim((string) $notifyDetailText);
+                                    }
+
+                                    $notifyActionClass = match (Str::lower($notifyActionText)) {
+                                        'isi data', 'isi/ubah data' => 'is-save',
+                                        'hapus isian', 'bersihkan' => 'is-clear',
+                                        'verifikasi', 'verifikasi qa', 'verifikasi final qa' => 'is-verify',
+                                        'reset verifikasi', 'reset qa', 'reset final qa', 'reset verifikasi qa' => 'is-verify-reset',
+                                        default => 'is-save',
+                                    };
                                 @endphp
-                                <div class="notify-item">
+                                <div class="notify-item" style="--notify-order: {{ (int) $notifIndex }};">
                                     <div class="notify-item-top">
                                         <div class="notify-avatar" aria-hidden="true">
                                             @if($notifyActorPhotoUrl !== '')
@@ -578,16 +690,20 @@
                                         <div class="notify-actor">
                                             <div class="notify-actor-line">
                                                 <span class="notify-actor-name">{{ $notifyActorName }}</span>
-                                                <span class="notify-role-badge">{{ $notifyActorRole }}</span>
                                             </div>
-                                            @if($notifyActorUsername !== '')
-                                                <div class="notify-actor-username">{{ '@' . $notifyActorUsername }}</div>
-                                            @endif
+                                            <div class="notify-actor-role">{{ $notifyActorRole }}</div>
                                         </div>
                                     </div>
-                                    <div class="title">{{ $notif->subtopic_title ?? 'Notifikasi' }}</div>
-                                    @if(!empty($notif->statement))
-                                        <div class="notify-body">{{ $notif->statement }}</div>
+                                    <div class="title">{{ $notifyTitle }}</div>
+                                    @if($notifyActionText !== '' || $notifyDetailText !== '')
+                                        <div class="notify-action-row">
+                                            @if($notifyActionText !== '')
+                                                <span class="notify-action-badge {{ $notifyActionClass }}">{{ $notifyActionText }}</span>
+                                            @endif
+                                            @if($notifyDetailText !== '')
+                                                <span class="notify-body">{{ $notifyDetailText }}</span>
+                                            @endif
+                                        </div>
                                     @endif
                                     <div class="meta">{{ $notif->created_at?->timezone('Asia/Jakarta')->format('d M Y H:i') }}</div>
                                 </div>
@@ -601,13 +717,13 @@
                     <button type="button" class="profile-button" id="profileButton" aria-expanded="false" aria-haspopup="true" aria-controls="profileDropdown">
                         <div class="avatar">
                             @if(!empty($photoUrl))
-                                <img src="{{ $photoUrl }}" alt="Foto profil {{ $user['display_name'] ?? 'User' }}">
+                                <img src="{{ $photoUrl }}" alt="Foto profil {{ $sessionUser['display_name'] ?? 'User' }}">
                             @else
-                                {{ $avatarLabel($user['display_name'] ?? null) }}
+                                {{ $avatarLabel($sessionUser['display_name'] ?? null) }}
                             @endif
                         </div>
                         <div class="profile-meta">
-                            <strong class="profile-name">{{ $user['display_name'] ?? 'Admin SIKAP' }}</strong>
+                            <strong class="profile-name">{{ $sessionUser['display_name'] ?? 'Admin SIKAP' }}</strong>
                             <span class="profile-role">{{ $userRoleLabel }}</span>
                         </div>
                         <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" style="stroke:currentColor;fill:none;"><path d="M6 9l6 6 6-6"/></svg>
@@ -874,51 +990,315 @@
     const getNotifyButton = () => document.getElementById('notifyButton');
     const getNotifyCount = () => document.getElementById('notifyCount');
     const getNotifyDropdown = () => document.getElementById('notifyDropdown');
+    const getNotifyList = () => document.getElementById('notifyList');
+    const getNotifySummaryCount = () => document.querySelector('#notifyDropdown .notify-summary-count');
     const getProfileButton = () => document.getElementById('profileButton');
     const getProfileDropdown = () => document.getElementById('profileDropdown');
-    const notifyReadStorageKey = 'dashboard-notifications-read-signature';
-    function setNotifyReadVisual(isRead){
+    const notifyRealtimeState = {
+        pusher: null,
+        channels: [],
+        fallbackTimer: null,
+        isFetching: false,
+        isMarkingRead: false,
+        initialized: false,
+    };
+    const escapeHtml = (value = '') => String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    function setNotifyReadVisual(){
         const notifyButton=getNotifyButton();
         const notifyCount=getNotifyCount();
         if(!notifyButton || !notifyCount) return;
-        const countValue=Number(notifyButton.dataset.notifyCount || '0');
-        const showBadge=!isRead && countValue > 0;
-        const showReadMark=isRead && countValue > 0;
+        const countValue=Math.max(0, Number(notifyButton.dataset.notifyCount || '0'));
+        const unreadCount=Math.max(0, Number(notifyButton.dataset.notifyUnread || '0'));
+        const showBadge=unreadCount > 0;
+        const showReadMark=unreadCount <= 0 && countValue > 0;
         notifyButton.classList.toggle('has-alert', showBadge);
         notifyButton.classList.toggle('has-read-mark', showReadMark);
         notifyButton.classList.toggle('is-cleared', !showBadge);
+        notifyCount.textContent=String(unreadCount);
         notifyCount.classList.toggle('is-hidden', !showBadge);
         notifyCount.setAttribute('aria-hidden', String(!showBadge));
     }
     function syncNotifyReadState(){
+        setNotifyReadVisual();
+    }
+    async function markNotificationsRead(){
         const notifyButton=getNotifyButton();
-        if(!notifyButton) return;
-        const countValue=Number(notifyButton.dataset.notifyCount || '0');
-        const signature=(notifyButton.dataset.notifySignature || '').trim();
-        if(countValue <= 0){
-            setNotifyReadVisual(true);
+        if(!notifyButton || notifyRealtimeState.isMarkingRead) return;
+        const markReadUrlRaw=String(notifyButton.dataset.notifyMarkReadUrl || '').trim();
+        if(markReadUrlRaw === ''){
+            notifyButton.dataset.notifyUnread='0';
+            setNotifyReadVisual();
             return;
         }
-        let storedSignature='';
+        const scopeSlug=String(notifyButton.dataset.notifyScope || '').trim();
+        const csrfToken=String(notifyButton.dataset.notifyCsrfToken || '').trim();
+        notifyRealtimeState.isMarkingRead=true;
         try{
-            storedSignature=localStorage.getItem(notifyReadStorageKey) || '';
-        }catch(_error){
-            storedSignature='';
-        }
-        setNotifyReadVisual(signature !== '' && storedSignature === signature);
-    }
-    function markNotificationsRead(){
-        const notifyButton=getNotifyButton();
-        if(!notifyButton) return;
-        const signature=(notifyButton.dataset.notifySignature || '').trim();
-        if(signature !== ''){
-            try{
-                localStorage.setItem(notifyReadStorageKey, signature);
-            }catch(_error){
-                // Ignore storage failures and still update the current view.
+            const response=await fetch(markReadUrlRaw, {
+                method:'POST',
+                credentials:'same-origin',
+                headers:{
+                    'Accept':'application/json',
+                    'X-Requested-With':'XMLHttpRequest',
+                    'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',
+                    ...(csrfToken !== '' ? {'X-CSRF-TOKEN': csrfToken} : {}),
+                },
+                body:new URLSearchParams({
+                    scope:scopeSlug,
+                }).toString(),
+            });
+            if(!response.ok){
+                throw new Error(`HTTP ${response.status}`);
             }
+            const payload=await response.json();
+            applyNotificationPayload(payload);
+        }catch(error){
+            // keep silent to avoid noisy UX; fallback still refreshes by polling/realtime
+        }finally{
+            notifyRealtimeState.isMarkingRead=false;
         }
-        setNotifyReadVisual(true);
+    }
+    function renderNotificationItem(item, index){
+        const actorName = escapeHtml(item?.actor_name || 'Pengguna');
+        const actorRole = escapeHtml(item?.actor_role || 'Pengguna');
+        const actorInitials = escapeHtml(item?.actor_initials || 'U');
+        const actorPhotoUrl = String(item?.actor_photo_url || '').trim();
+        const title = escapeHtml(item?.title || 'Notifikasi');
+        const actionText = String(item?.action_text || '').trim();
+        const detailText = String(item?.detail_text || '').trim();
+        const actionClass = String(item?.action_class || 'is-save').trim();
+        const actionClassSafe = /^is-(save|clear|verify|verify-reset)$/.test(actionClass) ? actionClass : 'is-save';
+        const timeLabel = escapeHtml(item?.time_label || '-');
+        const isRead = Boolean(item?.is_read);
+
+        const avatarHtml = actorPhotoUrl !== ''
+            ? `<img src="${escapeHtml(actorPhotoUrl)}" alt="Foto profil ${actorName}">`
+            : actorInitials;
+        const actionHtml = actionText !== ''
+            ? `<span class="notify-action-badge ${actionClassSafe}">${escapeHtml(actionText)}</span>`
+            : '';
+        const detailHtml = detailText !== ''
+            ? `<span class="notify-body">${escapeHtml(detailText)}</span>`
+            : '';
+        const actionRowHtml = (actionHtml !== '' || detailHtml !== '')
+            ? `<div class="notify-action-row">${actionHtml}${detailHtml}</div>`
+            : '';
+
+        return `
+            <div class="notify-item${isRead ? '' : ' is-unread'}" style="--notify-order:${Number(index || 0)};">
+                <div class="notify-item-top">
+                    <div class="notify-avatar" aria-hidden="true">${avatarHtml}</div>
+                    <div class="notify-actor">
+                        <div class="notify-actor-line">
+                            <span class="notify-actor-name">${actorName}</span>
+                        </div>
+                        <div class="notify-actor-role">${actorRole}</div>
+                    </div>
+                </div>
+                <div class="title">${title}</div>
+                ${actionRowHtml}
+                <div class="meta">${timeLabel}</div>
+            </div>
+        `;
+    }
+    function renderNotificationEmpty(){
+        return '<div class="notify-item notify-item-empty">Belum ada notifikasi.</div>';
+    }
+    function markAllNotificationItemsReadDom(){
+        const notifyList=getNotifyList();
+        if(!notifyList) return;
+        notifyList.querySelectorAll('.notify-item.is-unread').forEach((item)=>{
+            item.classList.remove('is-unread');
+        });
+    }
+    function applyNotificationPayload(payload, {forceListRender=false} = {}){
+        const notifyButton=getNotifyButton();
+        const notifyCount=getNotifyCount();
+        const notifySummaryCount=getNotifySummaryCount();
+        const notifyList=getNotifyList();
+        if(!notifyButton || !notifyCount || !notifyList) return;
+
+        const previousCount=Math.max(0, Number(notifyButton.dataset.notifyCount || '0'));
+        const previousUnread=Math.max(0, Number(notifyButton.dataset.notifyUnread || '0'));
+        const previousSignature=String(notifyButton.dataset.notifySignature || '').trim();
+        const countValue=Math.max(0, Number(payload?.count || 0));
+        const unreadCount=Math.max(0, Number(payload?.unread_count ?? countValue));
+        const signature=String(payload?.signature || '').trim();
+        const items=Array.isArray(payload?.items) ? payload.items : [];
+        const shouldRenderList =
+            forceListRender
+            || signature !== previousSignature
+            || countValue !== previousCount;
+
+        notifyButton.dataset.notifyCount=String(countValue);
+        notifyButton.dataset.notifyUnread=String(unreadCount);
+        notifyButton.dataset.notifySignature=signature;
+        notifyCount.textContent=String(unreadCount);
+        if(notifySummaryCount){
+            notifySummaryCount.textContent=String(countValue);
+        }
+
+        if(shouldRenderList){
+            if(items.length === 0){
+                notifyList.innerHTML=renderNotificationEmpty();
+            }else{
+                notifyList.innerHTML=items.map((item, index) => renderNotificationItem(item, index)).join('');
+            }
+        }else if(previousUnread > 0 && unreadCount === 0){
+            // Keep DOM stable to prevent flicker; only clear unread marker state.
+            markAllNotificationItemsReadDom();
+        }
+
+        syncNotifyReadState();
+    }
+    async function refreshNotifications({silent=true} = {}){
+        const notifyButton=getNotifyButton();
+        if(!notifyButton || notifyRealtimeState.isFetching || notifyRealtimeState.isMarkingRead){
+            return;
+        }
+        const feedUrlRaw=String(notifyButton.dataset.notifyFeedUrl || '').trim();
+        if(feedUrlRaw === ''){
+            return;
+        }
+        notifyRealtimeState.isFetching=true;
+        try{
+            const feedUrl=new URL(feedUrlRaw, window.location.origin);
+            const scopeSlug=String(notifyButton.dataset.notifyScope || '').trim();
+            if(scopeSlug !== ''){
+                feedUrl.searchParams.set('scope', scopeSlug);
+            }
+            feedUrl.searchParams.set('_ts', String(Date.now()));
+            const response=await fetch(feedUrl.toString(), {
+                method: 'GET',
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+            if(!response.ok){
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const payload=await response.json();
+            applyNotificationPayload(payload);
+        }catch(error){
+            if(!silent){
+                console.warn('Gagal memuat notifikasi realtime.', error);
+            }
+        }finally{
+            notifyRealtimeState.isFetching=false;
+        }
+    }
+    function isEventRelevantToScope(payload){
+        const notifyButton=getNotifyButton();
+        if(!notifyButton){
+            return false;
+        }
+        const scopedElement=String(notifyButton.dataset.notifyScopeElement || '').trim();
+        if(scopedElement === ''){
+            return true;
+        }
+        const incomingElement=String(payload?.element_slug || '').trim();
+        if(incomingElement === ''){
+            return true;
+        }
+        return incomingElement === scopedElement;
+    }
+    function ensureNotificationFallbackPolling(){
+        if(notifyRealtimeState.fallbackTimer){
+            return;
+        }
+        notifyRealtimeState.fallbackTimer=window.setInterval(() => {
+            refreshNotifications({silent:true});
+        }, 30000);
+    }
+    function bootNotificationRealtime(){
+        if(notifyRealtimeState.initialized){
+            return;
+        }
+        notifyRealtimeState.initialized=true;
+        ensureNotificationFallbackPolling();
+
+        const notifyButton=getNotifyButton();
+        if(!notifyButton){
+            return;
+        }
+        const realtimeEnabled=String(notifyButton.dataset.notifyRealtimeEnabled || '0') === '1';
+        const reverbKey=String(notifyButton.dataset.notifyRealtimeKey || '').trim();
+        if(!realtimeEnabled || reverbKey === '' || typeof window.Pusher !== 'function'){
+            return;
+        }
+
+        const reverbHost=String(notifyButton.dataset.notifyRealtimeHost || window.location.hostname).trim() || window.location.hostname;
+        const reverbPort=Number(notifyButton.dataset.notifyRealtimePort || (window.location.protocol === 'https:' ? 443 : 8080));
+        const reverbScheme=String(notifyButton.dataset.notifyRealtimeScheme || window.location.protocol.replace(':', '') || 'http').toLowerCase();
+        const useTls=reverbScheme === 'https';
+        const wsPort=Number.isFinite(reverbPort) && reverbPort > 0 ? reverbPort : (useTls ? 443 : 80);
+        const authEndpoint=String(notifyButton.dataset.notifyAuthUrl || '').trim();
+        const csrfToken=String(notifyButton.dataset.notifyCsrfToken || '').trim();
+        const channelsRaw=String(notifyButton.dataset.notifyRealtimeChannels || '[]').trim();
+
+        let channelNames=[];
+        try{
+            const parsedChannels=JSON.parse(channelsRaw);
+            if(Array.isArray(parsedChannels)){
+                channelNames=parsedChannels
+                    .map((value)=>String(value || '').trim())
+                    .filter((value)=>value !== '');
+            }
+        }catch(_error){
+            channelNames=[];
+        }
+        if(channelNames.length === 0){
+            const scopedElement=String(notifyButton.dataset.notifyScopeElement || '').trim();
+            channelNames=scopedElement !== ''
+                ? [`private-notifications.element.${scopedElement}`]
+                : ['private-notifications.all'];
+        }
+
+        try{
+            window.Pusher.logToConsole=false;
+            notifyRealtimeState.pusher=new window.Pusher(reverbKey, {
+                wsHost: reverbHost,
+                wsPort,
+                wssPort: wsPort,
+                forceTLS: useTls,
+                enabledTransports: ['ws', 'wss'],
+                disableStats: true,
+                cluster: 'mt1',
+                ...(authEndpoint !== '' ? {
+                    authEndpoint,
+                    auth: {
+                        headers: {
+                            ...(csrfToken !== '' ? {'X-CSRF-TOKEN': csrfToken} : {}),
+                        },
+                    },
+                } : {}),
+            });
+
+            notifyRealtimeState.channels = channelNames.map((channelName) => {
+                const channel=notifyRealtimeState.pusher.subscribe(channelName);
+                channel.bind('notification.feed.updated', (payload) => {
+                    if(!isEventRelevantToScope(payload)){
+                        return;
+                    }
+                    refreshNotifications({silent:true});
+                });
+
+                return channel;
+            });
+
+            notifyRealtimeState.pusher.connection.bind('connected', () => {
+                refreshNotifications({silent:true});
+            });
+        }catch(error){
+            console.warn('Koneksi realtime notifikasi gagal diinisialisasi.', error);
+        }
     }
     function closeNotify(){
         const notifyDropdown=getNotifyDropdown();
@@ -1036,9 +1416,16 @@
     });
     window.addEventListener('focus', syncIdleLogoutDeadline);
     window.addEventListener('pageshow', syncIdleLogoutDeadline);
-    document.addEventListener('livewire:navigated', () => resetIdleLogout(true));
+    window.addEventListener('pageshow', () => refreshNotifications({silent:true}));
+    document.addEventListener('livewire:navigated', () => {
+        resetIdleLogout(true);
+        syncNotifyReadState();
+        refreshNotifications({silent:true});
+    });
     resetIdleLogout(true);
     syncNotifyReadState();
+    bootNotificationRealtime();
+    refreshNotifications({silent:true});
     // Delegated handlers keep profile/notification dropdown functional after wire:navigate.
     document.addEventListener('click',(e)=>{
         const notifyButton=e.target.closest('#notifyButton');
