@@ -100,6 +100,26 @@ Important:
 - Upload your dump into repo workspace first (drag-and-drop in VS Code Explorer), then run the script.
 - If `apt-get update` fails because of Yarn GPG key in Codespaces, the setup script will disable `yarn.list` automatically and retry.
 
+## Production / Public Deployment
+
+Panduan deploy publik (domain + SSL + queue/reverb + rollback) ada di:
+
+- `docs/DEPLOY_PUBLIC.md`
+
+Template environment production:
+
+- `.env.production.example`
+
+Validasi cepat sebelum go-live:
+
+```bash
+bash scripts/deploy/preflight.sh .env
+```
+
+```powershell
+.\scripts\deploy\preflight.ps1 -EnvFile .env
+```
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
