@@ -39,3 +39,8 @@ Thumbs.db
 /*.sql.gz
 /*.dump
 /latsar
+
+# Local codex / maintenance artifacts
+/.codex
+/backups/pre_cleanup_*/
+/backups/wsl-uninstall-log.txt
