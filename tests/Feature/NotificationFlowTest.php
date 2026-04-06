@@ -76,7 +76,11 @@ class NotificationFlowTest extends TestCase
         $feedResponse
             ->assertOk()
             ->assertJsonPath('count', 2)
-            ->assertJsonPath('unread_count', 2);
+            ->assertJsonPath('unread_count', 2)
+            ->assertJsonPath('items.0.action_text', 'Verifikasi')
+            ->assertJsonPath('items.0.detail_text', 'Pernyataan B')
+            ->assertJsonPath('items.1.action_text', 'Isi Data')
+            ->assertJsonPath('items.1.detail_text', 'Pernyataan A');
 
         $markReadResponse = $this
             ->withSession(['user' => $this->sessionUser, 'last_activity_at' => time()])
@@ -91,6 +95,28 @@ class NotificationFlowTest extends TestCase
         $this->assertDatabaseHas('notification_reads', [
             'username' => 'admin',
         ]);
+    }
+
+    public function test_notification_feed_normalizes_legacy_statement_format(): void
+    {
+        Notification::query()->create([
+            'element_slug' => 'element1',
+            'subtopic_slug' => 'element1_kegiatan_asurans',
+            'subtopic_title' => 'Sub Topik 1 - Kegiatan Asurans',
+            'statement' => 'Koordinator melakukan verifikasi final QA pada element 1: Pernyataan C',
+            'row_id' => 3,
+            'coordinator_name' => 'Koordinator 1',
+            'coordinator_username' => 'koor1',
+            'created_at' => now(),
+        ]);
+
+        $this
+            ->withSession(['user' => $this->sessionUser, 'last_activity_at' => time()])
+            ->getJson('/notifications/feed?scope=element1')
+            ->assertOk()
+            ->assertJsonPath('count', 1)
+            ->assertJsonPath('items.0.action_text', 'Verifikasi QA')
+            ->assertJsonPath('items.0.detail_text', 'Pernyataan C');
     }
 
     public function test_notification_feed_rejects_invalid_scope_payload(): void

@@ -213,7 +213,7 @@ class NotificationController extends Controller
             $notifyTitle = 'Notifikasi';
         }
 
-        $notifyStatement = trim((string) ($notification->statement ?? ''));
+        $notifyStatement = $this->normalizeNotificationStatement((string) ($notification->statement ?? ''));
         if ($notifyStatement !== '' && !Str::contains($notifyStatement, '·')) {
             $normalized = preg_replace('/^.*?\bmelakukan\b\s*/iu', '', $notifyStatement);
             $normalized = is_string($normalized) ? $normalized : $notifyStatement;
@@ -240,9 +240,9 @@ class NotificationController extends Controller
                 }
             }
 
-            $notifyStatement = $normalized;
+            $notifyStatement = $this->normalizeNotificationStatement($normalized);
         }
-        $notifyStatement = Str::limit($notifyStatement, 64, '…');
+        $notifyStatement = Str::limit($notifyStatement, 64, '...');
 
         $notifyActionText = '';
         $notifyDetailText = $notifyStatement;
@@ -305,6 +305,24 @@ class NotificationController extends Controller
         $compact = is_string($compact) && $compact !== '' ? $compact : $normalized;
 
         return Str::upper(Str::substr($compact, 0, 2));
+    }
+
+    private function normalizeNotificationStatement(string $statement): string
+    {
+        $normalized = trim($statement);
+        if ($normalized === '') {
+            return '';
+        }
+
+        $normalized = str_replace(
+            ['Ã‚Â·', 'Â·', '•', '|', 'â€¦', '…', "\u{00A0}"],
+            [' · ', ' · ', ' · ', ' · ', '...', '...', ' '],
+            $normalized
+        );
+        $normalized = preg_replace('/\s*·\s*/u', ' · ', $normalized);
+        $normalized = preg_replace('/\s+/', ' ', (string) $normalized);
+
+        return trim((string) $normalized);
     }
 
     private function validatedScopeSlug(Request $request, bool $preferInput = false): string
