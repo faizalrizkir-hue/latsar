@@ -8,6 +8,7 @@ use App\Models\ElementAssessment;
 use App\Models\ElementTeamAssignment;
 use App\Models\Notification;
 use App\Models\Account;
+use App\Services\AssessmentSummaryCache;
 use App\Services\ElementPreferenceService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -22,7 +23,8 @@ class DashboardController extends Controller
     private array $schemaColumnExists = [];
 
     public function __construct(
-        private readonly ElementPreferenceService $elementPreferenceService
+        private readonly ElementPreferenceService $elementPreferenceService,
+        private readonly AssessmentSummaryCache $assessmentSummaryCache
     ) {
     }
 
@@ -32,54 +34,89 @@ class DashboardController extends Controller
             return redirect()->route('login.form');
         }
 
-        $sessionUser = Session::get('user');
-        $summaryModules = $this->elementPreferenceService->summaryModules(true);
-        $subtopicModules = $this->elementPreferenceService->subtopicModules();
-        $elementWeights = collect($summaryModules)
-            ->mapWithKeys(function (array $config, string $slug) {
-                return [(string) $slug => (float) ($config['element_weight'] ?? 0)];
-            })
-            ->all();
+        $sessionUser = (array) Session::get('user', []);
+        $summaryPayload = $this->assessmentSummaryCache->remember(
+            'dashboard-index',
+            $sessionUser,
+            [],
+            function () use ($sessionUser): array {
+                $summaryModules = $this->elementPreferenceService->summaryModules(true);
+                $subtopicModules = $this->elementPreferenceService->subtopicModules();
+                $elementWeights = collect($summaryModules)
+                    ->mapWithKeys(function (array $config, string $slug) {
+                        return [(string) $slug => (float) ($config['element_weight'] ?? 0)];
+                    })
+                    ->all();
 
-        $elements = $this->buildElementSummaries($summaryModules, $subtopicModules, $elementWeights);
+                $elements = $this->buildElementSummaries($summaryModules, $subtopicModules, $elementWeights);
 
-        $accessibleElementSlugs = ElementTeamAssignment::assignedElementSlugsForUser((array) $sessionUser);
-        if ($accessibleElementSlugs !== null) {
-            $accessibleElementSlugs = array_values(array_intersect($accessibleElementSlugs, array_keys($elementWeights)));
-        }
+                $accessibleElementSlugs = ElementTeamAssignment::assignedElementSlugsForUser($sessionUser);
+                if ($accessibleElementSlugs !== null) {
+                    $accessibleElementSlugs = array_values(array_intersect($accessibleElementSlugs, array_keys($elementWeights)));
+                }
 
-        $overallWeightedScore = (float) number_format((float) collect($elements)
-            ->sum(fn (array $item) => (float) ($item['weighted_score'] ?? 0)), 2, '.', '');
-        $overallWeightedScoreQa = (float) number_format((float) collect($elements)
-            ->sum(fn (array $item) => (float) ($item['qa_weighted_score'] ?? 0)), 2, '.', '');
-        $hasAnyElementData = collect($elements)
-            ->contains(fn (array $item) => (bool) ($item['has_data'] ?? false));
-        $hasAnyQaElementData = collect($elements)
-            ->contains(fn (array $item) => (bool) ($item['has_qa_data'] ?? false));
+                $overallWeightedScore = (float) number_format((float) collect($elements)
+                    ->sum(fn (array $item) => (float) ($item['weighted_score'] ?? 0)), 2, '.', '');
+                $overallWeightedScoreQa = (float) number_format((float) collect($elements)
+                    ->sum(fn (array $item) => (float) ($item['qa_weighted_score'] ?? 0)), 2, '.', '');
+                $hasAnyElementData = collect($elements)
+                    ->contains(fn (array $item) => (bool) ($item['has_data'] ?? false));
+                $hasAnyQaElementData = collect($elements)
+                    ->contains(fn (array $item) => (bool) ($item['has_qa_data'] ?? false));
 
-        $overallLevelData = $hasAnyElementData
-            ? $this->getLevelData($overallWeightedScore)
-            : [
-                'level' => null,
-                'predikat' => 'Belum Dinilai',
-                'description' => 'Data penilaian belum tersedia pada sub topik.',
-            ];
-        $overallLevelDataQa = $hasAnyQaElementData
-            ? $this->getLevelData($overallWeightedScoreQa)
-            : [
-                'level' => null,
-                'predikat' => 'Belum Dinilai',
-                'description' => 'Data verifikasi final QA belum tersedia pada sub topik.',
-            ];
+                $overallLevelData = $hasAnyElementData
+                    ? $this->getLevelData($overallWeightedScore)
+                    : [
+                        'level' => null,
+                        'predikat' => 'Belum Dinilai',
+                        'description' => 'Data penilaian belum tersedia pada sub topik.',
+                    ];
+                $overallLevelDataQa = $hasAnyQaElementData
+                    ? $this->getLevelData($overallWeightedScoreQa)
+                    : [
+                        'level' => null,
+                        'predikat' => 'Belum Dinilai',
+                        'description' => 'Data verifikasi final QA belum tersedia pada sub topik.',
+                    ];
 
-        $meterPercent = $hasAnyElementData
-            ? $this->meterPercentFromScore($overallWeightedScore)
-            : 0;
-        $meterNeedleDeg = (float) number_format(-90 + (180 * ($meterPercent / 100)), 2, '.', '');
-        $meterPercentQa = $hasAnyQaElementData
-            ? $this->meterPercentFromScore($overallWeightedScoreQa)
-            : 0;
-        $meterNeedleDegQa = (float) number_format(-90 + (180 * ($meterPercentQa / 100)), 2, '.', '');
+                $meterPercent = $hasAnyElementData
+                    ? $this->meterPercentFromScore($overallWeightedScore)
+                    : 0;
+                $meterNeedleDeg = (float) number_format(-90 + (180 * ($meterPercent / 100)), 2, '.', '');
+                $meterPercentQa = $hasAnyQaElementData
+                    ? $this->meterPercentFromScore($overallWeightedScoreQa)
+                    : 0;
+                $meterNeedleDegQa = (float) number_format(-90 + (180 * ($meterPercentQa / 100)), 2, '.', '');
+
+                return [
+                    'elementWeights' => $elementWeights,
+                    'elements' => $elements,
+                    'accessibleElementSlugs' => $accessibleElementSlugs,
+                    'overallWeightedScore' => $overallWeightedScore,
+                    'overallWeightedScoreQa' => $overallWeightedScoreQa,
+                    'overallLevelData' => $overallLevelData,
+                    'overallLevelDataQa' => $overallLevelDataQa,
+                    'meterPercent' => $meterPercent,
+                    'meterNeedleDeg' => $meterNeedleDeg,
+                    'meterPercentQa' => $meterPercentQa,
+                    'meterNeedleDegQa' => $meterNeedleDegQa,
+                ];
+            }
+        );
+
+        $elementWeights = (array) ($summaryPayload['elementWeights'] ?? []);
+        $elements = (array) ($summaryPayload['elements'] ?? []);
+        $accessibleElementSlugs = is_array($summaryPayload['accessibleElementSlugs'] ?? null)
+            ? $summaryPayload['accessibleElementSlugs']
+            : null;
+        $overallWeightedScore = (float) ($summaryPayload['overallWeightedScore'] ?? 0);
+        $overallWeightedScoreQa = (float) ($summaryPayload['overallWeightedScoreQa'] ?? 0);
+        $overallLevelData = (array) ($summaryPayload['overallLevelData'] ?? []);
+        $overallLevelDataQa = (array) ($summaryPayload['overallLevelDataQa'] ?? []);
+        $meterPercent = (float) ($summaryPayload['meterPercent'] ?? 0);
+        $meterNeedleDeg = (float) ($summaryPayload['meterNeedleDeg'] ?? 0);
+        $meterPercentQa = (float) ($summaryPayload['meterPercentQa'] ?? 0);
+        $meterNeedleDegQa = (float) ($summaryPayload['meterNeedleDegQa'] ?? 0);
 
         $notifications = Notification::feedForUser((array) $sessionUser, null, 50);
         $account = Account::where('username', $sessionUser['username'] ?? '')->first();

@@ -8,6 +8,7 @@ use App\Models\Element1KegiatanAsuransEditLog;
 use App\Models\DmsFile;
 use App\Models\ElementTeamAssignment;
 use App\Models\Notification;
+use App\Services\AssessmentSummaryCache;
 use App\Services\ElementPreferenceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +19,8 @@ use Illuminate\Support\Str;
 class ElementController extends Controller
 {
     public function __construct(
-        private readonly ElementPreferenceService $elementPreferenceService
+        private readonly ElementPreferenceService $elementPreferenceService,
+        private readonly AssessmentSummaryCache $assessmentSummaryCache
     ) {
     }
 
@@ -464,89 +466,97 @@ class ElementController extends Controller
         }
 
         $this->ensureKegiatanRows($slug, $moduleConfig);
-        $supportsQaVerification = $this->moduleSupportsQaVerification($table);
-        $selectColumns = ['id', 'level', 'skor', 'verified'];
-        if ($supportsQaVerification) {
-            $selectColumns[] = 'qa_verified';
-            $selectColumns[] = 'qa_level_validation_state';
-        }
-        $rows = $moduleModelClass::orderBy('id')->get($selectColumns);
 
-        $summaryScore = 0.0;
-        foreach ($rows as $row) {
-            if (is_numeric($row->skor)) {
-                $summaryScore += (float) $row->skor;
-            } elseif (is_numeric($row->level)) {
-                $summaryScore += $this->scoreForKegiatanLevel((float) $row->level, (int) $row->id, $moduleWeights);
-            }
-        }
-        $summaryScore = (float) number_format($summaryScore, 2, '.', '');
-        $levelData = $this->mapLevel($summaryScore);
-        $levelInt = (int) ($levelData['level'] ?? 1);
-        $levelInfo = (array) ($moduleInfoLevels->get($levelInt, []));
+        return $this->assessmentSummaryCache->remember(
+            'element-subtopic-summary',
+            (array) Session::get('user', []),
+            ['slug' => $slug, 'table' => $table],
+            function () use ($moduleModelClass, $moduleWeights, $moduleInfoLevels, $subtopicCode, $subtopicTitle, $slug, $table): array {
+                $supportsQaVerification = $this->moduleSupportsQaVerification($table);
+                $selectColumns = ['id', 'level', 'skor', 'verified'];
+                if ($supportsQaVerification) {
+                    $selectColumns[] = 'qa_verified';
+                    $selectColumns[] = 'qa_level_validation_state';
+                }
+                $rows = $moduleModelClass::orderBy('id')->get($selectColumns);
 
-        $rowsTotal = $rows->count();
-        $rowsVerified = (int) $rows->filter(fn ($row) => (int) ($row->verified ?? 0) === 1)->count();
-        $progress = $rowsTotal > 0
-            ? (int) round(($rowsVerified / $rowsTotal) * 100)
-            : 0;
-        $qaRowsVerified = 0;
-        $qaProgress = 0;
-        $summaryScoreQa = null;
-        $levelDataQa = ['level' => null, 'predikat' => 'Belum Dinilai'];
-        $qaLevelInfo = [];
+                $summaryScore = 0.0;
+                foreach ($rows as $row) {
+                    if (is_numeric($row->skor)) {
+                        $summaryScore += (float) $row->skor;
+                    } elseif (is_numeric($row->level)) {
+                        $summaryScore += $this->scoreForKegiatanLevel((float) $row->level, (int) $row->id, $moduleWeights);
+                    }
+                }
+                $summaryScore = (float) number_format($summaryScore, 2, '.', '');
+                $levelData = $this->mapLevel($summaryScore);
+                $levelInt = (int) ($levelData['level'] ?? 1);
+                $levelInfo = (array) ($moduleInfoLevels->get($levelInt, []));
 
-        if ($supportsQaVerification) {
-            $summaryScoreQaRaw = 0.0;
-            $qaHasData = false;
-            foreach ($rows as $row) {
-                $isQaVerified = (int) ($row->qa_verified ?? 0) === 1;
-                if (!$isQaVerified) {
-                    continue;
+                $rowsTotal = $rows->count();
+                $rowsVerified = (int) $rows->filter(fn ($row) => (int) ($row->verified ?? 0) === 1)->count();
+                $progress = $rowsTotal > 0
+                    ? (int) round(($rowsVerified / $rowsTotal) * 100)
+                    : 0;
+                $qaRowsVerified = 0;
+                $qaProgress = 0;
+                $summaryScoreQa = null;
+                $levelDataQa = ['level' => null, 'predikat' => 'Belum Dinilai'];
+                $qaLevelInfo = [];
+
+                if ($supportsQaVerification) {
+                    $summaryScoreQaRaw = 0.0;
+                    $qaHasData = false;
+                    foreach ($rows as $row) {
+                        $isQaVerified = (int) ($row->qa_verified ?? 0) === 1;
+                        if (!$isQaVerified) {
+                            continue;
+                        }
+
+                        $qaRowsVerified++;
+                        $qaLevel = $this->maxValidatedLevelFromState($row->qa_level_validation_state ?? null);
+                        if ($qaLevel === null && is_numeric($row->level)) {
+                            $qaLevel = (int) $row->level;
+                        }
+
+                        if ($qaLevel !== null) {
+                            $summaryScoreQaRaw += $this->scoreForKegiatanLevel((float) $qaLevel, (int) $row->id, $moduleWeights);
+                            $qaHasData = true;
+                        }
+                    }
+
+                    $qaProgress = $rowsTotal > 0
+                        ? (int) round(($qaRowsVerified / $rowsTotal) * 100)
+                        : 0;
+                    if ($qaHasData) {
+                        $summaryScoreQa = (float) number_format($summaryScoreQaRaw, 2, '.', '');
+                        $levelDataQa = $this->mapLevel((float) $summaryScoreQa);
+                        $qaLevelInfo = (array) ($moduleInfoLevels->get((int) ($levelDataQa['level'] ?? 0), []));
+                    }
                 }
 
-                $qaRowsVerified++;
-                $qaLevel = $this->maxValidatedLevelFromState($row->qa_level_validation_state ?? null);
-                if ($qaLevel === null && is_numeric($row->level)) {
-                    $qaLevel = (int) $row->level;
-                }
-
-                if ($qaLevel !== null) {
-                    $summaryScoreQaRaw += $this->scoreForKegiatanLevel((float) $qaLevel, (int) $row->id, $moduleWeights);
-                    $qaHasData = true;
-                }
+                return [
+                    'slug' => $slug,
+                    'code' => $subtopicCode,
+                    'title' => $subtopicTitle,
+                    'score' => $summaryScore,
+                    'level' => $levelInt,
+                    'predikat' => (string) $levelData['predikat'],
+                    'level_description' => (string) ($levelInfo['description'] ?? ''),
+                    'level_score_range' => (string) ($levelInfo['score_range'] ?? ''),
+                    'rows_total' => $rowsTotal,
+                    'rows_verified' => $rowsVerified,
+                    'progress' => $progress,
+                    'qa_score' => $summaryScoreQa,
+                    'qa_level' => $levelDataQa['level'],
+                    'qa_predikat' => (string) ($levelDataQa['predikat'] ?? 'Belum Dinilai'),
+                    'qa_level_description' => (string) ($qaLevelInfo['description'] ?? ''),
+                    'qa_level_score_range' => (string) ($qaLevelInfo['score_range'] ?? ''),
+                    'rows_qa_verified' => $qaRowsVerified,
+                    'qa_progress' => $qaProgress,
+                ];
             }
-
-            $qaProgress = $rowsTotal > 0
-                ? (int) round(($qaRowsVerified / $rowsTotal) * 100)
-                : 0;
-            if ($qaHasData) {
-                $summaryScoreQa = (float) number_format($summaryScoreQaRaw, 2, '.', '');
-                $levelDataQa = $this->mapLevel((float) $summaryScoreQa);
-                $qaLevelInfo = (array) ($moduleInfoLevels->get((int) ($levelDataQa['level'] ?? 0), []));
-            }
-        }
-
-        return [
-            'slug' => $slug,
-            'code' => $subtopicCode,
-            'title' => $subtopicTitle,
-            'score' => $summaryScore,
-            'level' => $levelInt,
-            'predikat' => (string) $levelData['predikat'],
-            'level_description' => (string) ($levelInfo['description'] ?? ''),
-            'level_score_range' => (string) ($levelInfo['score_range'] ?? ''),
-            'rows_total' => $rowsTotal,
-            'rows_verified' => $rowsVerified,
-            'progress' => $progress,
-            'qa_score' => $summaryScoreQa,
-            'qa_level' => $levelDataQa['level'],
-            'qa_predikat' => (string) ($levelDataQa['predikat'] ?? 'Belum Dinilai'),
-            'qa_level_description' => (string) ($qaLevelInfo['description'] ?? ''),
-            'qa_level_score_range' => (string) ($qaLevelInfo['score_range'] ?? ''),
-            'rows_qa_verified' => $qaRowsVerified,
-            'qa_progress' => $qaProgress,
-        ];
+        );
     }
 
     private function placeholderSubtopicSummary(string $slug): array
@@ -612,111 +622,133 @@ class ElementController extends Controller
 
         $this->ensureKegiatanRows($slug, $moduleConfig);
 
-        $rows = $moduleModelClass::orderBy('id')->get();
+        $modulePayload = $this->assessmentSummaryCache->remember(
+            'element-module-detail',
+            (array) $user,
+            ['slug' => $slug, 'table' => $moduleTable],
+            function () use ($moduleModelClass, $moduleWeights, $supportsQaVerification, $dmsTypeOptions, $moduleEditLogModelClass): array {
+                $rows = $moduleModelClass::orderBy('id')->get();
 
-        $summaryScore = 0.0;
-        foreach ($rows as $row) {
-            if (is_numeric($row->skor)) {
-                $summaryScore += (float)$row->skor;
-            } elseif (is_numeric($row->level)) {
-                $summaryScore += $this->scoreForKegiatanLevel((float)$row->level, (int)$row->id, $moduleWeights);
-            }
-        }
-        $summaryScore = (float)number_format($summaryScore, 2, '.', '');
-        $levelData = $this->mapLevel($summaryScore);
-        $summaryScoreQa = null;
-        $summaryQaHasData = false;
-        $levelDataQa = ['level' => null, 'predikat' => 'Belum Dinilai'];
-        if ($supportsQaVerification) {
-            $summaryScoreQaRaw = 0.0;
-            foreach ($rows as $row) {
-                if ((int) ($row->qa_verified ?? 0) !== 1) {
-                    continue;
+                $summaryScore = 0.0;
+                foreach ($rows as $row) {
+                    if (is_numeric($row->skor)) {
+                        $summaryScore += (float) $row->skor;
+                    } elseif (is_numeric($row->level)) {
+                        $summaryScore += $this->scoreForKegiatanLevel((float) $row->level, (int) $row->id, $moduleWeights);
+                    }
+                }
+                $summaryScore = (float) number_format($summaryScore, 2, '.', '');
+                $levelData = $this->mapLevel($summaryScore);
+                $summaryScoreQa = null;
+                $summaryQaHasData = false;
+                $levelDataQa = ['level' => null, 'predikat' => 'Belum Dinilai'];
+                if ($supportsQaVerification) {
+                    $summaryScoreQaRaw = 0.0;
+                    foreach ($rows as $row) {
+                        if ((int) ($row->qa_verified ?? 0) !== 1) {
+                            continue;
+                        }
+
+                        $qaLevel = $this->maxValidatedLevelFromState($row->qa_level_validation_state ?? null);
+                        if ($qaLevel === null && is_numeric($row->level)) {
+                            $qaLevel = (int) $row->level;
+                        }
+
+                        if ($qaLevel !== null) {
+                            $summaryScoreQaRaw += $this->scoreForKegiatanLevel((float) $qaLevel, (int) $row->id, $moduleWeights);
+                            $summaryQaHasData = true;
+                        }
+                    }
+
+                    if ($summaryQaHasData) {
+                        $summaryScoreQa = (float) number_format($summaryScoreQaRaw, 2, '.', '');
+                        $levelDataQa = $this->mapLevel((float) $summaryScoreQa);
+                    }
                 }
 
-                $qaLevel = $this->maxValidatedLevelFromState($row->qa_level_validation_state ?? null);
-                if ($qaLevel === null && is_numeric($row->level)) {
-                    $qaLevel = (int) $row->level;
+                $verifyNotes = $rows->filter(function ($r) {
+                    return trim((string) ($r->verify_note ?? '')) !== '';
+                })->map(function ($r) {
+                    return [
+                        'id' => $r->id,
+                        'pernyataan' => $r->pernyataan,
+                        'note' => $r->verify_note,
+                    ];
+                })->values();
+
+                $dmsFiles = DmsFile::with('document')
+                    ->whereHas('document', function ($q) {
+                        $q->where('status', 'Aktif');
+                    })
+                    ->orderByDesc('uploaded_at')
+                    ->limit(120)
+                    ->get()
+                    ->map(function ($file) use ($dmsTypeOptions) {
+                        $doc = $file->document;
+                        $typeAndTag = $this->normalizeDmsTypeTag(
+                            (string) ($doc?->type ?? ''),
+                            (string) ($doc?->tag ?? ''),
+                            $dmsTypeOptions
+                        );
+                        $labelParts = array_filter([
+                            $doc?->doc_no,
+                            $doc?->title,
+                            $file->doc_name,
+                        ]);
+                        $label = implode(' - ', $labelParts);
+                        $path = ltrim((string) ($file->file_path ?? ''), '/');
+
+                        return [
+                            'id' => $file->id,
+                            'label' => $label ?: 'Berkas DMS',
+                            'url' => $path ? '/uploads/'.$path : '',
+                            'type' => $typeAndTag['type'],
+                            'tag' => $typeAndTag['tag'],
+                        ];
+                    });
+
+                $editLogs = collect();
+                $editLogTable = (new $moduleEditLogModelClass())->getTable();
+                if ($this->hasTableCached($editLogTable)) {
+                    $editLogs = $moduleEditLogModelClass::query()
+                        ->orderByDesc('created_at')
+                        ->limit(120)
+                        ->get(['row_id', 'pernyataan', 'username', 'display_name', 'action', 'created_at']);
                 }
 
-                if ($qaLevel !== null) {
-                    $summaryScoreQaRaw += $this->scoreForKegiatanLevel((float) $qaLevel, (int) $row->id, $moduleWeights);
-                    $summaryQaHasData = true;
-                }
-            }
-
-            if ($summaryQaHasData) {
-                $summaryScoreQa = (float) number_format($summaryScoreQaRaw, 2, '.', '');
-                $levelDataQa = $this->mapLevel((float) $summaryScoreQa);
-            }
-        }
-
-        $verifyNotes = $rows->filter(function ($r) {
-            return trim((string)($r->verify_note ?? '')) !== '';
-        })->map(function ($r) {
-            return [
-                'id' => $r->id,
-                'pernyataan' => $r->pernyataan,
-                'note' => $r->verify_note,
-            ];
-        })->values();
-
-        $dmsFiles = DmsFile::with('document')
-            ->whereHas('document', function ($q) {
-                $q->where('status', 'Aktif');
-            })
-            ->orderByDesc('uploaded_at')
-            ->limit(120)
-            ->get()
-            ->map(function ($file) use ($dmsTypeOptions) {
-                $doc = $file->document;
-                $typeAndTag = $this->normalizeDmsTypeTag(
-                    (string) ($doc?->type ?? ''),
-                    (string) ($doc?->tag ?? ''),
-                    $dmsTypeOptions
-                );
-                $labelParts = array_filter([
-                    $doc?->doc_no,
-                    $doc?->title,
-                    $file->doc_name,
-                ]);
-                $label = implode(' - ', $labelParts);
-                $path = ltrim((string)($file->file_path ?? ''), '/');
                 return [
-                    'id' => $file->id,
-                    'label' => $label ?: 'Berkas DMS',
-                    'url' => $path ? '/uploads/'.$path : '',
-                    'type' => $typeAndTag['type'],
-                    'tag' => $typeAndTag['tag'],
+                    'rows' => $rows,
+                    'summaryScore' => $summaryScore,
+                    'summaryLevel' => $levelData['level'],
+                    'summaryPredikat' => $levelData['predikat'],
+                    'summaryScoreQa' => $summaryScoreQa,
+                    'summaryLevelQa' => $levelDataQa['level'],
+                    'summaryPredikatQa' => $levelDataQa['predikat'],
+                    'summaryQaHasData' => $summaryQaHasData,
+                    'verifyNotes' => $verifyNotes,
+                    'dmsFiles' => $dmsFiles,
+                    'editLogs' => $editLogs,
                 ];
-            });
-
-        $editLogs = collect();
-        $editLogTable = (new $moduleEditLogModelClass())->getTable();
-        if ($this->hasTableCached($editLogTable)) {
-            $editLogs = $moduleEditLogModelClass::query()
-                ->orderByDesc('created_at')
-                ->limit(120)
-                ->get(['row_id', 'pernyataan', 'username', 'display_name', 'action', 'created_at']);
-        }
+            }
+        );
 
         return view($moduleView, [
             'title' => $moduleSubtopicTitle,
             'slug' => $slug,
-            'rows' => $rows,
-            'summaryScore' => $summaryScore,
-            'summaryLevel' => $levelData['level'],
-            'summaryPredikat' => $levelData['predikat'],
-            'summaryScoreQa' => $summaryScoreQa,
-            'summaryLevelQa' => $levelDataQa['level'],
-            'summaryPredikatQa' => $levelDataQa['predikat'],
-            'summaryQaHasData' => $summaryQaHasData,
+            'rows' => $modulePayload['rows'] ?? collect(),
+            'summaryScore' => $modulePayload['summaryScore'] ?? 0,
+            'summaryLevel' => $modulePayload['summaryLevel'] ?? null,
+            'summaryPredikat' => $modulePayload['summaryPredikat'] ?? 'Belum Dinilai',
+            'summaryScoreQa' => $modulePayload['summaryScoreQa'] ?? null,
+            'summaryLevelQa' => $modulePayload['summaryLevelQa'] ?? null,
+            'summaryPredikatQa' => $modulePayload['summaryPredikatQa'] ?? 'Belum Dinilai',
+            'summaryQaHasData' => (bool) ($modulePayload['summaryQaHasData'] ?? false),
             'canVerify' => $canVerify,
             'canQaVerify' => $canQaVerify,
             'weights' => $moduleWeights,
-            'verifyNotes' => $verifyNotes,
-            'dmsFiles' => $dmsFiles,
-            'editLogs' => $editLogs,
+            'verifyNotes' => $modulePayload['verifyNotes'] ?? collect(),
+            'dmsFiles' => $modulePayload['dmsFiles'] ?? collect(),
+            'editLogs' => $modulePayload['editLogs'] ?? collect(),
             'user' => $user,
             'notifications' => Notification::feedForUser((array) $user, $slug, 50),
             'modulePageTitle' => $modulePageTitle,
@@ -920,6 +952,8 @@ class ElementController extends Controller
                 (int) $row->id
             );
 
+            $this->assessmentSummaryCache->bumpVersion();
+
             return back()->with('status', 'Data disimpan.');
         }
 
@@ -968,6 +1002,8 @@ class ElementController extends Controller
                 'clear',
                 (int) $row->id
             );
+
+            $this->assessmentSummaryCache->bumpVersion();
 
             return back()->with('status', 'Data dibersihkan.');
         }
@@ -1049,6 +1085,8 @@ class ElementController extends Controller
                 $isVerified ? 'verify' : 'verify_reset',
                 (int) $row->id
             );
+
+            $this->assessmentSummaryCache->bumpVersion();
 
             return back()->with('status', $isVerified ? 'Data diverifikasi.' : 'Status verifikasi direset.');
         }
@@ -1140,6 +1178,8 @@ class ElementController extends Controller
                 $isQaVerified ? 'qa_verify' : 'qa_verify_reset',
                 (int) $row->id
             );
+
+            $this->assessmentSummaryCache->bumpVersion();
 
             return back()->with('status', $isQaVerified ? 'Verifikasi final QA disimpan.' : 'Verifikasi final QA direset.');
         }
