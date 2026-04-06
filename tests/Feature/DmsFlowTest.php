@@ -89,4 +89,46 @@ class DmsFlowTest extends TestCase
         $response->assertSessionHasErrors(['files.0']);
         $this->assertDatabaseMissing('dms_documents', ['doc_no' => 'DOC-002']);
     }
+
+    public function test_dms_upload_rejects_blocked_mime_prefix(): void
+    {
+        $response = $this
+            ->from('/dms/create')
+            ->withSession(['user' => $this->sessionUser, 'last_activity_at' => time()])
+            ->post('/dms', [
+                'title' => 'Dokumen Uji DMS',
+                'year' => (int) date('Y'),
+                'type' => 'Manajemen Pengawasan',
+                'tag' => 'Surat Tugas',
+                'doc_no' => ['DOC-003'],
+                'name' => ['Lampiran MIME Berbahaya'],
+                'files' => [UploadedFile::fake()->create('shell.txt', 10, 'application/x-httpd-php')],
+            ]);
+
+        $response->assertRedirect('/dms/create');
+        $response->assertSessionHasErrors(['files.0']);
+        $this->assertDatabaseMissing('dms_documents', ['doc_no' => 'DOC-003']);
+    }
+
+    public function test_dms_upload_rejects_file_exceeding_configured_max_size(): void
+    {
+        config(['dms.upload.max_kilobytes' => 256]);
+
+        $response = $this
+            ->from('/dms/create')
+            ->withSession(['user' => $this->sessionUser, 'last_activity_at' => time()])
+            ->post('/dms', [
+                'title' => 'Dokumen Uji DMS',
+                'year' => (int) date('Y'),
+                'type' => 'Manajemen Pengawasan',
+                'tag' => 'Surat Tugas',
+                'doc_no' => ['DOC-004'],
+                'name' => ['Lampiran Besar'],
+                'files' => [UploadedFile::fake()->create('besar.pdf', 512, 'application/pdf')],
+            ]);
+
+        $response->assertRedirect('/dms/create');
+        $response->assertSessionHasErrors(['files.0']);
+        $this->assertDatabaseMissing('dms_documents', ['doc_no' => 'DOC-004']);
+    }
 }
