@@ -23,6 +23,16 @@ class DashboardController extends Controller
 
     private array $schemaColumnExists = [];
 
+    /**
+     * @var array<string, ElementAssessment>
+     */
+    private array $latestAssessmentBySubtopic = [];
+
+    /**
+     * @var array<string, bool>
+     */
+    private array $latestAssessmentLoadState = [];
+
     public function __construct(
         private readonly ElementPreferenceService $elementPreferenceService,
         private readonly AssessmentSummaryCache $assessmentSummaryCache,
@@ -272,23 +282,27 @@ class DashboardController extends Controller
             ->keys()
             ->values();
 
-        $assessmentBySlug = $this->latestAssessmentBySubtopic($elementSlug);
-
         $allSlugs = ($preferredSlugs->isNotEmpty() ? $preferredSlugs : $moduleSlugs)
             ->unique()
             ->values();
+        $assessmentBySlug = null;
 
-        return $allSlugs->map(function ($subtopicSlug) use ($subtopicModules, $assessmentBySlug) {
+        return $allSlugs->map(function ($subtopicSlug) use ($subtopicModules, $allSlugs, &$assessmentBySlug) {
             $slug = (string) $subtopicSlug;
             $moduleConfig = $subtopicModules[$slug] ?? null;
             $moduleSummary = is_array($moduleConfig)
                 ? $this->subtopicSummaryFromModule($slug, $moduleConfig)
                 : null;
-            $assessment = $assessmentBySlug->get($slug);
 
             if ($moduleSummary !== null && ((bool) ($moduleSummary['has_data'] ?? false) || (bool) ($moduleSummary['has_qa_data'] ?? false))) {
                 return $moduleSummary;
             }
+
+            if (!$assessmentBySlug instanceof Collection) {
+                $assessmentBySlug = $this->latestAssessmentBySubtopicSlugs($allSlugs->all());
+            }
+
+            $assessment = $assessmentBySlug->get($slug);
 
             if ($assessment instanceof ElementAssessment) {
                 return $this->subtopicSummaryFromAssessment($assessment);
@@ -323,16 +337,49 @@ class DashboardController extends Controller
         })->values()->all();
     }
 
-    private function latestAssessmentBySubtopic(string $elementSlug): Collection
+    /**
+     * @param array<int, string> $subtopicSlugs
+     */
+    private function latestAssessmentBySubtopicSlugs(array $subtopicSlugs): Collection
     {
-        return ElementAssessment::query()
-            ->where('subtopic_slug', 'like', $elementSlug.'_%')
-            ->orderByDesc('created_at')
-            ->get()
-            ->groupBy('subtopic_slug')
-            ->map(function (Collection $items) {
-                return $items->first();
-            });
+        $normalizedSlugs = collect($subtopicSlugs)
+            ->map(fn ($slug) => trim((string) $slug))
+            ->filter(fn (string $slug) => $slug !== '')
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($normalizedSlugs === []) {
+            return collect();
+        }
+
+        $missingSlugs = array_values(array_filter(
+            $normalizedSlugs,
+            fn (string $slug): bool => !array_key_exists($slug, $this->latestAssessmentLoadState)
+        ));
+
+        if ($missingSlugs !== []) {
+            $latestBySlug = ElementAssessment::query()
+                ->whereIn('subtopic_slug', $missingSlugs)
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->get()
+                ->groupBy('subtopic_slug')
+                ->map(fn (Collection $items) => $items->first());
+
+            foreach ($latestBySlug as $slug => $assessment) {
+                if ($assessment instanceof ElementAssessment) {
+                    $this->latestAssessmentBySubtopic[(string) $slug] = $assessment;
+                }
+            }
+
+            foreach ($missingSlugs as $slug) {
+                $this->latestAssessmentLoadState[$slug] = true;
+            }
+        }
+
+        return collect($normalizedSlugs)
+            ->mapWithKeys(fn (string $slug): array => [$slug => $this->latestAssessmentBySubtopic[$slug] ?? null]);
     }
 
     private function subtopicSummaryFromModule(string $slug, array $moduleConfig): ?array
