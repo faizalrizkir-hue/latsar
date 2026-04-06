@@ -29,7 +29,7 @@
                 $label = 'Element '.$matches[1];
             }
 
-            return 'â€¢ '.$label.': '.number_format((float) $elementWeight * 100, 0).'%';
+            return '- '. $label.': '.number_format((float) $elementWeight * 100, 0).'%';
         })
         ->values()
         ->implode("\n");

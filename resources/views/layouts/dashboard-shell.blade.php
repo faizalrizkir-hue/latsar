@@ -95,7 +95,7 @@
                 <ul class="nav-sub" id="sub-{{ $elementNav['slug'] }}">
                     <li class="nav-sub-parent">
                         <a href="{{ route('elements.show', $elementNav['slug']) }}">
-                            <span class="sub-icon">â€¢</span>
+                            <span class="sub-icon">&bull;</span>
                             <span>Rekapitulasi Element</span>
                         </a>
                     </li>
@@ -224,7 +224,7 @@
                                     }
 
                                     $notifyStatement = trim((string) data_get($notif, 'statement', ''));
-                                    if ($notifyStatement !== '' && !Str::contains($notifyStatement, 'Â·')) {
+                                    if ($notifyStatement !== '' && !Str::contains($notifyStatement, '|')) {
                                         $normalized = preg_replace('/^.*?\bmelakukan\b\s*/iu', '', $notifyStatement);
                                         $normalized = is_string($normalized) ? $normalized : $notifyStatement;
                                         $normalized = preg_replace('/\bpada\s+element\s+\d+.*?:\s*/iu', '', $normalized);
@@ -245,19 +245,19 @@
                                         foreach ($legacyActionMap as $legacyAction => $compactAction) {
                                             if (Str::startsWith(Str::lower($normalized), $legacyAction)) {
                                                 $rest = trim((string) Str::substr($normalized, Str::length($legacyAction)));
-                                                $normalized = $compactAction.($rest !== '' ? ' Â· '.$rest : '');
+                                                $normalized = $compactAction.($rest !== '' ? ' | '. $rest : '');
                                                 break;
                                             }
                                         }
 
                                         $notifyStatement = $normalized;
                                     }
-                                    $notifyStatement = Str::limit($notifyStatement, 64, 'â€¦');
+                                    $notifyStatement = Str::limit($notifyStatement, 64, '...');
 
                                     $notifyActionText = '';
                                     $notifyDetailText = $notifyStatement;
-                                    if (Str::contains($notifyStatement, 'Â·')) {
-                                        [$notifyActionText, $notifyDetailText] = array_pad(explode('Â·', $notifyStatement, 2), 2, '');
+                                    if (Str::contains($notifyStatement, '|')) {
+                                        [$notifyActionText, $notifyDetailText] = array_pad(explode('|', $notifyStatement, 2), 2, '');
                                         $notifyActionText = trim((string) $notifyActionText);
                                         $notifyDetailText = trim((string) $notifyDetailText);
                                     }

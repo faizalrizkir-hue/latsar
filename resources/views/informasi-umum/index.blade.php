@@ -86,7 +86,7 @@
                                     <h4>{{ $title !== '' ? $title : 'Dokumen tanpa judul' }}</h4>
                                     <p>
                                         @if($category !== '')
-                                            {{ $category }} â€¢
+                                            {{ $category }} -
                                         @endif
                                         {{ $fileName !== '' ? $fileName : 'File belum ditentukan' }}
                                     </p>
