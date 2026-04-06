@@ -79,3 +79,23 @@ Rutin cek:
 - `storage/logs/ops-health.log`
 - `php artisan queue:failed`
 - status systemd `latsar-queue` dan `latsar-reverb`
+
+## 7) Ringkasan Profiling Dashboard
+
+Untuk membaca ringkasan data profiling dashboard dari log:
+
+```bash
+php artisan ops:dashboard-profile:summary
+php artisan ops:dashboard-profile:summary --json
+```
+
+Opsional:
+
+- `--limit=20` untuk menampilkan lebih banyak entri terbaru.
+- `--log=storage/logs/laravel.log` untuk file log custom.
+
+Output ringkas yang diperoleh:
+
+- rata-rata `query_count`
+- rata-rata dan maksimum `total_query_time_ms`
+- rata-rata dan maksimum `request_duration_ms`
