@@ -930,27 +930,38 @@ class ElementController extends Controller
                 return back()->with('status', 'Tidak ada perubahan data. Riwayat tidak diperbarui.');
             }
 
-            $row->save();
-
-            if ($this->hasTableCached($moduleEditLogTable)) {
-                $moduleEditLogModelClass::query()->create([
-                    'row_id' => (int) $row->id,
-                    'pernyataan' => (string) ($row->pernyataan ?? ''),
-                    'username' => $username !== '' ? $username : null,
-                    'display_name' => trim((string) ($user['display_name'] ?? '')) ?: null,
-                    'action' => 'save',
-                ]);
-            }
-
-            $this->emitActivityNotification(
+            DB::transaction(function () use (
+                $row,
+                $moduleEditLogTable,
+                $moduleEditLogModelClass,
+                $username,
                 $user,
                 $slug,
                 $moduleNotificationTitle,
-                $moduleSubtopicTitle,
-                (string) ($row->pernyataan ?? ''),
-                'save',
-                (int) $row->id
-            );
+                $moduleSubtopicTitle
+            ): void {
+                $row->save();
+
+                if ($this->hasTableCached($moduleEditLogTable)) {
+                    $moduleEditLogModelClass::query()->create([
+                        'row_id' => (int) $row->id,
+                        'pernyataan' => (string) ($row->pernyataan ?? ''),
+                        'username' => $username !== '' ? $username : null,
+                        'display_name' => trim((string) ($user['display_name'] ?? '')) ?: null,
+                        'action' => 'save',
+                    ]);
+                }
+
+                $this->emitActivityNotification(
+                    $user,
+                    $slug,
+                    $moduleNotificationTitle,
+                    $moduleSubtopicTitle,
+                    (string) ($row->pernyataan ?? ''),
+                    'save',
+                    (int) $row->id
+                );
+            });
 
             $this->assessmentSummaryCache->bumpVersion();
 
@@ -981,27 +992,38 @@ class ElementController extends Controller
             if ($supportsQaVerification) {
                 $this->resetQaVerificationOnRow($row);
             }
-            $row->save();
-
-            if ($this->hasTableCached($moduleEditLogTable)) {
-                $moduleEditLogModelClass::query()->create([
-                    'row_id' => (int) $row->id,
-                    'pernyataan' => (string) ($row->pernyataan ?? ''),
-                    'username' => $username !== '' ? $username : null,
-                    'display_name' => trim((string) ($user['display_name'] ?? '')) ?: null,
-                    'action' => 'clear',
-                ]);
-            }
-
-            $this->emitActivityNotification(
+            DB::transaction(function () use (
+                $row,
+                $moduleEditLogTable,
+                $moduleEditLogModelClass,
+                $username,
                 $user,
                 $slug,
                 $moduleNotificationTitle,
-                $moduleSubtopicTitle,
-                (string) ($row->pernyataan ?? ''),
-                'clear',
-                (int) $row->id
-            );
+                $moduleSubtopicTitle
+            ): void {
+                $row->save();
+
+                if ($this->hasTableCached($moduleEditLogTable)) {
+                    $moduleEditLogModelClass::query()->create([
+                        'row_id' => (int) $row->id,
+                        'pernyataan' => (string) ($row->pernyataan ?? ''),
+                        'username' => $username !== '' ? $username : null,
+                        'display_name' => trim((string) ($user['display_name'] ?? '')) ?: null,
+                        'action' => 'clear',
+                    ]);
+                }
+
+                $this->emitActivityNotification(
+                    $user,
+                    $slug,
+                    $moduleNotificationTitle,
+                    $moduleSubtopicTitle,
+                    (string) ($row->pernyataan ?? ''),
+                    'clear',
+                    (int) $row->id
+                );
+            });
 
             $this->assessmentSummaryCache->bumpVersion();
 
@@ -1064,27 +1086,39 @@ class ElementController extends Controller
                 return back()->with('status', 'Tidak ada perubahan verifikasi. Riwayat tidak diperbarui.');
             }
 
-            $row->save();
-
-            if ($this->hasTableCached($moduleEditLogTable)) {
-                $moduleEditLogModelClass::query()->create([
-                    'row_id' => (int) $row->id,
-                    'pernyataan' => (string) ($row->pernyataan ?? ''),
-                    'username' => $username !== '' ? $username : null,
-                    'display_name' => trim((string) ($user['display_name'] ?? '')) ?: null,
-                    'action' => $isVerified ? 'verify' : 'verify_reset',
-                ]);
-            }
-
-            $this->emitActivityNotification(
+            DB::transaction(function () use (
+                $row,
+                $moduleEditLogTable,
+                $moduleEditLogModelClass,
+                $username,
                 $user,
                 $slug,
                 $moduleNotificationTitle,
                 $moduleSubtopicTitle,
-                (string) ($row->pernyataan ?? ''),
-                $isVerified ? 'verify' : 'verify_reset',
-                (int) $row->id
-            );
+                $isVerified
+            ): void {
+                $row->save();
+
+                if ($this->hasTableCached($moduleEditLogTable)) {
+                    $moduleEditLogModelClass::query()->create([
+                        'row_id' => (int) $row->id,
+                        'pernyataan' => (string) ($row->pernyataan ?? ''),
+                        'username' => $username !== '' ? $username : null,
+                        'display_name' => trim((string) ($user['display_name'] ?? '')) ?: null,
+                        'action' => $isVerified ? 'verify' : 'verify_reset',
+                    ]);
+                }
+
+                $this->emitActivityNotification(
+                    $user,
+                    $slug,
+                    $moduleNotificationTitle,
+                    $moduleSubtopicTitle,
+                    (string) ($row->pernyataan ?? ''),
+                    $isVerified ? 'verify' : 'verify_reset',
+                    (int) $row->id
+                );
+            });
 
             $this->assessmentSummaryCache->bumpVersion();
 
@@ -1157,27 +1191,39 @@ class ElementController extends Controller
                 return back()->with('status', 'Tidak ada perubahan verifikasi final QA. Riwayat tidak diperbarui.');
             }
 
-            $row->save();
-
-            if ($this->hasTableCached($moduleEditLogTable)) {
-                $moduleEditLogModelClass::query()->create([
-                    'row_id' => (int) $row->id,
-                    'pernyataan' => (string) ($row->pernyataan ?? ''),
-                    'username' => $username !== '' ? $username : null,
-                    'display_name' => trim((string) ($user['display_name'] ?? '')) ?: null,
-                    'action' => $isQaVerified ? 'qa_verify' : 'qa_verify_reset',
-                ]);
-            }
-
-            $this->emitActivityNotification(
+            DB::transaction(function () use (
+                $row,
+                $moduleEditLogTable,
+                $moduleEditLogModelClass,
+                $username,
                 $user,
                 $slug,
                 $moduleNotificationTitle,
                 $moduleSubtopicTitle,
-                (string) ($row->pernyataan ?? ''),
-                $isQaVerified ? 'qa_verify' : 'qa_verify_reset',
-                (int) $row->id
-            );
+                $isQaVerified
+            ): void {
+                $row->save();
+
+                if ($this->hasTableCached($moduleEditLogTable)) {
+                    $moduleEditLogModelClass::query()->create([
+                        'row_id' => (int) $row->id,
+                        'pernyataan' => (string) ($row->pernyataan ?? ''),
+                        'username' => $username !== '' ? $username : null,
+                        'display_name' => trim((string) ($user['display_name'] ?? '')) ?: null,
+                        'action' => $isQaVerified ? 'qa_verify' : 'qa_verify_reset',
+                    ]);
+                }
+
+                $this->emitActivityNotification(
+                    $user,
+                    $slug,
+                    $moduleNotificationTitle,
+                    $moduleSubtopicTitle,
+                    (string) ($row->pernyataan ?? ''),
+                    $isQaVerified ? 'qa_verify' : 'qa_verify_reset',
+                    (int) $row->id
+                );
+            });
 
             $this->assessmentSummaryCache->bumpVersion();
 

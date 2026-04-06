@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -199,20 +200,7 @@ class Notification extends Model
         $notification = self::query()->create($payload);
 
         if ($notification instanceof self) {
-            try {
-                event(new NotificationFeedUpdated(
-                    elementSlug: self::hasColumn('element_slug') ? (string) ($notification->element_slug ?? '') : null,
-                    subtopicSlug: self::hasColumn('subtopic_slug') ? (string) ($notification->subtopic_slug ?? '') : null,
-                    notificationId: (int) ($notification->id ?? 0),
-                    occurredAt: (int) now()->timestamp
-                ));
-            } catch (Throwable $exception) {
-                // Realtime is optional; persistence must not fail when websocket server is down.
-                Log::warning('Notification realtime broadcast failed.', [
-                    'notification_id' => (int) ($notification->id ?? 0),
-                    'message' => $exception->getMessage(),
-                ]);
-            }
+            self::dispatchRealtimeAfterCommit($notification);
         }
 
         return $notification;
@@ -269,5 +257,33 @@ class Notification extends Model
         }
 
         return '';
+    }
+
+    private static function dispatchRealtimeAfterCommit(self $notification): void
+    {
+        $dispatcher = function () use ($notification): void {
+            try {
+                event(new NotificationFeedUpdated(
+                    elementSlug: self::hasColumn('element_slug') ? (string) ($notification->element_slug ?? '') : null,
+                    subtopicSlug: self::hasColumn('subtopic_slug') ? (string) ($notification->subtopic_slug ?? '') : null,
+                    notificationId: (int) ($notification->id ?? 0),
+                    occurredAt: (int) now()->timestamp
+                ));
+            } catch (Throwable $exception) {
+                // Realtime is optional; persistence must not fail when websocket server is down.
+                Log::warning('Notification realtime broadcast failed.', [
+                    'notification_id' => (int) ($notification->id ?? 0),
+                    'message' => $exception->getMessage(),
+                ]);
+            }
+        };
+
+        if (DB::transactionLevel() > 0) {
+            DB::afterCommit($dispatcher);
+
+            return;
+        }
+
+        $dispatcher();
     }
 }
