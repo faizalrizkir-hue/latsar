@@ -1,60 +1,28 @@
 @extends('layouts.dashboard-shell')
 @php
-    $pageTitle = $pageTitle ?? 'Dashboard Kapabilitas APIP';
-    $overallLevel = is_numeric($overallLevelData['level'] ?? null) ? (int) $overallLevelData['level'] : null;
-    $overallLevelClass = $overallLevel !== null ? 'is-level-'.$overallLevel : 'pending';
-    $overallLevelLabel = $overallLevel !== null ? 'Level '.$overallLevel : 'Belum Dinilai';
-    $overallPredikat = (string) ($overallLevelData['predikat'] ?? 'Belum Dinilai');
-    $overallDescription = (string) ($overallLevelData['description'] ?? '');
-    $overallLevelQa = is_numeric($overallLevelDataQa['level'] ?? null) ? (int) $overallLevelDataQa['level'] : null;
-    $overallLevelQaClass = $overallLevelQa !== null ? 'is-level-'.$overallLevelQa : 'pending';
-    $overallLevelLabelQa = $overallLevelQa !== null ? 'Level '.$overallLevelQa : 'Belum Dinilai';
-    $overallPredikatQa = (string) ($overallLevelDataQa['predikat'] ?? 'Belum Dinilai');
-    $overallDescriptionQa = (string) ($overallLevelDataQa['description'] ?? '');
-    $accessibleElementSlugs = is_array($accessibleElementSlugs ?? null) ? $accessibleElementSlugs : null;
-    $canOpenElement = function (string $slug) use ($accessibleElementSlugs): bool {
-        if ($accessibleElementSlugs === null) {
-            return true;
-        }
-
-        return in_array($slug, $accessibleElementSlugs, true);
-    };
-    $elementTitleMap = collect($elements ?? [])
-        ->mapWithKeys(fn ($item) => [(string) ($item['slug'] ?? '') => (string) ($item['title'] ?? '-')]);
-    $weightHintItems = collect($elementWeights ?? [])
-        ->map(function ($elementWeight, $elementSlug) {
-            $slug = (string) $elementSlug;
-            $label = $slug;
-            if (preg_match('/^element(\d+)$/', $slug, $matches)) {
-                $label = 'Element '.$matches[1];
-            }
-
-            return '- '. $label.': '.number_format((float) $elementWeight * 100, 0).'%';
-        })
-        ->values()
-        ->implode("\n");
-    $weightHintText = trim("Bobot skor tertimbang:\n".$weightHintItems);
-    $weightedScoreHintText = 'Rumus Skor Tertimbang: Bobot (%) x Skor';
-    $formatPercent = function (float $value): string {
+    $dashboardUi = is_array($dashboardUi ?? null) ? $dashboardUi : [];
+    $pageTitle = $pageTitle ?? (string) ($dashboardUi['page_title'] ?? 'Dashboard Kapabilitas APIP');
+    $overallLevel = is_numeric($dashboardUi['overall_level'] ?? null) ? (int) $dashboardUi['overall_level'] : null;
+    $overallLevelClass = (string) ($dashboardUi['overall_level_class'] ?? 'pending');
+    $overallLevelLabel = (string) ($dashboardUi['overall_level_label'] ?? 'Belum Dinilai');
+    $overallPredikat = (string) ($dashboardUi['overall_predikat'] ?? 'Belum Dinilai');
+    $overallDescription = (string) ($dashboardUi['overall_description'] ?? '');
+    $overallLevelQa = is_numeric($dashboardUi['overall_level_qa'] ?? null) ? (int) $dashboardUi['overall_level_qa'] : null;
+    $overallLevelQaClass = (string) ($dashboardUi['overall_level_qa_class'] ?? 'pending');
+    $overallLevelLabelQa = (string) ($dashboardUi['overall_level_qa_label'] ?? 'Belum Dinilai');
+    $overallPredikatQa = (string) ($dashboardUi['overall_predikat_qa'] ?? 'Belum Dinilai');
+    $overallDescriptionQa = (string) ($dashboardUi['overall_description_qa'] ?? '');
+    $weightHintText = (string) ($dashboardUi['weight_hint_text'] ?? '');
+    $weightedScoreHintText = (string) ($dashboardUi['weighted_score_hint_text'] ?? 'Rumus Skor Tertimbang: Bobot (%) x Skor');
+    $levelPredikatHintText = (string) ($dashboardUi['level_predikat_hint_text'] ?? '');
+    $segmentArcLength = (float) ($dashboardUi['segment_arc_length'] ?? 314.16);
+    $segmentLength = (float) ($dashboardUi['segment_length'] ?? ($segmentArcLength / 5));
+    $segmentOffsets = is_array($dashboardUi['segment_offsets'] ?? null)
+        ? $dashboardUi['segment_offsets']
+        : [0, -$segmentLength, -$segmentLength * 2, -$segmentLength * 3, -$segmentLength * 4];
+    $formatPercent = static function (float $value): string {
         return rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.');
     };
-    $levelPredikatHintText = trim(
-        "Informasi Level Kapabilitas APIP:\n"
-        ."Level 1 - Rintisan (0,00 - 1,98)\n"
-        ."Level 2 - Terstruktur (1,99 - 2,98)\n"
-        ."Level 3 - Memadai (2,99 - 3,98)\n"
-        ."Level 4 - Terintegrasi (3,99 - 4,99)\n"
-        ."Level 5 - Optimal (5,00)"
-    );
-    $segmentArcLength = 314.16;
-    $segmentLength = $segmentArcLength / 5;
-    $segmentOffsets = [
-        0,
-        -$segmentLength,
-        -$segmentLength * 2,
-        -$segmentLength * 3,
-        -$segmentLength * 4,
-    ];
 @endphp
 
 @push('head')
@@ -186,31 +154,15 @@
                     </thead>
                     <tbody>
                         @forelse ($elements as $element)
-                            @php
-                                $elementLevel = is_numeric($element['level'] ?? null) ? (int) $element['level'] : null;
-                                $levelClass = $elementLevel !== null ? 'is-level-'.$elementLevel : 'pending';
-                                $elementLevelQa = is_numeric($element['qa_level'] ?? null) ? (int) $element['qa_level'] : null;
-                                $levelQaClass = $elementLevelQa !== null ? 'is-level-'.$elementLevelQa : 'pending';
-                            @endphp
                             <tr>
                                 <td>
                                     <strong>{{ $element['title'] }}</strong>
-                                    @php
-                                        $elementDescription = trim((string) ($element['description'] ?? ''));
-                                        $elementDescription = $elementDescription !== ''
-                                            ? $elementDescription
-                                            : 'Belum ada keterangan level untuk element ini.';
-                                        $elementQaDescription = trim((string) ($element['qa_description'] ?? ''));
-                                        $elementQaDescription = $elementQaDescription !== ''
-                                            ? $elementQaDescription
-                                            : 'Belum ada keterangan level QA untuk element ini.';
-                                    @endphp
-                                    <div class="row-meta element-level-note" title="{{ $elementDescription }}">
-                                        <span class="qa-mandiri-prefix">Mandiri: </span>{{ $elementDescription }}
+                                    <div class="row-meta element-level-note" title="{{ $element['description'] ?? '' }}">
+                                        <span class="qa-mandiri-prefix">Mandiri: </span>{{ $element['description'] ?? '' }}
                                     </div>
                                     <div class="row-meta qa-note-separator qa-only" aria-hidden="true"></div>
-                                    <div class="row-meta element-level-note qa-only qa-level-font" title="{{ $elementQaDescription }}">
-                                        QA: {{ $elementQaDescription }}
+                                    <div class="row-meta element-level-note qa-only qa-level-font" title="{{ $element['qa_description'] ?? '' }}">
+                                        QA: {{ $element['qa_description'] ?? '' }}
                                     </div>
                                 </td>
                                 <td>{{ number_format((float) ($element['weight'] ?? 0) * 100, 0) }}%</td>
@@ -242,14 +194,14 @@
                                     <div class="apip-split-metric">
                                         <div class="apip-split-metric-row">
                                             <span class="apip-split-metric-label qa-mandiri-label">Mandiri</span>
-                                            <span class="level-chip {{ $levelClass }}">
-                                                {{ $elementLevel !== null ? 'L'.$elementLevel : '-' }}
+                                            <span class="level-chip {{ $element['level_class'] ?? 'pending' }}">
+                                                {{ $element['level_label'] ?? '-' }}
                                             </span>
                                         </div>
                                         <div class="apip-split-metric-row qa-only">
                                             <span class="apip-split-metric-label">QA</span>
-                                            <span class="level-chip {{ $levelQaClass }}">
-                                                {{ $elementLevelQa !== null ? 'L'.$elementLevelQa : '-' }}
+                                            <span class="level-chip {{ $element['qa_level_class'] ?? 'pending' }}">
+                                                {{ $element['qa_level_label'] ?? '-' }}
                                             </span>
                                         </div>
                                     </div>
@@ -267,7 +219,7 @@
                                     </div>
                                 </td>
                                 <td>
-                                    @if($canOpenElement((string) ($element['slug'] ?? '')))
+                                    @if((bool) ($element['can_open'] ?? true))
                                         <a class="btn-open-element" href="{{ route('elements.show', $element['slug']) }}">Buka Element</a>
                                     @endif
                                 </td>
@@ -287,27 +239,13 @@
                 </div>
                 <section class="apip-element-detail-grid">
                     @foreach ($elements as $element)
-                        @php
-                            $elementLevel = is_numeric($element['level'] ?? null) ? (int) $element['level'] : null;
-                            $levelClass = $elementLevel !== null ? 'is-level-'.$elementLevel : 'pending';
-                            $subtopicCount = (int) ($element['subtopic_count'] ?? 0);
-                            $statementCount = (int) collect((array) ($element['subtopics'] ?? []))
-                                ->sum(function (array $subtopic) {
-                                    $rowsTotal = (int) ($subtopic['rows_total'] ?? 0);
-                                    if ($rowsTotal > 0) {
-                                        return $rowsTotal;
-                                    }
-
-                                    return (bool) ($subtopic['has_data'] ?? false) ? 1 : 0;
-                                });
-                        @endphp
-                        <details class="apip-element-detail {{ $levelClass }}">
+                        <details class="apip-element-detail {{ $element['level_class'] ?? 'pending' }}">
                             <summary>
                                 <div class="detail-main">
                                     <div class="detail-title">{{ $element['title'] }}</div>
                                     <div class="detail-summary-meta">
-                                        <span class="detail-meta-chip">Jumlah Sub-Topik: {{ $subtopicCount }}</span>
-                                        <span class="detail-meta-chip is-alt">Jumlah Pernyataan: {{ $statementCount }}</span>
+                                        <span class="detail-meta-chip">Jumlah Sub-Topik: {{ (int) ($element['subtopic_count'] ?? 0) }}</span>
+                                        <span class="detail-meta-chip is-alt">Jumlah Pernyataan: {{ (int) ($element['statement_count'] ?? 0) }}</span>
                                     </div>
                                 </div>
                                 <span class="detail-arrow-btn" aria-hidden="true">
@@ -320,14 +258,6 @@
                             <div class="detail-slide">
                                 <div class="detail-body">
                                     @if (!empty($element['subtopics']))
-                                        @php
-                                            $subtopicWeightTotal = (float) collect($element['subtopics'])
-                                                ->sum(fn (array $subtopic) => (float) ($subtopic['weight'] ?? 0));
-                                            $subtopicContributionTotal = (float) collect($element['subtopics'])
-                                                ->sum(fn (array $subtopic) => (float) ($subtopic['weighted_score'] ?? 0));
-                                            $subtopicQaContributionTotal = (float) collect($element['subtopics'])
-                                                ->sum(fn (array $subtopic) => (float) ($subtopic['qa_weighted_score'] ?? 0));
-                                        @endphp
                                         <div class="table-wrapper">
                                             <table class="apip-subtopic-table">
                                                 <thead>
@@ -341,21 +271,15 @@
                                                 </thead>
                                                 <tbody>
                                                     @foreach ($element['subtopics'] as $subtopic)
-                                                        @php
-                                                            $subLevel = is_numeric($subtopic['level'] ?? null) ? (int) $subtopic['level'] : null;
-                                                            $subLevelClass = $subLevel !== null ? 'is-level-'.$subLevel : 'pending';
-                                                            $subLevelQa = is_numeric($subtopic['qa_level'] ?? null) ? (int) $subtopic['qa_level'] : null;
-                                                            $subLevelQaClass = $subLevelQa !== null ? 'is-level-'.$subLevelQa : 'pending';
-                                                        @endphp
                                                         <tr>
                                                             <td>
                                                                 <strong>{{ $subtopic['title'] }}</strong>
                                                                 <div class="row-meta subtopic-level-note">
-                                                                    <span class="qa-mandiri-prefix">Mandiri: </span>{{ (string) ($subtopic['level_note'] ?? $subtopic['description'] ?? 'Belum ada deskripsi level sub topik.') }}
+                                                                    <span class="qa-mandiri-prefix">Mandiri: </span>{{ (string) ($subtopic['level_note'] ?? 'Belum ada deskripsi level sub topik.') }}
                                                                 </div>
                                                                 <div class="row-meta qa-note-separator qa-only" aria-hidden="true"></div>
                                                                 <div class="row-meta subtopic-level-note qa-only qa-level-font">
-                                                                    QA: {{ (string) ($subtopic['qa_level_note'] ?? $subtopic['qa_description'] ?? 'Belum ada deskripsi level QA sub topik.') }}
+                                                                    QA: {{ (string) ($subtopic['qa_level_note'] ?? 'Belum ada deskripsi level QA sub topik.') }}
                                                                 </div>
                                                             </td>
                                                             <td>{{ $formatPercent((float) ($subtopic['weight'] ?? 0) * 100) }}%</td>
@@ -387,15 +311,15 @@
                                                                 <div class="apip-split-metric">
                                                                     <div class="apip-split-metric-row">
                                                                         <span class="apip-split-metric-label qa-mandiri-label">Mandiri</span>
-                                                                        <span class="level-chip {{ $subLevelClass }}">
-                                                                            {{ $subLevel !== null ? 'L'.$subLevel : '-' }}
+                                                                        <span class="level-chip {{ $subtopic['level_class'] ?? 'pending' }}">
+                                                                            {{ $subtopic['level_label'] ?? '-' }}
                                                                         </span>
                                                                         <span class="predikat-text">{{ $subtopic['predikat'] ?? '-' }}</span>
                                                                     </div>
                                                                     <div class="apip-split-metric-row qa-only">
                                                                         <span class="apip-split-metric-label">QA</span>
-                                                                        <span class="level-chip {{ $subLevelQaClass }}">
-                                                                            {{ $subLevelQa !== null ? 'L'.$subLevelQa : '-' }}
+                                                                        <span class="level-chip {{ $subtopic['qa_level_class'] ?? 'pending' }}">
+                                                                            {{ $subtopic['qa_level_label'] ?? '-' }}
                                                                         </span>
                                                                         <span class="predikat-text">{{ $subtopic['qa_predikat'] ?? '-' }}</span>
                                                                     </div>
@@ -410,18 +334,18 @@
                                                             <span class="subtopic-total-label">Total</span>
                                                         </td>
                                                         <td>
-                                                            <span class="subtopic-total-value">{{ $formatPercent($subtopicWeightTotal * 100) }}%</span>
+                                                            <span class="subtopic-total-value">{{ (string) ($element['subtopic_weight_total_percent'] ?? '0') }}%</span>
                                                         </td>
                                                         <td>-</td>
                                                         <td>
                                                             <div class="apip-split-metric">
                                                                 <div class="apip-split-metric-row">
                                                                     <span class="apip-split-metric-label qa-mandiri-label">Mandiri</span>
-                                                                    <span class="subtopic-total-value">{{ number_format($subtopicContributionTotal, 2) }}</span>
+                                                                    <span class="subtopic-total-value">{{ number_format((float) ($element['subtopic_contribution_total'] ?? 0), 2) }}</span>
                                                                 </div>
                                                                 <div class="apip-split-metric-row qa-only">
                                                                     <span class="apip-split-metric-label">QA</span>
-                                                                    <span class="subtopic-total-value">{{ number_format($subtopicQaContributionTotal, 2) }}</span>
+                                                                    <span class="subtopic-total-value">{{ number_format((float) ($element['subtopic_qa_contribution_total'] ?? 0), 2) }}</span>
                                                                 </div>
                                                             </div>
                                                         </td>

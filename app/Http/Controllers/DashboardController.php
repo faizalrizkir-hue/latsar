@@ -7,10 +7,11 @@ use App\Models\Element1KegiatanAsurans;
 use App\Models\ElementAssessment;
 use App\Models\ElementTeamAssignment;
 use App\Models\Notification;
-use App\Models\Account;
 use App\Services\AssessmentSummaryCache;
+use App\Services\DashboardShellDataBuilder;
 use App\Services\ElementPreferenceService;
 use App\Services\SchemaMetadataCache;
+use App\Support\DashboardHomeViewNormalizer;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Session;
@@ -119,17 +120,18 @@ class DashboardController extends Controller
         $meterPercentQa = (float) ($summaryPayload['meterPercentQa'] ?? 0);
         $meterNeedleDegQa = (float) ($summaryPayload['meterNeedleDegQa'] ?? 0);
 
-        $notifications = Notification::feedForUser((array) $sessionUser, null, 50);
-        $account = Account::where('username', $sessionUser['username'] ?? '')->first();
-        $accounts = [];
-        if (in_array(strtolower($sessionUser['role'] ?? ''), ['administrator','admin','superadmin'])) {
-            $accounts = Account::orderBy('username')->get();
-        }
+        $elements = DashboardHomeViewNormalizer::enrichElements($elements, $accessibleElementSlugs);
+        $dashboardUi = DashboardHomeViewNormalizer::buildUiMeta(
+            $elementWeights,
+            $overallLevelData,
+            $overallLevelDataQa
+        );
 
+        $notifications = Notification::feedForUser((array) $sessionUser, null, 50);
         $photoUrl = $this->buildPhotoUrl($sessionUser['profile_photo'] ?? '');
 
-        return view('dashboard', [
-            'pageTitle' => 'Dashboard Kapabilitas APIP',
+        $viewData = [
+            'pageTitle' => (string) ($dashboardUi['page_title'] ?? 'Dashboard Kapabilitas APIP'),
             'elements' => $elements,
             'elementWeights' => $elementWeights,
             'accessibleElementSlugs' => $accessibleElementSlugs,
@@ -141,12 +143,15 @@ class DashboardController extends Controller
             'meterNeedleDeg' => $meterNeedleDeg,
             'meterPercentQa' => (float) number_format($meterPercentQa, 2, '.', ''),
             'meterNeedleDegQa' => $meterNeedleDegQa,
+            'dashboardUi' => $dashboardUi,
             'notifications' => $notifications,
             'user' => Session::get('user'),
-            'account' => $account,
-            'accounts' => $accounts,
             'photoUrl' => $photoUrl,
-        ]);
+        ];
+
+        $shellData = app(DashboardShellDataBuilder::class)->build($viewData);
+
+        return view('dashboard', array_merge($viewData, $shellData));
     }
 
     private function buildPhotoUrl(?string $path): string
