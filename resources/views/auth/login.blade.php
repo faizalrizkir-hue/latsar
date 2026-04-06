@@ -429,13 +429,39 @@
                     fd.set('g-recaptcha-response', recaptchaToken);
                 }
 
+                const csrfToken = String(fd.get('_token') || '').trim();
+                const requestHeaders = {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                };
+                if (csrfToken !== '') {
+                    requestHeaders['X-CSRF-TOKEN'] = csrfToken;
+                }
+
                 return fetch(form.action, {
                     method: 'POST',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                    credentials: 'same-origin',
+                    headers: requestHeaders,
                     body: fd
                 })
-                .then(res => res.json().then(data => ({ ok: res.ok, data })))
-                .then(({ ok, data }) => {
+                .then(async (res) => {
+                    let data = null;
+                    const contentType = String(res.headers.get('content-type') || '').toLowerCase();
+                    if (contentType.includes('application/json')) {
+                        data = await res.json();
+                    }
+
+                    return { ok: res.ok, status: res.status, data };
+                })
+                .then(({ ok, status, data }) => {
+                    if (status === 419) {
+                        const message = 'Sesi keamanan telah kedaluwarsa. Halaman akan dimuat ulang.';
+                        renderAlert(message);
+                        showErrorState(message);
+                        setTimeout(() => window.location.reload(), 1000);
+                        return;
+                    }
+
                     if (ok && data?.ok) {
                         showSuccessState(data.redirect);
                     } else {

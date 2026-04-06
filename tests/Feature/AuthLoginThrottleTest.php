@@ -41,4 +41,17 @@ class AuthLoginThrottleTest extends TestCase
             'password' => 'salah-total',
         ])->assertStatus(429);
     }
+
+    public function test_login_page_is_served_without_cache_to_avoid_stale_csrf_token(): void
+    {
+        $response = $this->get('/login');
+
+        $response->assertOk()
+            ->assertHeader('Pragma', 'no-cache');
+
+        $cacheControl = (string) $response->headers->get('Cache-Control', '');
+        $this->assertStringContainsString('no-store', $cacheControl);
+        $this->assertStringContainsString('no-cache', $cacheControl);
+        $this->assertStringContainsString('must-revalidate', $cacheControl);
+    }
 }
