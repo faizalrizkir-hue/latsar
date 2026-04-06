@@ -110,7 +110,7 @@
                 return '';
             }
 
-            return implode(' â€¢ ', array_slice($parts, 0, 4));
+            return implode(' - ', array_slice($parts, 0, 4));
         };
     @endphp
 
@@ -202,12 +202,12 @@
                                                 $archiveRows = (int) ($archive['total_rows'] ?? 0);
                                                 $archiveBy = trim((string) ($archive['archived_by'] ?? ''));
                                                 $archiveUpdated = $formatArchiveDate($archive['updated_at'] ?? null);
-                                                $archiveLabel = 'TA '.$archiveYear.' â€¢ '.$archiveRows.' baris';
+                                                $archiveLabel = 'TA '.$archiveYear.' - '.$archiveRows.' baris';
                                                 if ($archiveBy !== '') {
-                                                    $archiveLabel .= ' â€¢ '.$archiveBy;
+                                                    $archiveLabel .= ' - '.$archiveBy;
                                                 }
                                                 if ($archiveUpdated !== '-') {
-                                                    $archiveLabel .= ' â€¢ '.$archiveUpdated;
+                                                    $archiveLabel .= ' - '.$archiveUpdated;
                                                 }
                                             @endphp
                                             <option value="{{ $archiveId }}">{{ $archiveLabel }}</option>
@@ -251,11 +251,11 @@
                                                     <span class="pref-archive-log-meta">
                                                         {{ $logDate !== '-' ? $logDate : 'Waktu tidak tersedia' }}
                                                         @if($logBy !== '')
-                                                            â€¢ {{ $logBy }}
+                                                            - {{ $logBy }}
                                                         @endif
                                                     </span>
                                                 </div>
-                                                <div class="pref-archive-log-detail">{{ $logRows }} baris â€¢ {{ $logTables }} tabel dipulihkan</div>
+                                                <div class="pref-archive-log-detail">{{ $logRows }} baris - {{ $logTables }} tabel dipulihkan</div>
                                                 @if($logSummary !== '')
                                                     <div class="pref-archive-log-summary">{{ $logSummary }}</div>
                                                 @endif
@@ -310,7 +310,7 @@
                                         {{ $subtopics->count() }} sub topik, {{ $statementCount }} pernyataan
                                     </div>
                                 </div>
-                                <span class="pref-element-arrow">â–¾</span>
+                                <span class="pref-element-arrow">&#9662;</span>
                             </summary>
 
                             <div class="pref-element-body">
@@ -394,7 +394,7 @@
                                         <details class="pref-subtopic-card card pref-lift" data-subtopic-card data-subtopic-slug="{{ $subtopicSlug }}" data-pref-slide>
                                             <summary>
                                                 <div class="pref-subtopic-title" data-subtopic-heading>{{ $subtopicDisplayTitle }}</div>
-                                                <span class="pref-subtopic-arrow">â–¾</span>
+                                                <span class="pref-subtopic-arrow">&#9662;</span>
                                             </summary>
 
                                             <div class="pref-subtopic-body">
@@ -1526,7 +1526,7 @@
         section.innerHTML = `
             <summary>
                 <div class="pref-subtopic-title" data-subtopic-heading>Sub Topik</div>
-                <span class="pref-subtopic-arrow">â–¾</span>
+                <span class="pref-subtopic-arrow">&#9662;</span>
             </summary>
 
             <div class="pref-subtopic-body">
@@ -1632,7 +1632,7 @@
                     <div class="pref-element-title">${displayTitle}</div>
                     <div class="pref-element-meta" data-element-meta>0 sub topik, 0 pernyataan</div>
                 </div>
-                <span class="pref-element-arrow">â–¾</span>
+                <span class="pref-element-arrow">&#9662;</span>
             </summary>
 
             <div class="pref-element-body">
