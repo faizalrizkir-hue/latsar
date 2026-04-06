@@ -86,7 +86,7 @@
             <li class="nav-section-label" aria-hidden="true"><span>Penilaian Element</span></li>
             @foreach($navElements as $elementNav)
             @continue(empty($elementNav['slug']))
-            <li class="has-sub" style="--nav-progress: {{ (int) ($elementNav['coverage_percent'] ?? 0) }}%;">
+            <li class="has-sub">
                 <a class="nav-toggle" data-sub-toggle="{{ $elementNav['slug'] }}">
                     <span class="nav-icon">{{ $elementNav['icon_label'] ?? 'E' }}</span>
                     <span class="nav-text">{{ $elementNav['nav_title'] ?? ($elementNav['title'] ?? 'Element') }}</span>
