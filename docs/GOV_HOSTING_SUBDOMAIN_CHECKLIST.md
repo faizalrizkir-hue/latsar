@@ -19,6 +19,7 @@ Kirim daftar ini dan minta jawaban `YA/TIDAK + keterangan`:
 10. Policy firewall mengizinkan koneksi internal app -> DB.
 11. Storage upload persisten dan tidak terhapus saat deploy.
 12. Batas upload file sesuai kebutuhan aplikasi (minimal 5 MB per file).
+13. Dukungan cache header + kompresi HTTP (gzip/brotli) untuk asset statis.
 
 ## 2) Pilih Profil Deploy
 

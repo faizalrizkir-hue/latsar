@@ -77,6 +77,16 @@ Catatan:
 - `npm` bisa dipindah ke CI/CD. Server hanya menerima artifact build.
 - Jalankan `php artisan down` sebelum migrasi jika ada perubahan schema yang berisiko.
 
+Optimasi runtime ulang setelah deploy update rutin (tanpa migrate) bisa pakai script:
+
+```bash
+bash scripts/deploy/optimize-runtime.sh --clear-first
+```
+
+```powershell
+.\scripts\deploy\optimize-runtime.ps1 -PhpBin php -ClearFirst
+```
+
 ## 5) Process Manager (Contoh systemd)
 
 ### Queue Worker
@@ -156,7 +166,34 @@ Set environment:
 - `REVERB_SERVER_HOST=0.0.0.0`
 - `REVERB_SERVER_PORT=8080`
 
-## 7) Post Deploy Smoke Check
+## 7) Cache Asset Statis + Kompresi
+
+Tujuan: mempercepat load ulang halaman tanpa mengubah perilaku fitur.
+
+### Apache
+
+`public/.htaccess` sudah disiapkan untuk:
+
+- cache aset statis (`css/js/font/image`) dengan `Cache-Control`.
+- kompresi teks (`DEFLATE`) untuk HTML/CSS/JS/JSON/SVG.
+
+### Nginx
+
+Jika menggunakan Nginx, tambahkan kebijakan ekuivalen:
+
+```nginx
+location ~* \.(css|js|mjs|map|jpg|jpeg|png|gif|webp|avif|svg|ico|ttf|otf|woff|woff2)$ {
+    expires 1d;
+    add_header Cache-Control "public, max-age=86400";
+    access_log off;
+}
+
+gzip on;
+gzip_types text/plain text/css application/javascript application/json application/xml image/svg+xml;
+gzip_min_length 1024;
+```
+
+## 8) Post Deploy Smoke Check
 
 ```bash
 php artisan about
@@ -173,7 +210,7 @@ Uji manual minimal:
 - Upload dokumen kecil
 - Cek notifikasi realtime
 
-## 8) Rollback Cepat
+## 9) Rollback Cepat
 
 1. Kembalikan ke commit stabil sebelumnya.
 2. Jalankan `composer install --no-dev --prefer-dist --optimize-autoloader`.
@@ -182,7 +219,7 @@ Uji manual minimal:
 
 Jika migrasi tidak backward-compatible, siapkan backup DB sebelum deploy dan gunakan prosedur restore DB.
 
-## 9) Untuk Subdomain Pemerintah
+## 10) Untuk Subdomain Pemerintah
 
 Jika deploy ke subdomain pemerintah (`*.jakarta.go.id`), pakai checklist khusus:
 
