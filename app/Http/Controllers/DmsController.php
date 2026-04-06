@@ -78,6 +78,12 @@ class DmsController extends Controller
         $names = $data['name']; // nama berkas per tab
         $files = $request->file('files', []);
 
+        if (count($docNos) !== count($names) || count($docNos) !== count($files)) {
+            return back()
+                ->withInput()
+                ->withErrors('Jumlah nomor dokumen, nama berkas, dan file harus sama.');
+        }
+
         // Buat satu dokumen utama, simpan semua berkas sebagai detail
         $mainDocNo = $docNos[0];
         $document = DmsDocument::create([
@@ -342,6 +348,17 @@ class DmsController extends Controller
 
     private function secureUploadRule(): \Closure
     {
+        $enforceAllowlist = (bool) config('dms.upload.enforce_allowlist', false);
+        $allowedExtensions = collect((array) config('dms.upload.allowed_extensions', []))
+            ->map(fn ($ext) => strtolower(trim((string) $ext)))
+            ->filter(fn ($ext) => $ext !== '')
+            ->values()
+            ->all();
+        $allowedMimeTypes = collect((array) config('dms.upload.allowed_mime_types', []))
+            ->map(fn ($mime) => strtolower(trim((string) $mime)))
+            ->filter(fn ($mime) => $mime !== '')
+            ->values()
+            ->all();
         $blockedExtensions = collect((array) config('dms.upload.blocked_extensions', []))
             ->map(fn ($ext) => strtolower(trim((string) $ext)))
             ->filter(fn ($ext) => $ext !== '')
@@ -353,7 +370,13 @@ class DmsController extends Controller
             ->values()
             ->all();
 
-        return function (string $attribute, mixed $value, \Closure $fail) use ($blockedExtensions, $blockedMimePrefixes): void {
+        return function (string $attribute, mixed $value, \Closure $fail) use (
+            $enforceAllowlist,
+            $allowedExtensions,
+            $allowedMimeTypes,
+            $blockedExtensions,
+            $blockedMimePrefixes
+        ): void {
             if (!$value instanceof UploadedFile) {
                 return;
             }
@@ -376,6 +399,33 @@ class DmsController extends Controller
 
                     return;
                 }
+            }
+
+            if (!$enforceAllowlist || (count($allowedExtensions) === 0 && count($allowedMimeTypes) === 0)) {
+                return;
+            }
+
+            $extensionAllowed = $extension !== '' && in_array($extension, $allowedExtensions, true);
+            $mimeAllowed = false;
+            foreach ($allowedMimeTypes as $allowedMimeType) {
+                if (str_ends_with($allowedMimeType, '/*')) {
+                    $prefix = substr($allowedMimeType, 0, -1);
+                    if ($prefix !== '' && Str::startsWith($mimeType, $prefix)) {
+                        $mimeAllowed = true;
+                        break;
+                    }
+
+                    continue;
+                }
+
+                if ($mimeType === $allowedMimeType) {
+                    $mimeAllowed = true;
+                    break;
+                }
+            }
+
+            if ((count($allowedExtensions) > 0 && !$extensionAllowed) || (count($allowedMimeTypes) > 0 && !$mimeAllowed)) {
+                $fail('Jenis berkas tidak termasuk daftar format yang diizinkan.');
             }
         };
     }

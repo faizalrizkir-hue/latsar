@@ -131,4 +131,66 @@ class DmsFlowTest extends TestCase
         $response->assertSessionHasErrors(['files.0']);
         $this->assertDatabaseMissing('dms_documents', ['doc_no' => 'DOC-004']);
     }
+
+    public function test_dms_upload_allowlist_can_be_enforced_via_config(): void
+    {
+        config([
+            'dms.upload.enforce_allowlist' => true,
+            'dms.upload.allowed_extensions' => ['pdf'],
+            'dms.upload.allowed_mime_types' => ['application/pdf'],
+        ]);
+
+        $rejected = $this
+            ->from('/dms/create')
+            ->withSession(['user' => $this->sessionUser, 'last_activity_at' => time()])
+            ->post('/dms', [
+                'title' => 'Dokumen Uji DMS',
+                'year' => (int) date('Y'),
+                'type' => 'Manajemen Pengawasan',
+                'tag' => 'Surat Tugas',
+                'doc_no' => ['DOC-005'],
+                'name' => ['Lampiran Tidak Sesuai Allowlist'],
+                'files' => [UploadedFile::fake()->create('lampiran.txt', 10, 'text/plain')],
+            ]);
+
+        $rejected->assertRedirect('/dms/create');
+        $rejected->assertSessionHasErrors(['files.0']);
+        $this->assertDatabaseMissing('dms_documents', ['doc_no' => 'DOC-005']);
+
+        $accepted = $this
+            ->withSession(['user' => $this->sessionUser, 'last_activity_at' => time()])
+            ->post('/dms', [
+                'title' => 'Dokumen Uji DMS',
+                'year' => (int) date('Y'),
+                'type' => 'Manajemen Pengawasan',
+                'tag' => 'Surat Tugas',
+                'doc_no' => ['DOC-006'],
+                'name' => ['Lampiran Sesuai Allowlist'],
+                'files' => [UploadedFile::fake()->create('lampiran.pdf', 50, 'application/pdf')],
+            ]);
+
+        $accepted->assertRedirect(route('dms.index'));
+        $this->assertDatabaseHas('dms_documents', ['doc_no' => 'DOC-006']);
+    }
+
+    public function test_dms_store_rejects_mismatched_doc_and_file_counts(): void
+    {
+        $response = $this
+            ->from('/dms/create')
+            ->withSession(['user' => $this->sessionUser, 'last_activity_at' => time()])
+            ->post('/dms', [
+                'title' => 'Dokumen Uji DMS',
+                'year' => (int) date('Y'),
+                'type' => 'Manajemen Pengawasan',
+                'tag' => 'Surat Tugas',
+                'doc_no' => ['DOC-007', 'DOC-008'],
+                'name' => ['Lampiran 1'],
+                'files' => [UploadedFile::fake()->create('lampiran.pdf', 50, 'application/pdf')],
+            ]);
+
+        $response->assertRedirect('/dms/create');
+        $response->assertSessionHasErrors();
+        $this->assertDatabaseMissing('dms_documents', ['doc_no' => 'DOC-007']);
+        $this->assertDatabaseMissing('dms_documents', ['doc_no' => 'DOC-008']);
+    }
 }

@@ -17,6 +17,11 @@ return [
     ],
     'upload' => [
         'max_kilobytes' => 5120,
+        // Keep false by default so existing behavior is unchanged.
+        // Set true in production to enforce strict allowlist.
+        'enforce_allowlist' => false,
+        'allowed_extensions' => [],
+        'allowed_mime_types' => [],
         'blocked_extensions' => [
             'php',
             'php3',
