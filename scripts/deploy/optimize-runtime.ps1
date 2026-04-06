@@ -22,6 +22,13 @@ if ($ClearFirst.IsPresent) {
 }
 & $PhpBin artisan optimize
 
+Write-Host "php artisan ops:schema-cache:bump (best effort)"
+try {
+    & $PhpBin artisan ops:schema-cache:bump
+} catch {
+    Write-Warning "ops:schema-cache:bump gagal."
+}
+
 Write-Host "php artisan queue:restart (best effort)"
 try {
     & $PhpBin artisan queue:restart

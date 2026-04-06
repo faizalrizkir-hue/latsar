@@ -36,14 +36,43 @@ Pastikan cron aktif di server:
 * * * * * cd /var/www/latsar-laravel && /usr/bin/php artisan schedule:run >> /dev/null 2>&1
 ```
 
-## 3) Runtime Services
+## 3) Dashboard Query Profiling (Opsional)
+
+Tujuan: mendeteksi query lambat di route dashboard tanpa mengubah behavior fitur.
+
+Env:
+
+- `DASHBOARD_QUERY_PROFILE_ENABLED` (`true/false`)
+- `DASHBOARD_SLOW_QUERY_MS`
+- `DASHBOARD_TOTAL_QUERY_BUDGET_MS`
+- `DASHBOARD_PROFILE_MAX_LOGGED_QUERIES`
+
+Saat threshold terlampaui, log warning akan muncul di log Laravel default.
+
+## 4) Schema Metadata Cache
+
+Cache metadata schema (`hasTable`, `hasColumn`, `columnListing`) digunakan untuk mengurangi query berulang ke `information_schema`.
+
+Env:
+
+- `SCHEMA_METADATA_TTL_SECONDS`
+
+Invalidasi manual:
+
+```bash
+php artisan ops:schema-cache:bump
+```
+
+Script deploy optimize akan menjalankan command ini otomatis (best effort).
+
+## 5) Runtime Services
 
 Gunakan template hardened systemd di:
 
 - `scripts/deploy/systemd/latsar-queue.service`
 - `scripts/deploy/systemd/latsar-reverb.service`
 
-## 4) Review Rutin
+## 6) Review Rutin
 
 Rutin cek:
 

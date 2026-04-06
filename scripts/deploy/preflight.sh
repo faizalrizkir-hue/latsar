@@ -141,6 +141,19 @@ if [[ -z "$asset_version" ]]; then
   warnings=$((warnings + 1))
 fi
 
+schema_metadata_ttl="$(get_env_value "SCHEMA_METADATA_TTL_SECONDS")"
+if [[ -z "$schema_metadata_ttl" ]]; then
+  echo "WARN: SCHEMA_METADATA_TTL_SECONDS kosong; disarankan 600-900 detik."
+  warnings=$((warnings + 1))
+fi
+
+dashboard_profile_enabled="$(get_env_value "DASHBOARD_QUERY_PROFILE_ENABLED")"
+app_env="$(get_env_value "APP_ENV")"
+if [[ "$app_env" == "production" && "$dashboard_profile_enabled" == "true" ]]; then
+  echo "WARN: DASHBOARD_QUERY_PROFILE_ENABLED=true di production dapat menambah noise log."
+  warnings=$((warnings + 1))
+fi
+
 if [[ $REQUIRE_REALTIME -eq 1 ]]; then
   warn_if_not_equals "BROADCAST_CONNECTION" "reverb"
 else

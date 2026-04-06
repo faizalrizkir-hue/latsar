@@ -10,9 +10,9 @@ use App\Models\ElementTeamAssignment;
 use App\Models\Notification;
 use App\Services\AssessmentSummaryCache;
 use App\Services\ElementPreferenceService;
+use App\Services\SchemaMetadataCache;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Str;
 
@@ -20,7 +20,8 @@ class ElementController extends Controller
 {
     public function __construct(
         private readonly ElementPreferenceService $elementPreferenceService,
-        private readonly AssessmentSummaryCache $assessmentSummaryCache
+        private readonly AssessmentSummaryCache $assessmentSummaryCache,
+        private readonly SchemaMetadataCache $schemaMetadataCache
     ) {
     }
 
@@ -1664,7 +1665,7 @@ class ElementController extends Controller
             return $this->schemaTableExists[$normalizedTable];
         }
 
-        $exists = Schema::hasTable($normalizedTable);
+        $exists = $this->schemaMetadataCache->hasTable($normalizedTable);
         $this->schemaTableExists[$normalizedTable] = $exists;
 
         return $exists;
@@ -1683,7 +1684,7 @@ class ElementController extends Controller
             return $this->schemaColumnExists[$cacheKey];
         }
 
-        $exists = $this->hasTableCached($normalizedTable) && Schema::hasColumn($normalizedTable, $normalizedColumn);
+        $exists = $this->hasTableCached($normalizedTable) && $this->schemaMetadataCache->hasColumn($normalizedTable, $normalizedColumn);
         $this->schemaColumnExists[$cacheKey] = $exists;
 
         return $exists;

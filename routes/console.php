@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Schema;
+use App\Services\SchemaMetadataCache;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -125,6 +126,15 @@ Artisan::command('ops:health {--json : Output JSON summary}', function () {
 
     return $failures > 0 ? 1 : 0;
 })->purpose('Operational runtime health check for production readiness.');
+
+Artisan::command('ops:schema-cache:bump', function () {
+    /** @var SchemaMetadataCache $schemaMetadataCache */
+    $schemaMetadataCache = app(SchemaMetadataCache::class);
+    $schemaMetadataCache->bumpVersion();
+    $this->info('Schema metadata cache version bumped.');
+
+    return 0;
+})->purpose('Invalidate cached schema metadata immediately.');
 
 $opsHealthLog = trim((string) config('ops.health.log_file', 'logs/ops-health.log'));
 $opsHealthLogPath = str_starts_with($opsHealthLog, DIRECTORY_SEPARATOR)

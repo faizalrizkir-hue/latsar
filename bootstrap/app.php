@@ -29,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'auth.session' => \App\Http\Middleware\EnsureLoggedIn::class,
             'admin.session' => \App\Http\Middleware\EnsureAdmin::class,
             'db.lock' => \App\Http\Middleware\EnsureDatabaseServerLock::class,
+            'profile.dashboard.query' => \App\Http\Middleware\ProfileDashboardQueries::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

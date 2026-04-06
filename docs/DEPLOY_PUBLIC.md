@@ -24,6 +24,7 @@ Jika tetap memakai shared hosting:
 - [ ] `APP_URL` menggunakan `https://domain-anda`.
 - [ ] `APP_KEY` terisi valid.
 - [ ] `ASSET_VERSION` diisi versi rilis saat deploy.
+- [ ] `SCHEMA_METADATA_TTL_SECONDS` diisi (disarankan `600-900`).
 - [ ] DB production terpisah dari lokal/dev.
 - [ ] `SECURITY_HEADERS_ENABLED=true` dan `SECURITY_HEADERS_HSTS_ENABLED=true`.
 - [ ] Folder upload persistent dan sudah `php artisan storage:link`.
@@ -89,6 +90,10 @@ bash scripts/deploy/optimize-runtime.sh --clear-first
 ```powershell
 .\scripts\deploy\optimize-runtime.ps1 -PhpBin php -ClearFirst
 ```
+
+Catatan:
+
+- Script optimize runtime otomatis menjalankan `php artisan ops:schema-cache:bump` (best effort).
 
 ## 5) Process Manager (Contoh systemd)
 
@@ -235,6 +240,7 @@ Command penting:
 ```bash
 php artisan ops:health
 php artisan ops:health --json
+php artisan ops:schema-cache:bump
 ```
 
 Script backup:

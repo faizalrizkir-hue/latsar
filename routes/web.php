@@ -51,7 +51,9 @@ Route::post('/login', [AuthController::class, 'login'])->name('login.perform');
 
 Route::middleware(['auth.session', 'db.lock'])->group(function () {
     Route::match(['get', 'post'], '/logout', [AuthController::class, 'logout'])->name('logout');
-    Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/', [DashboardController::class, 'index'])
+        ->middleware('profile.dashboard.query')
+        ->name('dashboard');
     Route::get('/dms', [DmsController::class, 'index'])->name('dms.index');
     Route::get('/dms/create', [DmsController::class, 'create'])->name('dms.create');
     Route::post('/dms', [DmsController::class, 'store'])->name('dms.store');

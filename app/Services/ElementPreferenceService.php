@@ -7,12 +7,16 @@ use App\Models\ElementProgressArchive;
 use App\Models\ElementProgressArchiveLoadLog;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use RuntimeException;
 
 class ElementPreferenceService
 {
+    public function __construct(
+        private readonly SchemaMetadataCache $schemaMetadataCache
+    ) {
+    }
+
     private ?array $cachedStructure = null;
 
     private ?array $cachedSummaryModules = null;
@@ -21,17 +25,17 @@ class ElementPreferenceService
 
     public function hasPreferencesTable(): bool
     {
-        return Schema::hasTable('element_preferences');
+        return $this->schemaMetadataCache->hasTable('element_preferences');
     }
 
     public function hasProgressArchiveTable(): bool
     {
-        return Schema::hasTable('element_progress_archives');
+        return $this->schemaMetadataCache->hasTable('element_progress_archives');
     }
 
     public function hasProgressArchiveLoadLogTable(): bool
     {
-        return Schema::hasTable('element_progress_archive_load_logs');
+        return $this->schemaMetadataCache->hasTable('element_progress_archive_load_logs');
     }
 
     public function structure(): array
@@ -260,12 +264,12 @@ class ElementPreferenceService
             'element1_kegiatan_asurans_doc_selections',
             'element1_kegiatan_asurans_row_doc_selections',
         ] as $table) {
-            if (Schema::hasTable($table)) {
+            if ($this->schemaMetadataCache->hasTable($table)) {
                 $dataTables[$table] = true;
             }
         }
 
-        if (Schema::hasTable('notifications')) {
+        if ($this->schemaMetadataCache->hasTable('notifications')) {
             $historyTables['notifications'] = true;
         }
 
@@ -285,7 +289,7 @@ class ElementPreferenceService
         $deletedByTable = [];
         DB::transaction(function () use ($targetTables, &$deletedByTable): void {
             foreach ($targetTables as $table) {
-                if (!Schema::hasTable($table)) {
+                if (!$this->schemaMetadataCache->hasTable($table)) {
                     continue;
                 }
 
@@ -446,7 +450,7 @@ class ElementPreferenceService
         DB::transaction(function () use ($tablesToClear, $snapshotTables, $excludedTables, &$restoredByTable): void {
             foreach ($tablesToClear as $table) {
                 $tableName = trim((string) $table);
-                if ($tableName === '' || isset($excludedTables[$tableName]) || !Schema::hasTable($tableName)) {
+                if ($tableName === '' || isset($excludedTables[$tableName]) || !$this->schemaMetadataCache->hasTable($tableName)) {
                     continue;
                 }
 
@@ -456,11 +460,11 @@ class ElementPreferenceService
 
             foreach ($snapshotTables as $table => $tableSnapshot) {
                 $tableName = trim((string) $table);
-                if ($tableName === '' || isset($excludedTables[$tableName]) || !Schema::hasTable($tableName)) {
+                if ($tableName === '' || isset($excludedTables[$tableName]) || !$this->schemaMetadataCache->hasTable($tableName)) {
                     continue;
                 }
 
-                $allowedColumns = array_flip(Schema::getColumnListing($tableName));
+                $allowedColumns = array_flip($this->schemaMetadataCache->columnListing($tableName));
                 if (count($allowedColumns) === 0) {
                     continue;
                 }
@@ -1918,12 +1922,12 @@ class ElementPreferenceService
         $tables = [];
         foreach ($subtopicModules as $module) {
             $modelTable = $this->tableFromModelClass((string) ($module['model'] ?? ''));
-            if ($modelTable !== null && Schema::hasTable($modelTable)) {
+            if ($modelTable !== null && $this->schemaMetadataCache->hasTable($modelTable)) {
                 $tables[$modelTable] = true;
             }
 
             $editLogTable = $this->tableFromModelClass((string) ($module['edit_log_model'] ?? ''));
-            if ($editLogTable !== null && Schema::hasTable($editLogTable)) {
+            if ($editLogTable !== null && $this->schemaMetadataCache->hasTable($editLogTable)) {
                 $tables[$editLogTable] = true;
             }
         }
@@ -1934,7 +1938,7 @@ class ElementPreferenceService
             'element1_kegiatan_asurans_doc_selections',
             'element1_kegiatan_asurans_row_doc_selections',
         ] as $table) {
-            if (Schema::hasTable($table)) {
+            if ($this->schemaMetadataCache->hasTable($table)) {
                 $tables[$table] = true;
             }
         }
@@ -1976,11 +1980,11 @@ class ElementPreferenceService
         $totalRows = 0;
 
         foreach ($tables as $table) {
-            if (!Schema::hasTable($table)) {
+            if (!$this->schemaMetadataCache->hasTable($table)) {
                 continue;
             }
 
-            $columns = Schema::getColumnListing($table);
+            $columns = $this->schemaMetadataCache->columnListing($table);
             if (count($columns) === 0) {
                 continue;
             }
@@ -2021,7 +2025,7 @@ class ElementPreferenceService
 
         foreach ($subtopicModules as $module) {
             $table = $this->tableFromModelClass((string) ($module['model'] ?? ''));
-            if ($table === null || !Schema::hasTable($table)) {
+            if ($table === null || !$this->schemaMetadataCache->hasTable($table)) {
                 continue;
             }
 
@@ -2053,3 +2057,4 @@ class ElementPreferenceService
         $this->cachedSubtopicModules = null;
     }
 }
+

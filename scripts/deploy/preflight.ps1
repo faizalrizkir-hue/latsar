@@ -142,6 +142,17 @@ if ([string]::IsNullOrWhiteSpace($assetVersion)) {
     Add-WarningMessage "ASSET_VERSION kosong; disarankan isi versi rilis untuk cache busting saat deploy."
 }
 
+$schemaMetadataTtl = Get-EnvValue -Key "SCHEMA_METADATA_TTL_SECONDS"
+if ([string]::IsNullOrWhiteSpace($schemaMetadataTtl)) {
+    Add-WarningMessage "SCHEMA_METADATA_TTL_SECONDS kosong; disarankan 600-900 detik."
+}
+
+$dashboardQueryProfileEnabled = (Get-EnvValue -Key "DASHBOARD_QUERY_PROFILE_ENABLED").ToLowerInvariant()
+$appEnv = (Get-EnvValue -Key "APP_ENV").ToLowerInvariant()
+if ($appEnv -eq "production" -and $dashboardQueryProfileEnabled -eq "true") {
+    Add-WarningMessage "DASHBOARD_QUERY_PROFILE_ENABLED=true di production dapat menambah noise log."
+}
+
 if (-not $SkipRealtime.IsPresent) {
     Warn-IfNotEquals -Key "BROADCAST_CONNECTION" -Expected "reverb"
 } else {

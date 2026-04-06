@@ -52,6 +52,11 @@ else
 fi
 "$PHP_BIN" artisan optimize
 
+echo "php artisan ops:schema-cache:bump (best effort)"
+if ! "$PHP_BIN" artisan ops:schema-cache:bump; then
+  echo "WARN: ops:schema-cache:bump gagal."
+fi
+
 echo "php artisan queue:restart (best effort)"
 if ! "$PHP_BIN" artisan queue:restart; then
   echo "WARN: queue:restart gagal (queue worker mungkin belum aktif)."
