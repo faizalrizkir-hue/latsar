@@ -3,7 +3,7 @@
 @section('title', $pageTitle ?? 'Edit DMS')
 
 @push('head')
-    <link rel="stylesheet" href="/css/dms.css">
+    <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/dms.css') }}">
     <style>
         .tab-btn{
             border-radius: 12px;
@@ -511,5 +511,6 @@
     })();
 </script>
 @endpush
+
 
 

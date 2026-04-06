@@ -20,6 +20,7 @@ Kirim daftar ini dan minta jawaban `YA/TIDAK + keterangan`:
 11. Storage upload persisten dan tidak terhapus saat deploy.
 12. Batas upload file sesuai kebutuhan aplikasi (minimal 5 MB per file).
 13. Dukungan cache header + kompresi HTTP (gzip/brotli) untuk asset statis.
+14. Cron scheduler diizinkan (`php artisan schedule:run` tiap menit).
 
 ## 2) Pilih Profil Deploy
 
@@ -87,6 +88,8 @@ bash scripts/deploy/preflight.sh .env --skip-realtime
 6. reCAPTCHA login berjalan (tidak timeout/firewall blocked).
 7. Jika Profil A: notifikasi realtime websocket berjalan.
 8. Jika Profil B: notifikasi tetap refresh via polling.
+9. Health check command (`php artisan ops:health`) berjalan normal.
+10. Backup script + verify backup lulus.
 
 ## 4) Risiko Umum di Hosting Pemerintah
 

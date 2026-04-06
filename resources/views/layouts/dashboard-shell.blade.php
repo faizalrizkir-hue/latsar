@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $pageTitle ?? 'LATSAR' }}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/css/dashboard.css?v={{ @filemtime(public_path('css/dashboard.css')) }}">
+    <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/dashboard.css') }}">
     <script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
     <script>
         // Terapkan tema tersimpan sedini mungkin supaya tidak kedip dan tidak kembali ke gelap
@@ -66,8 +66,8 @@
 <div class="app">
     <aside class="sidenav" id="sidenav">
         <div class="brand">
-            <img class="logo-light" src="/static/logo-sikap-light.png" alt="Logo SIKAP">
-            <img class="logo-dark" src="/static/logo-sikap-dark.png" alt="Logo SIKAP">
+            <img class="logo-light" src="{{ \App\Support\VersionedAsset::url('static/logo-sikap-light.png') }}" alt="Logo SIKAP">
+            <img class="logo-dark" src="{{ \App\Support\VersionedAsset::url('static/logo-sikap-dark.png') }}" alt="Logo SIKAP">
         </div>
         <div class="user-card">
             <div class="avatar">
@@ -95,7 +95,7 @@
                 <ul class="nav-sub" id="sub-{{ $elementNav['slug'] }}">
                     <li class="nav-sub-parent">
                         <a href="{{ route('elements.show', $elementNav['slug']) }}">
-                            <span class="sub-icon">•</span>
+                            <span class="sub-icon">â€¢</span>
                             <span>Rekapitulasi Element</span>
                         </a>
                     </li>
@@ -224,7 +224,7 @@
                                     }
 
                                     $notifyStatement = trim((string) data_get($notif, 'statement', ''));
-                                    if ($notifyStatement !== '' && !Str::contains($notifyStatement, '·')) {
+                                    if ($notifyStatement !== '' && !Str::contains($notifyStatement, 'Â·')) {
                                         $normalized = preg_replace('/^.*?\bmelakukan\b\s*/iu', '', $notifyStatement);
                                         $normalized = is_string($normalized) ? $normalized : $notifyStatement;
                                         $normalized = preg_replace('/\bpada\s+element\s+\d+.*?:\s*/iu', '', $normalized);
@@ -245,19 +245,19 @@
                                         foreach ($legacyActionMap as $legacyAction => $compactAction) {
                                             if (Str::startsWith(Str::lower($normalized), $legacyAction)) {
                                                 $rest = trim((string) Str::substr($normalized, Str::length($legacyAction)));
-                                                $normalized = $compactAction.($rest !== '' ? ' · '.$rest : '');
+                                                $normalized = $compactAction.($rest !== '' ? ' Â· '.$rest : '');
                                                 break;
                                             }
                                         }
 
                                         $notifyStatement = $normalized;
                                     }
-                                    $notifyStatement = Str::limit($notifyStatement, 64, '…');
+                                    $notifyStatement = Str::limit($notifyStatement, 64, 'â€¦');
 
                                     $notifyActionText = '';
                                     $notifyDetailText = $notifyStatement;
-                                    if (Str::contains($notifyStatement, '·')) {
-                                        [$notifyActionText, $notifyDetailText] = array_pad(explode('·', $notifyStatement, 2), 2, '');
+                                    if (Str::contains($notifyStatement, 'Â·')) {
+                                        [$notifyActionText, $notifyDetailText] = array_pad(explode('Â·', $notifyStatement, 2), 2, '');
                                         $notifyActionText = trim((string) $notifyActionText);
                                         $notifyDetailText = trim((string) $notifyDetailText);
                                     }
@@ -1518,4 +1518,5 @@
 @stack('scripts')
 </body>
 </html>
+
 

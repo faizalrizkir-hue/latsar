@@ -134,6 +134,14 @@ if (-not [string]::IsNullOrWhiteSpace($appUrl) -and -not $appUrl.StartsWith("htt
 }
 
 Warn-IfNotEquals -Key "SESSION_SECURE_COOKIE" -Expected "true"
+Warn-IfNotEquals -Key "SECURITY_HEADERS_ENABLED" -Expected "true"
+Warn-IfNotEquals -Key "SECURITY_HEADERS_HSTS_ENABLED" -Expected "true"
+
+$assetVersion = Get-EnvValue -Key "ASSET_VERSION"
+if ([string]::IsNullOrWhiteSpace($assetVersion)) {
+    Add-WarningMessage "ASSET_VERSION kosong; disarankan isi versi rilis untuk cache busting saat deploy."
+}
+
 if (-not $SkipRealtime.IsPresent) {
     Warn-IfNotEquals -Key "BROADCAST_CONNECTION" -Expected "reverb"
 } else {

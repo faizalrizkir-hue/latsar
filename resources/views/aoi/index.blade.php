@@ -5,7 +5,7 @@
 @endphp
 
 @push('head')
-    <link rel="stylesheet" href="/css/aoi.css?v={{ @filemtime(public_path('css/aoi.css')) }}">
+    <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/aoi.css') }}">
 @endpush
 
 @section('content')
@@ -159,3 +159,4 @@
         })();
     </script>
 @endpush
+

@@ -29,7 +29,7 @@
                 $label = 'Element '.$matches[1];
             }
 
-            return '• '.$label.': '.number_format((float) $elementWeight * 100, 0).'%';
+            return 'â€¢ '.$label.': '.number_format((float) $elementWeight * 100, 0).'%';
         })
         ->values()
         ->implode("\n");
@@ -58,7 +58,7 @@
 @endphp
 
 @push('head')
-    <link rel="stylesheet" href="/css/dashboard-home.css">
+    <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/dashboard-home.css') }}">
 @endpush
 
 @section('content')
@@ -673,3 +673,4 @@ document.addEventListener('DOMContentLoaded', initDashboardHomePage);
 document.addEventListener('livewire:navigated', initDashboardHomePage);
 </script>
 @endpush
+

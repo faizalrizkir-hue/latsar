@@ -1,7 +1,7 @@
 @extends('layouts.dashboard-shell')
 
 @push('head')
-    <link rel="stylesheet" href="/css/profile.css">
+    <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/profile.css') }}">
 @endpush
 
 @section('content')
@@ -235,3 +235,4 @@
     });
 </script>
 @endpush
+

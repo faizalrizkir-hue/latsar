@@ -55,7 +55,7 @@
 @endphp
 
 @push('head')
-    <link rel="stylesheet" href="/css/informasi-umum.css?v={{ @filemtime(public_path('css/informasi-umum.css')) }}">
+    <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/informasi-umum.css') }}">
 @endpush
 
 @section('content')
@@ -86,7 +86,7 @@
                                     <h4>{{ $title !== '' ? $title : 'Dokumen tanpa judul' }}</h4>
                                     <p>
                                         @if($category !== '')
-                                            {{ $category }} •
+                                            {{ $category }} â€¢
                                         @endif
                                         {{ $fileName !== '' ? $fileName : 'File belum ditentukan' }}
                                     </p>
@@ -286,3 +286,4 @@
         </form>
     </div>
 @endsection
+

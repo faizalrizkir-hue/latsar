@@ -4,7 +4,7 @@
 @endphp
 
 @push('head')
-    <link rel="stylesheet" href="/css/legacy.css">
+    <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/legacy.css') }}">
     @if(!empty($legacyStyles))
         <style>{!! $legacyStyles !!}</style>
     @endif
@@ -13,3 +13,4 @@
 @section('content')
     {!! $legacyBody !!}
 @endsection
+

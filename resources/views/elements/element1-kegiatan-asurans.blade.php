@@ -4,7 +4,7 @@
 @endphp
 
 @push('head')
-    <link rel="stylesheet" href="/css/element1-kegiatan-asurans.css?v={{ @filemtime(public_path('css/element1-kegiatan-asurans.css')) }}">
+    <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/element1-kegiatan-asurans.css') }}">
 @endpush
 
 @section('content')
@@ -2471,4 +2471,5 @@
         })();
     </script>
 @endpush
+
 

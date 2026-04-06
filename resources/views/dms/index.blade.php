@@ -1,9 +1,9 @@
-﻿@extends('layouts.dashboard-shell')
+@extends('layouts.dashboard-shell')
 
 @section('title', $pageTitle ?? 'DMS')
 
 @push('head')
-    <link rel="stylesheet" href="/css/dms.css">
+    <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/dms.css') }}">
 @endpush
 
 @php
@@ -482,5 +482,6 @@
     </div>
 </div>
 @endpush
+
 
 

@@ -3,7 +3,7 @@
 @section('title', $pageTitle ?? 'Unggah Dokumen')
 
 @push('head')
-    <link rel="stylesheet" href="/css/dms.css">
+    <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/dms.css') }}">
     <style>
         .tab-btn{
             border-radius: 12px;
@@ -396,3 +396,4 @@
 })();
 </script>
 @endpush
+

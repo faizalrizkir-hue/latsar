@@ -1,7 +1,7 @@
 @extends('layouts.dashboard-shell')
 
 @push('head')
-    <link rel="stylesheet" href="/css/accounts.css">
+    <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/accounts.css') }}">
 @endpush
 
 @section('content')
@@ -734,3 +734,4 @@
     })();
 </script>
 @endpush
+

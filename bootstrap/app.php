@@ -23,6 +23,8 @@ return Application::configure(basePath: dirname(__DIR__))
                 | Request::HEADER_X_FORWARDED_AWS_ELB
         );
 
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+
         $middleware->alias([
             'auth.session' => \App\Http\Middleware\EnsureLoggedIn::class,
             'admin.session' => \App\Http\Middleware\EnsureAdmin::class,

@@ -66,6 +66,17 @@ return [
     'asset_url' => env('ASSET_URL'),
 
     /*
+    |----------------------------------------------------------------------
+    | Asset Version
+    |----------------------------------------------------------------------
+    |
+    | When set, all versioned assets will use this fixed version value.
+    | Leave empty in local/development to automatically use file mtime.
+    |
+    */
+    'asset_version' => env('ASSET_VERSION', ''),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------

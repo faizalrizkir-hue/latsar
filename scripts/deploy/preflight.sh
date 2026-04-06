@@ -132,6 +132,14 @@ if [[ -n "$app_url" && ! "$app_url" =~ ^https:// ]]; then
 fi
 
 warn_if_not_equals "SESSION_SECURE_COOKIE" "true"
+warn_if_not_equals "SECURITY_HEADERS_ENABLED" "true"
+warn_if_not_equals "SECURITY_HEADERS_HSTS_ENABLED" "true"
+
+asset_version="$(get_env_value "ASSET_VERSION")"
+if [[ -z "$asset_version" ]]; then
+  echo "WARN: ASSET_VERSION kosong; disarankan isi versi rilis untuk cache busting saat deploy."
+  warnings=$((warnings + 1))
+fi
 
 if [[ $REQUIRE_REALTIME -eq 1 ]]; then
   warn_if_not_equals "BROADCAST_CONNECTION" "reverb"

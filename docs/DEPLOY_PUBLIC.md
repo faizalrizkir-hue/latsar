@@ -23,10 +23,13 @@ Jika tetap memakai shared hosting:
 - [ ] `APP_ENV=production`, `APP_DEBUG=false`.
 - [ ] `APP_URL` menggunakan `https://domain-anda`.
 - [ ] `APP_KEY` terisi valid.
+- [ ] `ASSET_VERSION` diisi versi rilis saat deploy.
 - [ ] DB production terpisah dari lokal/dev.
+- [ ] `SECURITY_HEADERS_ENABLED=true` dan `SECURITY_HEADERS_HSTS_ENABLED=true`.
 - [ ] Folder upload persistent dan sudah `php artisan storage:link`.
 - [ ] Queue worker aktif otomatis saat server restart.
 - [ ] Reverb aktif otomatis saat server restart.
+- [ ] Cron `schedule:run` aktif (untuk monitoring terjadwal).
 - [ ] Backup database + upload berjalan terjadwal.
 - [ ] Logs terpantau dan rotasi log aktif.
 
@@ -88,6 +91,13 @@ bash scripts/deploy/optimize-runtime.sh --clear-first
 ```
 
 ## 5) Process Manager (Contoh systemd)
+
+Gunakan template yang sudah disiapkan:
+
+- `scripts/deploy/systemd/latsar-queue.service`
+- `scripts/deploy/systemd/latsar-reverb.service`
+
+Lalu salin ke `/etc/systemd/system/` dan sesuaikan `WorkingDirectory` jika perlu.
 
 ### Queue Worker
 
@@ -170,6 +180,11 @@ Set environment:
 
 Tujuan: mempercepat load ulang halaman tanpa mengubah perilaku fitur.
 
+Catatan cache busting:
+
+- Asset URL sekarang otomatis punya query `?v=...`.
+- Untuk production, isi `ASSET_VERSION` setiap rilis (contoh: tanggal/commit hash).
+
 ### Apache
 
 `public/.htaccess` sudah disiapkan untuk:
@@ -193,7 +208,48 @@ gzip_types text/plain text/css application/javascript application/json applicati
 gzip_min_length 1024;
 ```
 
-## 8) Post Deploy Smoke Check
+## 8) Security Headers
+
+Middleware keamanan aktif secara global:
+
+- `X-Frame-Options: SAMEORIGIN`
+- `X-Content-Type-Options: nosniff`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy` dasar
+- `Strict-Transport-Security` (hanya saat HTTPS jika di-enable)
+
+Konfigurasi ada di:
+
+- `config/security_headers.php`
+- `.env` (`SECURITY_HEADERS_*`)
+
+## 9) Monitoring & Backup Drill
+
+Dokumen operasional:
+
+- `docs/OPS_MONITORING.md`
+- `docs/BACKUP_RESTORE_DRILL.md`
+
+Command penting:
+
+```bash
+php artisan ops:health
+php artisan ops:health --json
+```
+
+Script backup:
+
+```bash
+bash scripts/backup/create-backup.sh .env backups/runtime
+bash scripts/backup/verify-backup.sh backups/runtime/<timestamp>
+```
+
+```powershell
+.\scripts\backup\create-backup.ps1 -EnvFile .env -OutputDir backups/runtime
+.\scripts\backup\verify-backup.ps1 -BackupDir backups/runtime\<timestamp>
+```
+
+## 10) Post Deploy Smoke Check
 
 ```bash
 php artisan about
@@ -210,7 +266,7 @@ Uji manual minimal:
 - Upload dokumen kecil
 - Cek notifikasi realtime
 
-## 9) Rollback Cepat
+## 11) Rollback Cepat
 
 1. Kembalikan ke commit stabil sebelumnya.
 2. Jalankan `composer install --no-dev --prefer-dist --optimize-autoloader`.
@@ -219,7 +275,7 @@ Uji manual minimal:
 
 Jika migrasi tidak backward-compatible, siapkan backup DB sebelum deploy dan gunakan prosedur restore DB.
 
-## 10) Untuk Subdomain Pemerintah
+## 12) Untuk Subdomain Pemerintah
 
 Jika deploy ke subdomain pemerintah (`*.jakarta.go.id`), pakai checklist khusus:
 

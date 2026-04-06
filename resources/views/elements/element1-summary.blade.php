@@ -11,10 +11,8 @@
     @foreach ($summaryStyles as $stylePath)
         @php
             $resolvedStylePath = ltrim((string) $stylePath, '/');
-            $resolvedStyleFile = public_path($resolvedStylePath);
-            $resolvedStyleVersion = is_file($resolvedStyleFile) ? @filemtime($resolvedStyleFile) : null;
         @endphp
-        <link rel="stylesheet" href="/{{ $resolvedStylePath }}{{ $resolvedStyleVersion ? '?v='.$resolvedStyleVersion : '' }}">
+        <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url($resolvedStylePath) }}">
     @endforeach
 @endpush
 

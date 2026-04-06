@@ -131,6 +131,21 @@ bash scripts/deploy/preflight.sh .env --skip-realtime
 .\scripts\deploy\preflight.ps1 -EnvFile .env -SkipRealtime
 ```
 
+Optimasi runtime pasca deploy:
+
+```bash
+bash scripts/deploy/optimize-runtime.sh --clear-first
+```
+
+```powershell
+.\scripts\deploy\optimize-runtime.ps1 -PhpBin "C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe" -ClearFirst
+```
+
+Monitoring + backup drill:
+
+- `docs/OPS_MONITORING.md`
+- `docs/BACKUP_RESTORE_DRILL.md`
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
