@@ -303,6 +303,19 @@ body.keg-modal-open {
     margin-top: 1px;
 }
 
+.keg-flow-guide-note {
+    margin-top: 0.52rem;
+    color: #5a6f8f;
+    font-size: 0.74rem;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.keg-flow-guide-note strong {
+    color: #35557f;
+    font-weight: 800;
+}
+
 .keg-save-hint {
     margin-right: auto;
     align-self: center;
@@ -1167,6 +1180,40 @@ body.keg-modal-open {
 .pernyataan-weight-hint {
     flex: 0 0 auto;
     transform: translateY(-1px);
+}
+
+.row-fill-status {
+    border: 1px solid #c4d3e8;
+    border-radius: 999px;
+    background: #eef3fb;
+    color: #506481;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.66rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    padding: 0.2rem 0.46rem;
+    white-space: nowrap;
+}
+
+.row-fill-status.is-empty {
+    border-color: #c8d6ea;
+    background: #edf2fa;
+    color: #607491;
+}
+
+.row-fill-status.is-draft {
+    border-color: #efd39d;
+    background: #fff1d6;
+    color: #8a6011;
+}
+
+.row-fill-status.is-complete {
+    border-color: #9ad4b4;
+    background: #dcf5e7;
+    color: #1f6b43;
 }
 
 .bobot {

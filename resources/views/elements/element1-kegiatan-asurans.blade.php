@@ -96,6 +96,7 @@
                     <li><span class="step-no">2</span> Lengkapi tab <strong>Bukti Dukung</strong>, lalu isi <strong>Analisis Bukti Per Level</strong>.</li>
                     <li><span class="step-no">3</span> Klik tombol <strong>Simpan Data</strong>, lalu lanjutkan ke pernyataan berikutnya.</li>
                 </ol>
+                <div class="keg-flow-guide-note">Status baris: <strong>Belum Diisi</strong> (kosong), <strong>Draft</strong> (sebagian), <strong>Lengkap</strong> (siap/verifikasi).</div>
             </section>
             <div class="keg-table-toolbar">
                 <button
@@ -214,6 +215,24 @@
                                 $qaLevelHint = ($isQaVerified && $qaLevelValue >= 1 && $qaLevelValue <= 5)
                                     ? trim((string) ($levelHints[$qaLevelValue] ?? ''))
                                     : '';
+                                $hasAnyLevelNote = collect(range(1, 5))
+                                    ->contains(fn ($i) => trim((string) data_get($row, 'grad_l'.$i.'_catatan', '')) !== '');
+                                $hasAnyAnalysis = trim((string) ($row->analisis_bukti ?? '')) !== ''
+                                    || trim((string) ($row->analisis_nilai ?? '')) !== '';
+                                $hasAnyDataDraft = is_numeric($row->level ?? null)
+                                    || is_numeric($row->skor ?? null)
+                                    || $currentPickedDocCount > 0
+                                    || $hasAnyLevelNote
+                                    || $hasAnyAnalysis;
+                                $rowStatusLabel = 'Belum Diisi';
+                                $rowStatusClass = 'is-empty';
+                                if ($isVerified || ($currentPickedDocCount > 0 && is_numeric($row->level ?? null))) {
+                                    $rowStatusLabel = 'Lengkap';
+                                    $rowStatusClass = 'is-complete';
+                                } elseif ($hasAnyDataDraft) {
+                                    $rowStatusLabel = 'Draft';
+                                    $rowStatusClass = 'is-draft';
+                                }
                                 $hasEditableLevelField = collect(range(1, 5))
                                     ->contains(fn ($i) => (int) data_get($savedLevelValidationState, (string) $i, 0) !== 1);
                                 $editLockedByValidation = $isVerified && !$hasEditableLevelField;
@@ -231,6 +250,7 @@
                                 <td>
                                     <div class="pernyataan pernyataan-line">
                                         <span>{{ $row->pernyataan }}</span>
+                                        <span class="row-fill-status {{ $rowStatusClass }}">{{ $rowStatusLabel }}</span>
                                         <span
                                             class="hint-bubble-trigger pernyataan-weight-hint"
                                             tabindex="0"
