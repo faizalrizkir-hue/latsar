@@ -232,6 +232,102 @@ body.keg-modal-open {
     margin-bottom: 0.7rem;
 }
 
+.keg-flow-guide {
+    border: 1px solid #b8cdee;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #f7faff, #ecf3ff);
+    padding: 0.72rem 0.82rem;
+    margin-bottom: 0.75rem;
+}
+
+.keg-flow-guide-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.7rem;
+    margin-bottom: 0.55rem;
+}
+
+.keg-flow-guide-head strong {
+    color: #1f3b62;
+    font-size: 0.84rem;
+    letter-spacing: 0.01em;
+}
+
+.keg-flow-guide-progress {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid #bfd4f4;
+    border-radius: 999px;
+    background: #e9f1ff;
+    color: #385885;
+    font-size: 0.73rem;
+    font-weight: 700;
+    line-height: 1;
+    padding: 0.26rem 0.5rem;
+    white-space: nowrap;
+}
+
+.keg-flow-guide-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.36rem;
+}
+
+.keg-flow-guide-list li {
+    color: #2f4567;
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.35;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.45rem;
+}
+
+.keg-flow-guide-list .step-no {
+    width: 1.16rem;
+    min-width: 1.16rem;
+    height: 1.16rem;
+    border-radius: 999px;
+    border: 1px solid #90afe0;
+    background: linear-gradient(180deg, #dce8ff, #c7dafb);
+    color: #24446f;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-top: 1px;
+}
+
+.keg-save-hint {
+    margin-right: auto;
+    align-self: center;
+    color: #5c7292;
+    font-size: 0.77rem;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+@media (max-width: 768px) {
+    .keg-flow-guide-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .keg-flow-guide-progress {
+        white-space: normal;
+    }
+
+    .keg-save-hint {
+        width: 100%;
+        margin-right: 0;
+    }
+}
+
 .keg-submeta {
     margin-top: 0.45rem;
     display: inline-flex;

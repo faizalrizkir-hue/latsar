@@ -37,6 +37,12 @@
             $moduleElementNumber = (int) ($modulePageTitleMatch[1] ?? 0);
         }
         $moduleHeaderIconSvg = $elementInfoIconMap[$moduleElementNumber] ?? null;
+        $totalStatementRows = is_countable($rows ?? null) ? count($rows) : 0;
+        $filledStatementRows = collect($rows ?? [])
+            ->filter(function ($row) {
+                return is_numeric($row->level ?? null) || is_numeric($row->skor ?? null);
+            })
+            ->count();
         $levelPredikatMap = [
             1 => 'Rintisan',
             2 => 'Terstruktur',
@@ -80,6 +86,17 @@
         </div>
 
         <div class="keg-card">
+            <section class="keg-flow-guide" aria-label="Panduan langkah pengisian pernyataan">
+                <div class="keg-flow-guide-head">
+                    <strong>Panduan Pengisian (3 Langkah)</strong>
+                    <span class="keg-flow-guide-progress">{{ $filledStatementRows }}/{{ $totalStatementRows }} pernyataan sudah terisi</span>
+                </div>
+                <ol class="keg-flow-guide-list">
+                    <li><span class="step-no">1</span> Klik ikon pensil pada baris pernyataan yang ingin diisi.</li>
+                    <li><span class="step-no">2</span> Lengkapi tab <strong>Bukti Dukung</strong>, lalu isi <strong>Analisis Bukti Per Level</strong>.</li>
+                    <li><span class="step-no">3</span> Klik tombol <strong>Simpan Data</strong>, lalu lanjutkan ke pernyataan berikutnya.</li>
+                </ol>
+            </section>
             <div class="keg-table-toolbar">
                 <button
                     type="button"
@@ -392,7 +409,7 @@
                                                         <div class="fw-semibold mb-2 edit-pane-title">Form Edit Data</div>
                                                         <div class="edit-menu" role="tablist" aria-label="Menu form edit" data-edit-menu>
                                                             <button type="button" class="edit-menu-btn is-active" role="tab" aria-selected="true" aria-controls="{{ $supportPaneId }}" data-edit-pane-trigger="{{ $supportPaneId }}" data-support-tab-btn>
-                                                                Bukti Dukung
+                                                                1. Bukti Dukung
                                                             </button>
                                                             <button
                                                                 type="button"
@@ -407,7 +424,7 @@
                                                                     disabled
                                                                     aria-disabled="true"
                                                                 @endif>
-                                                                Catatan / Analisis Bukti Per Level
+                                                                2. Analisis Bukti Per Level
                                                                 @if ($validatedLevelCount > 0)
                                                                     <span class="edit-validated-badge">{{ $validatedLevelCount }} terverifikasi</span>
                                                                 @endif
@@ -596,6 +613,7 @@
                                                         @endif
                                                     </div>
                                                     <div class="d-flex justify-content-end gap-2 mt-3">
+                                                        <div class="keg-save-hint">Langkah 3: Simpan data, lalu lanjutkan ke pernyataan berikutnya.</div>
                                                         <button
                                                             type="submit"
                                                             class="btn keg-form-action-btn is-save"
@@ -607,7 +625,7 @@
                                                                 title="Pilih minimal 1 dokumen pada tab Bukti Dukung."
                                                             @endif
                                                             {{ $editLockedByValidation || (!$isVerified && $currentPickedDocCount <= 0) ? 'disabled' : '' }}>
-                                                            Simpan
+                                                            Simpan Data
                                                         </button>
                                                     </div>
                                                 </form>

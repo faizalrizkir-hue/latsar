@@ -1577,6 +1577,35 @@
     background: #16a34a;
 }
 
+:root[data-theme="dark"] .keg-flow-guide {
+    border-color: rgba(125, 165, 220, 0.48);
+    background: linear-gradient(180deg, rgba(30, 64, 175, 0.24), rgba(15, 23, 42, 0.62));
+}
+
+:root[data-theme="dark"] .keg-flow-guide-head strong {
+    color: #dbeafe;
+}
+
+:root[data-theme="dark"] .keg-flow-guide-progress {
+    border-color: rgba(147, 197, 253, 0.46);
+    background: rgba(30, 58, 138, 0.42);
+    color: #dbeafe;
+}
+
+:root[data-theme="dark"] .keg-flow-guide-list li {
+    color: #c1d4ee;
+}
+
+:root[data-theme="dark"] .keg-flow-guide-list .step-no {
+    border-color: rgba(147, 197, 253, 0.55);
+    background: linear-gradient(180deg, rgba(59, 130, 246, 0.5), rgba(30, 64, 175, 0.46));
+    color: #eff6ff;
+}
+
+:root[data-theme="dark"] .keg-save-hint {
+    color: #9db4d3;
+}
+
 @media (prefers-reduced-motion: reduce) {
     .keg-doc-modal,
     .keg-doc-backdrop,
