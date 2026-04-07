@@ -1333,6 +1333,46 @@
     background: rgba(37, 99, 235, 0.16);
 }
 
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .keg-table-toolbar {
+    border-color: rgba(147, 197, 253, 0.42);
+    background: linear-gradient(180deg, rgba(30, 58, 138, 0.34), rgba(30, 41, 59, 0.74));
+    box-shadow: 0 12px 22px rgba(2, 6, 23, 0.34);
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .keg-entry-progress-label {
+    color: #c9dbf7;
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .keg-entry-progress-chip {
+    border-color: rgba(148, 163, 184, 0.45);
+    background: rgba(51, 65, 85, 0.75);
+    color: #c8d8ec;
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .keg-entry-progress-chip.is-empty {
+    border-color: rgba(148, 163, 184, 0.42);
+    background: rgba(51, 65, 85, 0.78);
+    color: #b6c8df;
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .keg-entry-progress-chip.is-draft {
+    border-color: rgba(251, 191, 36, 0.52);
+    background: rgba(146, 64, 14, 0.34);
+    color: #f8dc9d;
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .keg-entry-progress-chip.is-complete {
+    border-color: rgba(74, 222, 128, 0.56);
+    background: rgba(21, 128, 61, 0.34);
+    color: #bbf7d0;
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .keg-entry-progress-total {
+    border-color: rgba(125, 176, 255, 0.62);
+    background: rgba(30, 64, 175, 0.42);
+    color: #dbeafe;
+}
+
 :root[data-theme="dark"] .keg-page:not(.element1-summary-page) .pernyataan {
     color: #f1f5ff;
 }
@@ -1438,6 +1478,30 @@
     background: linear-gradient(180deg, rgba(71, 85, 105, 0.82), rgba(51, 65, 85, 0.9));
 }
 
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .keg-form-action-btn.is-next {
+    color: #dcfce7;
+    border-color: rgba(110, 231, 183, 0.56);
+    background: linear-gradient(180deg, rgba(21, 128, 61, 0.68), rgba(22, 101, 52, 0.78));
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .keg-form-action-btn.is-next:hover:not(:disabled) {
+    color: #ecfdf5;
+    border-color: rgba(167, 243, 208, 0.74);
+    background: linear-gradient(180deg, rgba(22, 163, 74, 0.78), rgba(21, 128, 61, 0.88));
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .keg-form-action-btn.is-next:active:not(:disabled) {
+    color: #d1fae5;
+    border-color: rgba(110, 231, 183, 0.58);
+    background: linear-gradient(180deg, rgba(21, 128, 61, 0.72), rgba(20, 83, 45, 0.82));
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .keg-form-action-btn.is-next:disabled {
+    color: #9ac8b1;
+    border-color: rgba(148, 163, 184, 0.3);
+    background: linear-gradient(180deg, rgba(71, 85, 105, 0.74), rgba(51, 65, 85, 0.82));
+}
+
 :root[data-theme="dark"] .keg-page:not(.element1-summary-page) .keg-form-action-btn.is-reset {
     color: #fde68a;
     border-color: rgba(245, 158, 11, 0.54);
@@ -1484,6 +1548,28 @@
     color: #bbf7d0;
     border-color: rgba(148, 163, 184, 0.3);
     background: linear-gradient(180deg, rgba(71, 85, 105, 0.74), rgba(51, 65, 85, 0.82));
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .keg-edit-check-item {
+    border-color: rgba(148, 163, 184, 0.44);
+    background: rgba(51, 65, 85, 0.78);
+    color: #c8d8ec;
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .keg-edit-check-dot {
+    border-color: rgba(148, 163, 184, 0.5);
+    background: rgba(148, 163, 184, 0.46);
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .keg-edit-check-item.is-done {
+    border-color: rgba(74, 222, 128, 0.58);
+    background: rgba(21, 128, 61, 0.34);
+    color: #bbf7d0;
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .keg-edit-check-item.is-done .keg-edit-check-dot {
+    border-color: rgba(74, 222, 128, 0.72);
+    background: #22c55e;
 }
 
 /* Final override: keep Form Validasi cards neutral across level 1-5 */

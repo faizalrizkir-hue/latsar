@@ -99,6 +99,13 @@
                 <div class="keg-flow-guide-note">Status baris: <strong>Belum Diisi</strong> (kosong), <strong>Draft</strong> (sebagian), <strong>Lengkap</strong> (siap/verifikasi).</div>
             </section>
             <div class="keg-table-toolbar">
+                <div class="keg-entry-progress" data-entry-progress>
+                    <span class="keg-entry-progress-label">Ringkasan Isian</span>
+                    <span class="keg-entry-progress-chip is-empty" data-entry-progress-empty>0 Belum Diisi</span>
+                    <span class="keg-entry-progress-chip is-draft" data-entry-progress-draft>0 Draft</span>
+                    <span class="keg-entry-progress-chip is-complete" data-entry-progress-complete>0 Lengkap</span>
+                    <span class="keg-entry-progress-total" data-entry-progress-total>0/{{ $totalStatementRows }}</span>
+                </div>
                 <button
                     type="button"
                     class="qa-toggle-btn"
@@ -226,12 +233,15 @@
                                     || $hasAnyAnalysis;
                                 $rowStatusLabel = 'Belum Diisi';
                                 $rowStatusClass = 'is-empty';
+                                $rowStatusKey = 'empty';
                                 if ($isVerified || ($currentPickedDocCount > 0 && is_numeric($row->level ?? null))) {
                                     $rowStatusLabel = 'Lengkap';
                                     $rowStatusClass = 'is-complete';
+                                    $rowStatusKey = 'complete';
                                 } elseif ($hasAnyDataDraft) {
                                     $rowStatusLabel = 'Draft';
                                     $rowStatusClass = 'is-draft';
+                                    $rowStatusKey = 'draft';
                                 }
                                 $hasEditableLevelField = collect(range(1, 5))
                                     ->contains(fn ($i) => (int) data_get($savedLevelValidationState, (string) $i, 0) !== 1);
@@ -245,7 +255,7 @@
                                     ->take(1)
                                     ->values();
                             @endphp
-                            <tr>
+                            <tr data-main-row data-row-id="{{ $row->id }}" data-row-status="{{ $rowStatusKey }}">
                                 <td class="text-center fw-semibold">{{ $row->id }}</td>
                                 <td>
                                     <div class="pernyataan pernyataan-line">
@@ -392,7 +402,7 @@
                                     </div>
                                 </td>
                             </tr>
-                            <tr class="editor-row" id="row-{{ $row->id }}" hidden>
+                            <tr class="editor-row" id="row-{{ $row->id }}" data-editor-row data-row-id="{{ $row->id }}" hidden>
                                 <td colspan="5">
                                     <div class="editor-collapse" data-editor-collapse>
                                         <div class="row g-3">
@@ -409,7 +419,7 @@
                                                         Level yang sudah terverifikasi terkunci, level yang belum terverifikasi masih dapat diubah.
                                                     </div>
                                                 @endif
-                                                <form method="POST" action="{{ route('elements.store', $slug) }}">
+                                                <form method="POST" action="{{ route('elements.store', $slug) }}" data-edit-row-form>
                                                     @csrf
                                                     <input type="hidden" name="row_id" value="{{ $row->id }}">
                                                     <input type="hidden" name="action" value="save">
@@ -638,21 +648,55 @@
                                                             </section>
                                                         @endif
                                                     </div>
-                                                    <div class="d-flex justify-content-end gap-2 mt-3">
+                                                    @php
+                                                        $analysisChecklistDone = trim((string) ($row->analisis_bukti ?? '')) !== '';
+                                                        $levelChecklistDone = $hasAnyLevelNote;
+                                                        $isChecklistComplete = $currentPickedDocCount > 0 && $analysisChecklistDone && $levelChecklistDone;
+                                                    @endphp
+                                                    <div class="keg-edit-submit mt-3">
                                                         <div class="keg-save-hint">Langkah 3: Simpan data, lalu lanjutkan ke pernyataan berikutnya.</div>
-                                                        <button
-                                                            type="submit"
-                                                            class="btn keg-form-action-btn is-save"
-                                                            data-edit-save-btn
-                                                            data-lock-disabled="{{ $editLockedByValidation ? '1' : '0' }}"
-                                                            @if ($editLockedByValidation)
-                                                                title="Semua level sudah terverifikasi dan tidak dapat diubah."
-                                                            @elseif (!$isVerified && $currentPickedDocCount <= 0)
-                                                                title="Pilih minimal 1 dokumen pada tab Bukti Dukung."
-                                                            @endif
-                                                            {{ $editLockedByValidation || (!$isVerified && $currentPickedDocCount <= 0) ? 'disabled' : '' }}>
-                                                            Simpan Data
-                                                        </button>
+                                                        <div class="keg-edit-checklist" data-edit-checklist>
+                                                            <span class="keg-edit-check-item {{ $currentPickedDocCount > 0 ? 'is-done' : '' }}" data-check-docs>
+                                                                <span class="keg-edit-check-dot" aria-hidden="true"></span>
+                                                                Bukti Dukung
+                                                            </span>
+                                                            <span class="keg-edit-check-item {{ $analysisChecklistDone ? 'is-done' : '' }}" data-check-analysis>
+                                                                <span class="keg-edit-check-dot" aria-hidden="true"></span>
+                                                                Analisis Bukti
+                                                            </span>
+                                                            <span class="keg-edit-check-item {{ $levelChecklistDone ? 'is-done' : '' }}" data-check-level>
+                                                                <span class="keg-edit-check-dot" aria-hidden="true"></span>
+                                                                Analisis Per Level
+                                                            </span>
+                                                        </div>
+                                                        <div class="keg-edit-submit-actions">
+                                                            <button
+                                                                type="submit"
+                                                                class="btn keg-form-action-btn is-save"
+                                                                data-edit-save-btn
+                                                                data-lock-disabled="{{ $editLockedByValidation ? '1' : '0' }}"
+                                                                @if ($editLockedByValidation)
+                                                                    title="Semua level sudah terverifikasi dan tidak dapat diubah."
+                                                                @elseif (!$isVerified && $currentPickedDocCount <= 0)
+                                                                    title="Pilih minimal 1 dokumen pada tab Bukti Dukung."
+                                                                @endif
+                                                                {{ $editLockedByValidation || (!$isVerified && $currentPickedDocCount <= 0) ? 'disabled' : '' }}>
+                                                                Simpan Data
+                                                            </button>
+                                                            <button
+                                                                type="submit"
+                                                                class="btn keg-form-action-btn is-next"
+                                                                data-edit-save-next-btn
+                                                                data-lock-disabled="{{ $editLockedByValidation ? '1' : '0' }}"
+                                                                @if ($editLockedByValidation)
+                                                                    title="Semua level sudah terverifikasi dan tidak dapat diubah."
+                                                                @elseif (!$isChecklistComplete)
+                                                                    title="Lengkapi checklist (dokumen, analisis, dan analisis per level) untuk lanjut otomatis."
+                                                                @endif
+                                                                {{ $editLockedByValidation || (!$isChecklistComplete) ? 'disabled' : '' }}>
+                                                                Simpan &amp; Lanjut
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </form>
                                                     </section>
@@ -1002,6 +1046,8 @@
             let clearRowModalCloseTimer = null;
             let pendingResetVerifyForm = null;
             let pendingClearRowForm = null;
+            const autoNextRowStorageKey = `keg:auto-next-row:${window.location.pathname}`;
+            let suppressBeforeUnloadWarning = false;
 
             function applyQaDisplay(showQa) {
                 page.classList.toggle('qa-display-off', !showQa);
@@ -1025,6 +1071,71 @@
                 });
             }
             applyQaDisplay(false);
+
+            function readSessionStorage(key) {
+                if (!key) {
+                    return null;
+                }
+                try {
+                    return window.sessionStorage.getItem(key);
+                } catch (_error) {
+                    return null;
+                }
+            }
+
+            function writeSessionStorage(key, value) {
+                if (!key) {
+                    return;
+                }
+                try {
+                    window.sessionStorage.setItem(key, value);
+                } catch (_error) {
+                    // Ignore storage failures (private mode / blocked storage).
+                }
+            }
+
+            function removeSessionStorage(key) {
+                if (!key) {
+                    return;
+                }
+                try {
+                    window.sessionStorage.removeItem(key);
+                } catch (_error) {
+                    // Ignore storage failures (private mode / blocked storage).
+                }
+            }
+
+            function getMainRows() {
+                return Array.from(page.querySelectorAll('tr[data-main-row][data-row-id]'));
+            }
+
+            function normalizeRowStatus(statusRaw) {
+                const status = String(statusRaw || '').trim().toLowerCase();
+                if (status === 'complete' || status === 'draft' || status === 'empty') {
+                    return status;
+                }
+                return 'empty';
+            }
+
+            function findMainRowById(rowId) {
+                if (!rowId) {
+                    return null;
+                }
+                return page.querySelector(`tr[data-main-row][data-row-id="${rowId}"]`);
+            }
+
+            function findPanelRowById(rowId) {
+                if (!rowId) {
+                    return null;
+                }
+                return page.querySelector(`#row-${rowId}`);
+            }
+
+            function clearMainRowActiveState() {
+                getMainRows().forEach((row) => {
+                    row.classList.remove('active');
+                });
+            }
 
             function flashElementClass(element, className, durationMs = 1200) {
                 if (!element || !className) {
@@ -1566,32 +1677,105 @@
                 }
             }
 
+            function getChecklistCompletion(wrap) {
+                if (!wrap) {
+                    return {
+                        hasSelectedDoc: false,
+                        hasAnalysis: false,
+                        hasLevelNotes: false,
+                        isComplete: false,
+                    };
+                }
+
+                const hasSelectedDoc = wrap.querySelectorAll('[data-doc-dd-check]:checked').length > 0;
+                const analysisField = wrap.querySelector('textarea[name="analisis_bukti"]');
+                const hasAnalysis = !!(analysisField && String(analysisField.value || '').trim() !== '');
+                const hasLevelNotes = Array.from(wrap.querySelectorAll('textarea[name^="grad_l"][name$="_catatan"]'))
+                    .some((field) => String(field.value || '').trim() !== '');
+                return {
+                    hasSelectedDoc,
+                    hasAnalysis,
+                    hasLevelNotes,
+                    isComplete: hasSelectedDoc && hasAnalysis && hasLevelNotes,
+                };
+            }
+
+            function updateEditChecklist(wrap, checklist = null) {
+                if (!wrap) {
+                    return;
+                }
+
+                const status = checklist || getChecklistCompletion(wrap);
+                const toggleDone = (selector, done) => {
+                    const node = wrap.querySelector(selector);
+                    if (!node) {
+                        return;
+                    }
+                    node.classList.toggle('is-done', !!done);
+                };
+
+                toggleDone('[data-check-docs]', status.hasSelectedDoc);
+                toggleDone('[data-check-analysis]', status.hasAnalysis);
+                toggleDone('[data-check-level]', status.hasLevelNotes);
+            }
+
             function updateSaveButtonState(wrap) {
                 if (!wrap) {
                     return;
                 }
 
                 const form = wrap.closest('form');
-                const saveButton = form ? form.querySelector('[data-edit-save-btn]') : null;
-                if (!saveButton) {
+                if (!form) {
                     return;
                 }
 
-                const isLocked = String(saveButton.getAttribute('data-lock-disabled') || '0') === '1';
+                const saveButton = form.querySelector('[data-edit-save-btn]');
+                const saveNextButton = form.querySelector('[data-edit-save-next-btn]');
+                if (!saveButton && !saveNextButton) {
+                    return;
+                }
+
+                const checklist = getChecklistCompletion(wrap);
+                updateEditChecklist(wrap, checklist);
+
+                const lockFlagSource = saveButton || saveNextButton;
+                const isLocked = String(lockFlagSource ? lockFlagSource.getAttribute('data-lock-disabled') || '0' : '0') === '1';
                 if (isLocked) {
-                    saveButton.disabled = true;
-                    saveButton.setAttribute('aria-disabled', 'true');
+                    [saveButton, saveNextButton].forEach((button) => {
+                        if (!button) {
+                            return;
+                        }
+                        button.disabled = true;
+                        button.setAttribute('aria-disabled', 'true');
+                    });
                     return;
                 }
 
-                const selectedCount = wrap.querySelectorAll('[data-doc-dd-check]:checked').length;
-                const canSave = selectedCount > 0;
-                saveButton.disabled = !canSave;
-                saveButton.setAttribute('aria-disabled', canSave ? 'false' : 'true');
-                if (canSave) {
-                    saveButton.removeAttribute('title');
-                } else {
-                    saveButton.setAttribute('title', 'Pilih minimal 1 dokumen pada tab Bukti Dukung.');
+                const canSaveDraft = checklist.hasSelectedDoc;
+                if (saveButton) {
+                    saveButton.disabled = !canSaveDraft;
+                    saveButton.setAttribute('aria-disabled', canSaveDraft ? 'false' : 'true');
+                    if (canSaveDraft) {
+                        saveButton.removeAttribute('title');
+                    } else {
+                        saveButton.setAttribute('title', 'Pilih minimal 1 dokumen pada tab Bukti Dukung.');
+                    }
+                }
+
+                if (saveNextButton) {
+                    saveNextButton.disabled = !checklist.isComplete;
+                    saveNextButton.setAttribute('aria-disabled', checklist.isComplete ? 'false' : 'true');
+                    if (checklist.isComplete) {
+                        saveNextButton.removeAttribute('title');
+                    } else if (!checklist.hasSelectedDoc) {
+                        saveNextButton.setAttribute('title', 'Lengkapi Bukti Dukung terlebih dahulu.');
+                    } else if (!checklist.hasAnalysis) {
+                        saveNextButton.setAttribute('title', 'Isi Analisis Pengujian Bukti Dukung terlebih dahulu.');
+                    } else if (!checklist.hasLevelNotes) {
+                        saveNextButton.setAttribute('title', 'Isi minimal 1 catatan pada Analisis Bukti Per Level.');
+                    } else {
+                        saveNextButton.setAttribute('title', 'Lengkapi checklist sebelum lanjut otomatis.');
+                    }
                 }
             }
 
@@ -2171,6 +2355,181 @@
                 closeDocDropdowns(page);
             }
 
+            function updateEntryProgressFromStatuses() {
+                const emptyNode = page.querySelector('[data-entry-progress-empty]');
+                const draftNode = page.querySelector('[data-entry-progress-draft]');
+                const completeNode = page.querySelector('[data-entry-progress-complete]');
+                const totalNode = page.querySelector('[data-entry-progress-total]');
+                if (!emptyNode && !draftNode && !completeNode && !totalNode) {
+                    return;
+                }
+
+                const rows = getMainRows();
+                let emptyCount = 0;
+                let draftCount = 0;
+                let completeCount = 0;
+                rows.forEach((row) => {
+                    const status = normalizeRowStatus(row.getAttribute('data-row-status'));
+                    if (status === 'complete') {
+                        completeCount += 1;
+                        return;
+                    }
+                    if (status === 'draft') {
+                        draftCount += 1;
+                        return;
+                    }
+                    emptyCount += 1;
+                });
+
+                if (emptyNode) {
+                    emptyNode.textContent = `${emptyCount} Belum Diisi`;
+                }
+                if (draftNode) {
+                    draftNode.textContent = `${draftCount} Draft`;
+                }
+                if (completeNode) {
+                    completeNode.textContent = `${completeCount} Lengkap`;
+                }
+                if (totalNode) {
+                    totalNode.textContent = `${completeCount}/${rows.length}`;
+                }
+            }
+
+            function getNextRowIdAfter(currentRowId) {
+                const rows = getMainRows();
+                const rowIds = rows.map((row) => String(row.getAttribute('data-row-id') || '').trim()).filter(Boolean);
+                const currentIndex = rowIds.indexOf(String(currentRowId || '').trim());
+                if (currentIndex < 0) {
+                    return null;
+                }
+
+                const nextRows = rows.slice(currentIndex + 1);
+                const nextIncomplete = nextRows.find((row) => normalizeRowStatus(row.getAttribute('data-row-status')) !== 'complete');
+                if (nextIncomplete) {
+                    return String(nextIncomplete.getAttribute('data-row-id') || '').trim() || null;
+                }
+
+                const nextSequential = nextRows.find((row) => String(row.getAttribute('data-row-id') || '').trim() !== '');
+                if (nextSequential) {
+                    return String(nextSequential.getAttribute('data-row-id') || '').trim() || null;
+                }
+
+                return null;
+            }
+
+            function openRowById(rowId, rowMode = 'edit', options = {}) {
+                const targetRowId = String(rowId || '').trim();
+                if (!targetRowId) {
+                    return false;
+                }
+
+                const panelRow = findPanelRowById(targetRowId);
+                if (!panelRow) {
+                    return false;
+                }
+
+                const mode = rowMode === 'validate' ? 'validate' : 'edit';
+                const shouldScroll = options.scroll !== false;
+
+                closeRows({ exceptRow: panelRow });
+                openEditorRow(panelRow);
+                resetEditPanes(panelRow);
+                resetRowModes(panelRow);
+                activateRowMode(panelRow, mode);
+
+                clearMainRowActiveState();
+                const mainRow = findMainRowById(targetRowId);
+                if (mainRow) {
+                    mainRow.classList.add('active');
+                }
+
+                if (shouldScroll) {
+                    requestAnimationFrame(() => {
+                        scrollEditPaneIntoView(panelRow);
+                    });
+                }
+
+                return true;
+            }
+
+            function openInitialTargetRow() {
+                const queuedRowId = String(readSessionStorage(autoNextRowStorageKey) || '').trim();
+                if (queuedRowId) {
+                    removeSessionStorage(autoNextRowStorageKey);
+                    if (openRowById(queuedRowId, 'edit')) {
+                        return;
+                    }
+                }
+
+                const firstIncompleteRow = getMainRows()
+                    .find((row) => normalizeRowStatus(row.getAttribute('data-row-status')) !== 'complete');
+                if (firstIncompleteRow) {
+                    const rowId = String(firstIncompleteRow.getAttribute('data-row-id') || '').trim();
+                    if (rowId) {
+                        openRowById(rowId, 'edit', { scroll: false });
+                    }
+                }
+            }
+
+            function getFormSnapshot(form) {
+                if (!form) {
+                    return '';
+                }
+                const fieldState = [];
+                form.querySelectorAll('input[name], textarea[name], select[name]').forEach((field) => {
+                    if (!field || field.disabled) {
+                        return;
+                    }
+                    const type = String(field.type || '').toLowerCase();
+                    if (type === 'submit' || type === 'button' || type === 'image' || type === 'file') {
+                        return;
+                    }
+                    const name = String(field.name || '').trim();
+                    if (!name) {
+                        return;
+                    }
+
+                    if (type === 'checkbox' || type === 'radio') {
+                        fieldState.push(`${name}:${field.value}:${field.checked ? '1' : '0'}`);
+                        return;
+                    }
+
+                    fieldState.push(`${name}:${String(field.value || '').trim()}`);
+                });
+                return fieldState.join('|');
+            }
+
+            function markFormDirtyState(form) {
+                if (!form) {
+                    return;
+                }
+                const baseline = String(form.getAttribute('data-form-baseline') || '');
+                const current = getFormSnapshot(form);
+                const dirty = baseline !== current;
+                form.setAttribute('data-form-dirty', dirty ? '1' : '0');
+            }
+
+            function refreshFormBaseline(form) {
+                if (!form) {
+                    return;
+                }
+                form.setAttribute('data-form-baseline', getFormSnapshot(form));
+                form.setAttribute('data-form-dirty', '0');
+            }
+
+            function initDirtyTracking(scope = page) {
+                if (!scope || !scope.querySelectorAll) {
+                    return;
+                }
+                scope.querySelectorAll('form[data-edit-row-form]').forEach((form) => {
+                    refreshFormBaseline(form);
+                });
+            }
+
+            function hasDirtyEditForm() {
+                return !!page.querySelector('form[data-edit-row-form][data-form-dirty="1"]');
+            }
+
             function scrollEditPaneIntoView(target) {
                 if (!target) {
                     return false;
@@ -2298,6 +2657,9 @@
 
             syncDocDropdowns(page);
             resetRowModes(page);
+            updateEntryProgressFromStatuses();
+            initDirtyTracking(page);
+            openInitialTargetRow();
             syncModalBodyLock();
             syncAggregateLevelValidationButtons(page);
             runCountUpAnimations(page);
@@ -2364,12 +2726,27 @@
                     return;
                 }
 
+                const saveNextTrigger = event.target.closest('[data-edit-save-next-btn]');
+                if (saveNextTrigger) {
+                    const form = saveNextTrigger.closest('form[data-edit-row-form]');
+                    if (form) {
+                        const rowIdField = form.querySelector('input[name="row_id"]');
+                        const currentRowId = String(rowIdField ? rowIdField.value : '').trim();
+                        const nextRowId = getNextRowIdAfter(currentRowId);
+                        if (nextRowId) {
+                            form.setAttribute('data-next-row-id', nextRowId);
+                        } else {
+                            form.removeAttribute('data-next-row-id');
+                        }
+                    }
+                }
+
                 const rowTrigger = event.target.closest('[data-toggle-row]');
                 if (rowTrigger) {
                     event.preventDefault();
-                    const rowId = rowTrigger.getAttribute('data-toggle-row');
+                    const rowId = String(rowTrigger.getAttribute('data-toggle-row') || '').trim();
                     const requestedMode = rowTrigger.getAttribute('data-row-mode') || 'edit';
-                    const panelRow = rowId ? page.querySelector(`#row-${rowId}`) : null;
+                    const panelRow = findPanelRowById(rowId);
                     if (!panelRow) {
                         return;
                     }
@@ -2387,14 +2764,8 @@
                         return;
                     }
 
-                    closeRows({ exceptRow: panelRow });
-                    openEditorRow(panelRow);
-                    resetEditPanes(panelRow);
-                    resetRowModes(panelRow);
-                    activateRowMode(panelRow, requestedMode);
-                    const mainRow = rowTrigger.closest('tr');
-                    if (mainRow) {
-                        mainRow.classList.add('active');
+                    if (!openRowById(rowId, requestedMode, { scroll: false })) {
+                        return;
                     }
 
                     const focusPaneId = rowTrigger.getAttribute('data-focus-pane');
@@ -2408,20 +2779,76 @@
 
             page.addEventListener('change', (event) => {
                 const docDdCheck = event.target.closest('[data-doc-dd-check]');
-                if (!docDdCheck) {
+                if (docDdCheck) {
+                    const dropdown = docDdCheck.closest('[data-doc-dd]');
+                    updateDocDropdownSelection(dropdown);
+                }
+
+                const editForm = event.target.closest('form[data-edit-row-form]');
+                if (!editForm) {
                     return;
                 }
-                const dropdown = docDdCheck.closest('[data-doc-dd]');
-                updateDocDropdownSelection(dropdown);
+                markFormDirtyState(editForm);
+
+                const wrap = event.target.closest('[data-edit-pane-wrap]') || editForm.querySelector('[data-edit-pane-wrap]');
+                if (wrap) {
+                    updateSaveButtonState(wrap);
+                }
             });
 
             page.addEventListener('input', (event) => {
                 const searchInput = event.target.closest('[data-doc-dd-search]');
-                if (!searchInput) {
+                if (searchInput) {
+                    const dropdown = searchInput.closest('[data-doc-dd]');
+                    filterDocDropdown(dropdown, searchInput.value);
                     return;
                 }
-                const dropdown = searchInput.closest('[data-doc-dd]');
-                filterDocDropdown(dropdown, searchInput.value);
+
+                const editForm = event.target.closest('form[data-edit-row-form]');
+                if (!editForm) {
+                    return;
+                }
+                markFormDirtyState(editForm);
+
+                const wrap = event.target.closest('[data-edit-pane-wrap]') || editForm.querySelector('[data-edit-pane-wrap]');
+                if (wrap) {
+                    updateSaveButtonState(wrap);
+                }
+            });
+
+            page.addEventListener('submit', (event) => {
+                const form = event.target.closest('form');
+                if (!form) {
+                    return;
+                }
+
+                suppressBeforeUnloadWarning = true;
+                window.setTimeout(() => {
+                    suppressBeforeUnloadWarning = false;
+                }, 1800);
+
+                if (!form.matches('form[data-edit-row-form]')) {
+                    return;
+                }
+
+                const submitter = event.submitter || document.activeElement;
+                const isSaveNext = !!(submitter && submitter.matches && submitter.matches('[data-edit-save-next-btn]'));
+
+                if (isSaveNext) {
+                    const rowIdField = form.querySelector('input[name="row_id"]');
+                    const currentRowId = String(rowIdField ? rowIdField.value : '').trim();
+                    const queuedNextRowId = String(form.getAttribute('data-next-row-id') || '').trim() || getNextRowIdAfter(currentRowId);
+                    if (queuedNextRowId) {
+                        writeSessionStorage(autoNextRowStorageKey, queuedNextRowId);
+                    } else {
+                        removeSessionStorage(autoNextRowStorageKey);
+                    }
+                } else {
+                    removeSessionStorage(autoNextRowStorageKey);
+                }
+
+                form.removeAttribute('data-next-row-id');
+                refreshFormBaseline(form);
             });
 
             document.addEventListener('click', (event) => {
@@ -2511,6 +2938,13 @@
                 syncInfoModalToViewport();
                 syncResetVerifyModalToViewport();
                 syncClearRowModalToViewport();
+            });
+            window.addEventListener('beforeunload', (event) => {
+                if (suppressBeforeUnloadWarning || !hasDirtyEditForm()) {
+                    return;
+                }
+                event.preventDefault();
+                event.returnValue = '';
             });
         })();
     </script>
