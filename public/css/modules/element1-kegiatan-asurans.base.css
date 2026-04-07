@@ -420,26 +420,71 @@ body.keg-modal-open {
     line-height: 1;
     padding: 0.22rem 0.5rem;
     white-space: nowrap;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.2s ease, transform 0.18s ease;
 }
 
 .keg-edit-check-dot {
+    position: relative;
     width: 0.52rem;
     height: 0.52rem;
     border-radius: 999px;
     border: 1px solid #9db2d3;
     background: #dbe7f9;
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.65);
+    transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.2s ease;
+}
+
+.keg-edit-check-dot::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0.26rem;
+    height: 0.14rem;
+    border-left: 2px solid #ffffff;
+    border-bottom: 2px solid #ffffff;
+    transform: translate(-50%, -58%) rotate(-45deg) scale(0);
+    opacity: 0;
+    transition: transform 0.18s ease, opacity 0.14s ease;
 }
 
 .keg-edit-check-item.is-done {
-    border-color: #98d3b2;
-    background: #dcf5e7;
-    color: #1f6b43;
+    border-color: #55bf8d;
+    background: linear-gradient(180deg, #d8f6e6, #c3efd6);
+    color: #155c37;
+    box-shadow: 0 7px 14px rgba(22, 163, 74, 0.18);
 }
 
 .keg-edit-check-item.is-done .keg-edit-check-dot {
-    border-color: #5cbc89;
-    background: #24a968;
+    border-color: #1f9b5f;
+    background: #16a34a;
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.18);
+}
+
+.keg-edit-check-item.is-done .keg-edit-check-dot::after {
+    transform: translate(-50%, -58%) rotate(-45deg) scale(1);
+    opacity: 1;
+}
+
+.keg-edit-check-item.is-just-done {
+    animation: keg-check-done-pulse 0.58s ease;
+}
+
+@keyframes keg-check-done-pulse {
+    0% {
+        transform: translateY(0) scale(1);
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.28);
+    }
+
+    45% {
+        transform: translateY(-1px) scale(1.02);
+        box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.16);
+    }
+
+    100% {
+        transform: translateY(0) scale(1);
+        box-shadow: 0 7px 14px rgba(22, 163, 74, 0.18);
+    }
 }
 
 .keg-edit-submit-actions {

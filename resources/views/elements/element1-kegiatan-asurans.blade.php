@@ -1693,7 +1693,29 @@
                     if (!node) {
                         return;
                     }
-                    node.classList.toggle('is-done', !!done);
+                    const isDone = !!done;
+                    const wasDone = node.classList.contains('is-done');
+                    node.classList.toggle('is-done', isDone);
+
+                    if (isDone && !wasDone) {
+                        if (node._doneFlashTimer) {
+                            clearTimeout(node._doneFlashTimer);
+                            node._doneFlashTimer = null;
+                        }
+                        node.classList.remove('is-just-done');
+                        void node.offsetWidth;
+                        node.classList.add('is-just-done');
+                        node._doneFlashTimer = setTimeout(() => {
+                            node.classList.remove('is-just-done');
+                            node._doneFlashTimer = null;
+                        }, 700);
+                    } else if (!isDone && wasDone) {
+                        if (node._doneFlashTimer) {
+                            clearTimeout(node._doneFlashTimer);
+                            node._doneFlashTimer = null;
+                        }
+                        node.classList.remove('is-just-done');
+                    }
                 };
 
                 toggleDone('[data-check-docs]', status.hasSelectedDoc);
