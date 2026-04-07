@@ -1778,6 +1778,12 @@
                 }
             }
 
+            function syncOpenRowChecklistState() {
+                page.querySelectorAll('.editor-row:not([hidden]) [data-edit-pane-wrap]').forEach((wrap) => {
+                    updateSaveButtonState(wrap);
+                });
+            }
+
             function updateLevelDocList(wrap) {
                 if (!wrap) {
                     return;
@@ -2629,6 +2635,7 @@
             updateEntryProgressFromStatuses();
             initDirtyTracking(page);
             openInitialTargetRow();
+            syncOpenRowChecklistState();
             syncModalBodyLock();
             syncAggregateLevelValidationButtons(page);
             runCountUpAnimations(page);
@@ -2770,6 +2777,17 @@
                 }
             });
 
+            page.addEventListener('keyup', (event) => {
+                const editForm = event.target.closest('form[data-edit-row-form]');
+                if (!editForm) {
+                    return;
+                }
+                const wrap = event.target.closest('[data-edit-pane-wrap]') || editForm.querySelector('[data-edit-pane-wrap]');
+                if (wrap) {
+                    updateSaveButtonState(wrap);
+                }
+            });
+
             page.addEventListener('submit', (event) => {
                 const form = event.target.closest('form');
                 if (!form) {
@@ -2876,7 +2894,14 @@
                 syncResetVerifyModalToViewport();
                 syncClearRowModalToViewport();
             });
+            const checklistRealtimeTimer = window.setInterval(() => {
+                if (document.visibilityState === 'hidden') {
+                    return;
+                }
+                syncOpenRowChecklistState();
+            }, 300);
             window.addEventListener('beforeunload', (event) => {
+                window.clearInterval(checklistRealtimeTimer);
                 if (suppressBeforeUnloadWarning || !hasDirtyEditForm()) {
                     return;
                 }

@@ -1543,6 +1543,7 @@
     background: linear-gradient(180deg, rgba(22, 163, 74, 0.46), rgba(21, 128, 61, 0.62));
     color: #e8fff1;
     box-shadow: 0 10px 20px rgba(4, 47, 46, 0.36);
+    animation-name: keg-check-live-glow-dark;
 }
 
 :root[data-theme="dark"] .keg-page:not(.element1-summary-page) .keg-edit-check-item.is-done .keg-edit-check-dot {
@@ -1569,6 +1570,20 @@
     100% {
         transform: translateY(0) scale(1);
         box-shadow: 0 10px 20px rgba(4, 47, 46, 0.36);
+    }
+}
+
+@keyframes keg-check-live-glow-dark {
+    0% {
+        box-shadow: 0 8px 16px rgba(4, 47, 46, 0.24);
+    }
+
+    50% {
+        box-shadow: 0 12px 24px rgba(16, 185, 129, 0.36);
+    }
+
+    100% {
+        box-shadow: 0 8px 16px rgba(4, 47, 46, 0.24);
     }
 }
 
