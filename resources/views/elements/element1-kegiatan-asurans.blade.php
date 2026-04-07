@@ -676,7 +676,7 @@
                                                         $isChecklistComplete = $statusPickedDocCount > 0 && $analysisChecklistDone && $levelChecklistDone;
                                                     @endphp
                                                     <div class="keg-edit-submit mt-3">
-                                                        <div class="keg-save-hint">Langkah 3: klik Simpan Data. Isian belum lengkap tersimpan sebagai Draft, dan otomatis menjadi Lengkap jika checklist terpenuhi.</div>
+                                                        <div class="keg-save-hint">Langkah 3: klik tombol simpan. Label tombol akan menyesuaikan (`Simpan Draft` atau `Simpan Lengkap`) sesuai checklist.</div>
                                                         <div class="keg-edit-checklist" data-edit-checklist>
                                                             <span class="keg-edit-check-item {{ $statusPickedDocCount > 0 ? 'is-done' : '' }}" data-check-docs>
                                                                 <span class="keg-edit-check-dot" aria-hidden="true"></span>
@@ -697,6 +697,9 @@
                                                                 class="btn keg-form-action-btn is-save"
                                                                 data-edit-save-btn
                                                                 data-lock-disabled="{{ $editLockedByValidation ? '1' : '0' }}"
+                                                                data-label-draft="Simpan Draft"
+                                                                data-label-complete="Simpan Lengkap"
+                                                                data-save-default-state="{{ $isChecklistComplete ? 'complete' : 'draft' }}"
                                                                 @if ($editLockedByValidation)
                                                                     title="Semua level sudah terverifikasi dan tidak dapat diubah."
                                                                 @elseif (!$isVerified && $statusPickedDocCount <= 0)
@@ -707,7 +710,7 @@
                                                                     title="Checklist lengkap. Status baris akan menjadi Lengkap."
                                                                 @endif
                                                                 {{ $editLockedByValidation || (!$isVerified && $statusPickedDocCount <= 0) ? 'disabled' : '' }}>
-                                                                Simpan Data
+                                                                {{ $isChecklistComplete ? 'Simpan Lengkap' : 'Simpan Draft' }}
                                                             </button>
                                                         </div>
                                                     </div>
@@ -1713,17 +1716,32 @@
                     return;
                 }
 
+                const setSaveButtonLabel = (state) => {
+                    const mode = state === 'complete' ? 'complete' : 'draft';
+                    const draftLabel = String(saveButton.getAttribute('data-label-draft') || 'Simpan Draft').trim();
+                    const completeLabel = String(saveButton.getAttribute('data-label-complete') || 'Simpan Lengkap').trim();
+                    const nextLabel = mode === 'complete' ? completeLabel : draftLabel;
+                    saveButton.textContent = nextLabel;
+                    saveButton.setAttribute('aria-label', nextLabel);
+                    saveButton.setAttribute('data-save-label-state', mode);
+                };
+
                 const checklist = getChecklistCompletion(wrap);
                 updateEditChecklist(wrap, checklist);
 
                 const isLocked = String(saveButton.getAttribute('data-lock-disabled') || '0') === '1';
                 if (isLocked) {
+                    const defaultState = String(saveButton.getAttribute('data-save-default-state') || 'draft') === 'complete'
+                        ? 'complete'
+                        : 'draft';
+                    setSaveButtonLabel(defaultState);
                     saveButton.disabled = true;
                     saveButton.setAttribute('aria-disabled', 'true');
                     return;
                 }
 
                 const canSaveDraft = checklist.hasSelectedDoc;
+                setSaveButtonLabel(checklist.isComplete ? 'complete' : 'draft');
                 saveButton.disabled = !canSaveDraft;
                 saveButton.setAttribute('aria-disabled', canSaveDraft ? 'false' : 'true');
                 if (!canSaveDraft) {
