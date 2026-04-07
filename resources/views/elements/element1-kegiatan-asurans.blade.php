@@ -40,7 +40,18 @@
         $totalStatementRows = is_countable($rows ?? null) ? count($rows) : 0;
         $filledStatementRows = collect($rows ?? [])
             ->filter(function ($row) {
-                return is_numeric($row->level ?? null) || is_numeric($row->skor ?? null);
+                $pickedDocCount = collect($row->doc_file_ids ?? [])
+                    ->map(fn ($id) => (int) $id)
+                    ->filter(fn ($id) => $id > 0)
+                    ->count();
+                if ($pickedDocCount <= 0 && trim((string) ($row->dokumen_path ?? '')) !== '') {
+                    $pickedDocCount = 1;
+                }
+                $hasAnyAnalysis = trim((string) ($row->analisis_bukti ?? '')) !== ''
+                    || trim((string) ($row->analisis_nilai ?? '')) !== '';
+                $hasAnyLevelNote = collect(range(1, 5))
+                    ->contains(fn ($i) => trim((string) data_get($row, 'grad_l'.$i.'_catatan', '')) !== '');
+                return ((int) ($row->verified ?? 0) === 1) || ($pickedDocCount > 0 && $hasAnyAnalysis && $hasAnyLevelNote);
             })
             ->count();
         $levelPredikatMap = [
@@ -94,7 +105,7 @@
                 <ol class="keg-flow-guide-list">
                     <li><span class="step-no">1</span> Klik ikon pensil pada baris pernyataan yang ingin diisi.</li>
                     <li><span class="step-no">2</span> Lengkapi tab <strong>Bukti Dukung</strong>, lalu isi <strong>Analisis Bukti Per Level</strong>.</li>
-                    <li><span class="step-no">3</span> Klik tombol <strong>Simpan Data</strong>, lalu lanjutkan ke pernyataan berikutnya.</li>
+                    <li><span class="step-no">3</span> Klik tombol <strong>Simpan Data</strong>. Sistem akan menyimpan <strong>Draft</strong> atau otomatis menandai <strong>Lengkap</strong> jika checklist terpenuhi.</li>
                 </ol>
                 <div class="keg-flow-guide-note">Status baris: <strong>Belum Diisi</strong> (kosong), <strong>Draft</strong> (sebagian), <strong>Lengkap</strong> (siap/verifikasi).</div>
             </section>
@@ -168,6 +179,14 @@
                                     ->values()
                                     ->all();
                                 $currentPickedDocCount = count($currentPickedDocIdStrings);
+                                $storedPickedDocCount = collect($row->doc_file_ids ?? [])
+                                    ->map(fn ($id) => (int) $id)
+                                    ->filter(fn ($id) => $id > 0)
+                                    ->count();
+                                $statusPickedDocCount = max($currentPickedDocCount, $storedPickedDocCount);
+                                if ($statusPickedDocCount <= 0 && trim((string) ($row->dokumen_path ?? '')) !== '') {
+                                    $statusPickedDocCount = 1;
+                                }
                                 $savedLevelValidationState = is_array($row->level_validation_state ?? null)
                                     ? $row->level_validation_state
                                     : [];
@@ -226,15 +245,18 @@
                                     ->contains(fn ($i) => trim((string) data_get($row, 'grad_l'.$i.'_catatan', '')) !== '');
                                 $hasAnyAnalysis = trim((string) ($row->analisis_bukti ?? '')) !== ''
                                     || trim((string) ($row->analisis_nilai ?? '')) !== '';
+                                $isChecklistComplete = $statusPickedDocCount > 0
+                                    && $hasAnyAnalysis
+                                    && $hasAnyLevelNote;
                                 $hasAnyDataDraft = is_numeric($row->level ?? null)
                                     || is_numeric($row->skor ?? null)
-                                    || $currentPickedDocCount > 0
+                                    || $statusPickedDocCount > 0
                                     || $hasAnyLevelNote
                                     || $hasAnyAnalysis;
                                 $rowStatusLabel = 'Belum Diisi';
                                 $rowStatusClass = 'is-empty';
                                 $rowStatusKey = 'empty';
-                                if ($isVerified || ($currentPickedDocCount > 0 && is_numeric($row->level ?? null))) {
+                                if ($isVerified || $isChecklistComplete) {
                                     $rowStatusLabel = 'Lengkap';
                                     $rowStatusClass = 'is-complete';
                                     $rowStatusKey = 'complete';
@@ -651,12 +673,12 @@
                                                     @php
                                                         $analysisChecklistDone = trim((string) ($row->analisis_bukti ?? '')) !== '';
                                                         $levelChecklistDone = $hasAnyLevelNote;
-                                                        $isChecklistComplete = $currentPickedDocCount > 0 && $analysisChecklistDone && $levelChecklistDone;
+                                                        $isChecklistComplete = $statusPickedDocCount > 0 && $analysisChecklistDone && $levelChecklistDone;
                                                     @endphp
                                                     <div class="keg-edit-submit mt-3">
-                                                        <div class="keg-save-hint">Langkah 3: Simpan data, lalu lanjutkan ke pernyataan berikutnya.</div>
+                                                        <div class="keg-save-hint">Langkah 3: klik Simpan Data. Isian belum lengkap tersimpan sebagai Draft, dan otomatis menjadi Lengkap jika checklist terpenuhi.</div>
                                                         <div class="keg-edit-checklist" data-edit-checklist>
-                                                            <span class="keg-edit-check-item {{ $currentPickedDocCount > 0 ? 'is-done' : '' }}" data-check-docs>
+                                                            <span class="keg-edit-check-item {{ $statusPickedDocCount > 0 ? 'is-done' : '' }}" data-check-docs>
                                                                 <span class="keg-edit-check-dot" aria-hidden="true"></span>
                                                                 Bukti Dukung
                                                             </span>
@@ -677,24 +699,15 @@
                                                                 data-lock-disabled="{{ $editLockedByValidation ? '1' : '0' }}"
                                                                 @if ($editLockedByValidation)
                                                                     title="Semua level sudah terverifikasi dan tidak dapat diubah."
-                                                                @elseif (!$isVerified && $currentPickedDocCount <= 0)
+                                                                @elseif (!$isVerified && $statusPickedDocCount <= 0)
                                                                     title="Pilih minimal 1 dokumen pada tab Bukti Dukung."
-                                                                @endif
-                                                                {{ $editLockedByValidation || (!$isVerified && $currentPickedDocCount <= 0) ? 'disabled' : '' }}>
-                                                                Simpan Data
-                                                            </button>
-                                                            <button
-                                                                type="submit"
-                                                                class="btn keg-form-action-btn is-next"
-                                                                data-edit-save-next-btn
-                                                                data-lock-disabled="{{ $editLockedByValidation ? '1' : '0' }}"
-                                                                @if ($editLockedByValidation)
-                                                                    title="Semua level sudah terverifikasi dan tidak dapat diubah."
                                                                 @elseif (!$isChecklistComplete)
-                                                                    title="Lengkapi checklist (dokumen, analisis, dan analisis per level) untuk lanjut otomatis."
+                                                                    title="Data akan tersimpan sebagai Draft sampai semua checklist lengkap."
+                                                                @else
+                                                                    title="Checklist lengkap. Status baris akan menjadi Lengkap."
                                                                 @endif
-                                                                {{ $editLockedByValidation || (!$isChecklistComplete) ? 'disabled' : '' }}>
-                                                                Simpan &amp; Lanjut
+                                                                {{ $editLockedByValidation || (!$isVerified && $statusPickedDocCount <= 0) ? 'disabled' : '' }}>
+                                                                Simpan Data
                                                             </button>
                                                         </div>
                                                     </div>
@@ -1046,7 +1059,6 @@
             let clearRowModalCloseTimer = null;
             let pendingResetVerifyForm = null;
             let pendingClearRowForm = null;
-            const autoNextRowStorageKey = `keg:auto-next-row:${window.location.pathname}`;
             let suppressBeforeUnloadWarning = false;
 
             function applyQaDisplay(showQa) {
@@ -1071,39 +1083,6 @@
                 });
             }
             applyQaDisplay(false);
-
-            function readSessionStorage(key) {
-                if (!key) {
-                    return null;
-                }
-                try {
-                    return window.sessionStorage.getItem(key);
-                } catch (_error) {
-                    return null;
-                }
-            }
-
-            function writeSessionStorage(key, value) {
-                if (!key) {
-                    return;
-                }
-                try {
-                    window.sessionStorage.setItem(key, value);
-                } catch (_error) {
-                    // Ignore storage failures (private mode / blocked storage).
-                }
-            }
-
-            function removeSessionStorage(key) {
-                if (!key) {
-                    return;
-                }
-                try {
-                    window.sessionStorage.removeItem(key);
-                } catch (_error) {
-                    // Ignore storage failures (private mode / blocked storage).
-                }
-            }
 
             function getMainRows() {
                 return Array.from(page.querySelectorAll('tr[data-main-row][data-row-id]'));
@@ -1730,52 +1709,32 @@
                 }
 
                 const saveButton = form.querySelector('[data-edit-save-btn]');
-                const saveNextButton = form.querySelector('[data-edit-save-next-btn]');
-                if (!saveButton && !saveNextButton) {
+                if (!saveButton) {
                     return;
                 }
 
                 const checklist = getChecklistCompletion(wrap);
                 updateEditChecklist(wrap, checklist);
 
-                const lockFlagSource = saveButton || saveNextButton;
-                const isLocked = String(lockFlagSource ? lockFlagSource.getAttribute('data-lock-disabled') || '0' : '0') === '1';
+                const isLocked = String(saveButton.getAttribute('data-lock-disabled') || '0') === '1';
                 if (isLocked) {
-                    [saveButton, saveNextButton].forEach((button) => {
-                        if (!button) {
-                            return;
-                        }
-                        button.disabled = true;
-                        button.setAttribute('aria-disabled', 'true');
-                    });
+                    saveButton.disabled = true;
+                    saveButton.setAttribute('aria-disabled', 'true');
                     return;
                 }
 
                 const canSaveDraft = checklist.hasSelectedDoc;
-                if (saveButton) {
-                    saveButton.disabled = !canSaveDraft;
-                    saveButton.setAttribute('aria-disabled', canSaveDraft ? 'false' : 'true');
-                    if (canSaveDraft) {
-                        saveButton.removeAttribute('title');
-                    } else {
-                        saveButton.setAttribute('title', 'Pilih minimal 1 dokumen pada tab Bukti Dukung.');
-                    }
+                saveButton.disabled = !canSaveDraft;
+                saveButton.setAttribute('aria-disabled', canSaveDraft ? 'false' : 'true');
+                if (!canSaveDraft) {
+                    saveButton.setAttribute('title', 'Pilih minimal 1 dokumen pada tab Bukti Dukung.');
+                    return;
                 }
 
-                if (saveNextButton) {
-                    saveNextButton.disabled = !checklist.isComplete;
-                    saveNextButton.setAttribute('aria-disabled', checklist.isComplete ? 'false' : 'true');
-                    if (checklist.isComplete) {
-                        saveNextButton.removeAttribute('title');
-                    } else if (!checklist.hasSelectedDoc) {
-                        saveNextButton.setAttribute('title', 'Lengkapi Bukti Dukung terlebih dahulu.');
-                    } else if (!checklist.hasAnalysis) {
-                        saveNextButton.setAttribute('title', 'Isi Analisis Pengujian Bukti Dukung terlebih dahulu.');
-                    } else if (!checklist.hasLevelNotes) {
-                        saveNextButton.setAttribute('title', 'Isi minimal 1 catatan pada Analisis Bukti Per Level.');
-                    } else {
-                        saveNextButton.setAttribute('title', 'Lengkapi checklist sebelum lanjut otomatis.');
-                    }
+                if (checklist.isComplete) {
+                    saveButton.setAttribute('title', 'Checklist lengkap. Status baris akan menjadi Lengkap.');
+                } else {
+                    saveButton.setAttribute('title', 'Data akan tersimpan sebagai Draft sampai checklist lengkap.');
                 }
             }
 
@@ -2395,28 +2354,6 @@
                 }
             }
 
-            function getNextRowIdAfter(currentRowId) {
-                const rows = getMainRows();
-                const rowIds = rows.map((row) => String(row.getAttribute('data-row-id') || '').trim()).filter(Boolean);
-                const currentIndex = rowIds.indexOf(String(currentRowId || '').trim());
-                if (currentIndex < 0) {
-                    return null;
-                }
-
-                const nextRows = rows.slice(currentIndex + 1);
-                const nextIncomplete = nextRows.find((row) => normalizeRowStatus(row.getAttribute('data-row-status')) !== 'complete');
-                if (nextIncomplete) {
-                    return String(nextIncomplete.getAttribute('data-row-id') || '').trim() || null;
-                }
-
-                const nextSequential = nextRows.find((row) => String(row.getAttribute('data-row-id') || '').trim() !== '');
-                if (nextSequential) {
-                    return String(nextSequential.getAttribute('data-row-id') || '').trim() || null;
-                }
-
-                return null;
-            }
-
             function openRowById(rowId, rowMode = 'edit', options = {}) {
                 const targetRowId = String(rowId || '').trim();
                 if (!targetRowId) {
@@ -2453,14 +2390,6 @@
             }
 
             function openInitialTargetRow() {
-                const queuedRowId = String(readSessionStorage(autoNextRowStorageKey) || '').trim();
-                if (queuedRowId) {
-                    removeSessionStorage(autoNextRowStorageKey);
-                    if (openRowById(queuedRowId, 'edit')) {
-                        return;
-                    }
-                }
-
                 const firstIncompleteRow = getMainRows()
                     .find((row) => normalizeRowStatus(row.getAttribute('data-row-status')) !== 'complete');
                 if (firstIncompleteRow) {
@@ -2726,21 +2655,6 @@
                     return;
                 }
 
-                const saveNextTrigger = event.target.closest('[data-edit-save-next-btn]');
-                if (saveNextTrigger) {
-                    const form = saveNextTrigger.closest('form[data-edit-row-form]');
-                    if (form) {
-                        const rowIdField = form.querySelector('input[name="row_id"]');
-                        const currentRowId = String(rowIdField ? rowIdField.value : '').trim();
-                        const nextRowId = getNextRowIdAfter(currentRowId);
-                        if (nextRowId) {
-                            form.setAttribute('data-next-row-id', nextRowId);
-                        } else {
-                            form.removeAttribute('data-next-row-id');
-                        }
-                    }
-                }
-
                 const rowTrigger = event.target.closest('[data-toggle-row]');
                 if (rowTrigger) {
                     event.preventDefault();
@@ -2831,23 +2745,6 @@
                     return;
                 }
 
-                const submitter = event.submitter || document.activeElement;
-                const isSaveNext = !!(submitter && submitter.matches && submitter.matches('[data-edit-save-next-btn]'));
-
-                if (isSaveNext) {
-                    const rowIdField = form.querySelector('input[name="row_id"]');
-                    const currentRowId = String(rowIdField ? rowIdField.value : '').trim();
-                    const queuedNextRowId = String(form.getAttribute('data-next-row-id') || '').trim() || getNextRowIdAfter(currentRowId);
-                    if (queuedNextRowId) {
-                        writeSessionStorage(autoNextRowStorageKey, queuedNextRowId);
-                    } else {
-                        removeSessionStorage(autoNextRowStorageKey);
-                    }
-                } else {
-                    removeSessionStorage(autoNextRowStorageKey);
-                }
-
-                form.removeAttribute('data-next-row-id');
                 refreshFormBaseline(form);
             });
 

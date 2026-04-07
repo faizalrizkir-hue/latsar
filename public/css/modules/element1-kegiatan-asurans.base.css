@@ -1966,34 +1966,6 @@ body.keg-modal-open {
     box-shadow: none;
 }
 
-.keg-form-action-btn.is-next {
-    color: #194c34;
-    border-color: #86ceab;
-    background: linear-gradient(180deg, #dbf5e8, #bfeace);
-    box-shadow: 0 10px 18px rgba(22, 163, 74, 0.16);
-}
-
-.keg-form-action-btn.is-next:hover:not(:disabled) {
-    color: #0f3c28;
-    border-color: #70c79c;
-    background: linear-gradient(180deg, #d0f1df, #afe3c0);
-    box-shadow: 0 14px 24px rgba(22, 163, 74, 0.2);
-}
-
-.keg-form-action-btn.is-next:active:not(:disabled) {
-    color: #0e3524;
-    border-color: #62b88f;
-    background: linear-gradient(180deg, #c3ead4, #9dd9b3);
-    box-shadow: 0 8px 15px rgba(22, 163, 74, 0.16);
-}
-
-.keg-form-action-btn.is-next:disabled {
-    color: #76a18e;
-    border-color: #b6d6c6;
-    background: linear-gradient(180deg, #e3efe8, #d4e5db);
-    box-shadow: none;
-}
-
 .keg-form-action-btn.is-reset {
     color: #6f540d;
     border-color: #e6cc8d;
