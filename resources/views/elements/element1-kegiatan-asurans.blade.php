@@ -1688,8 +1688,9 @@
                 }
 
                 const status = checklist || getChecklistCompletion(wrap);
+                const checklistScope = wrap.closest('form[data-edit-row-form]') || wrap;
                 const toggleDone = (selector, done) => {
-                    const node = wrap.querySelector(selector);
+                    const node = checklistScope.querySelector(selector);
                     if (!node) {
                         return;
                     }
