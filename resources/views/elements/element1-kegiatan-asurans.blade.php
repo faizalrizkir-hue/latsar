@@ -411,6 +411,12 @@
                                                             <button type="button" class="edit-menu-btn is-active" role="tab" aria-selected="true" aria-controls="{{ $supportPaneId }}" data-edit-pane-trigger="{{ $supportPaneId }}" data-support-tab-btn>
                                                                 1. Bukti Dukung
                                                             </button>
+                                                            <span class="edit-flow-arrow" aria-hidden="true">
+                                                                <svg viewBox="0 0 20 20" focusable="false">
+                                                                    <path d="M3 10h12"></path>
+                                                                    <path d="m11 6 4 4-4 4"></path>
+                                                                </svg>
+                                                            </span>
                                                             <button
                                                                 type="button"
                                                                 class="edit-menu-btn"

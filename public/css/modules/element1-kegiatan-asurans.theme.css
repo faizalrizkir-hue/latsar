@@ -91,6 +91,13 @@
     outline-color: rgba(125, 176, 255, 0.9);
 }
 
+:root[data-theme="dark"] .edit-flow-arrow {
+    border-color: rgba(147, 197, 253, 0.45);
+    background: linear-gradient(180deg, rgba(30, 58, 138, 0.48), rgba(30, 41, 59, 0.7));
+    color: #dbeafe;
+    box-shadow: 0 8px 16px rgba(2, 6, 23, 0.36);
+}
+
 :root[data-theme="dark"] .qa-toggle-btn {
     border-color: rgba(148, 163, 184, 0.48);
     background: linear-gradient(180deg, rgba(51, 65, 85, 0.95), rgba(30, 41, 59, 0.9));
@@ -1689,5 +1696,9 @@
     .edit-menu-btn {
         width: 100%;
         justify-content: center;
+    }
+
+    .edit-flow-arrow {
+        display: none;
     }
 }

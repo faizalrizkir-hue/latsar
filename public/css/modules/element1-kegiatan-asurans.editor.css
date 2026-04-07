@@ -85,8 +85,34 @@
 .edit-menu {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 0.5rem;
     margin-bottom: 0.72rem;
+}
+
+.edit-flow-arrow {
+    width: 1.65rem;
+    height: 1.65rem;
+    min-width: 1.65rem;
+    border: 1px solid #c8d8ef;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #f8fbff, #ecf3ff);
+    color: #446892;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 7px 14px rgba(30, 41, 59, 0.08);
+    pointer-events: none;
+}
+
+.edit-flow-arrow svg {
+    width: 0.88rem;
+    height: 0.88rem;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 .row-mode-menu {
