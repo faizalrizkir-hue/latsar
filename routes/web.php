@@ -46,6 +46,11 @@ Route::get('/build/{path}', fn (string $path) => $servePublicFile('build', $path
 Route::get('/uploads/{path}', fn (string $path) => $servePublicFile('uploads', $path))
     ->where('path', '.*');
 
+// Guard legacy URL: when browser/bookmark still points to /public, force to login.
+// This also breaks old cached redirect loops from historical /public landing pages.
+Route::redirect('/public', '/login', 301);
+Route::redirect('/public/', '/login', 301);
+
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login.form');
 Route::post('/login', [AuthController::class, 'login'])->name('login.perform');
 
