@@ -22,6 +22,7 @@ Jika tetap memakai shared hosting:
 - [ ] SSL aktif (Let's Encrypt atau managed cert).
 - [ ] `APP_ENV=production`, `APP_DEBUG=false`.
 - [ ] `APP_URL` menggunakan `https://domain-anda`.
+- [ ] `FORCE_HTTPS=true` (paksa redirect HTTP -> HTTPS di level aplikasi).
 - [ ] `APP_KEY` terisi valid.
 - [ ] `ASSET_VERSION` diisi versi rilis saat deploy.
 - [ ] `SCHEMA_METADATA_TTL_SECONDS` diisi (disarankan `600-900`).
@@ -227,6 +228,28 @@ Konfigurasi ada di:
 
 - `config/security_headers.php`
 - `.env` (`SECURITY_HEADERS_*`)
+
+## 8.1) HTTPS Redirect Guard (Application Layer)
+
+Project sudah menyediakan mode paksa HTTPS berbasis environment variable:
+
+- `FORCE_HTTPS=true` untuk production.
+- `FORCE_HTTPS=false` untuk local/dev.
+
+Fungsinya:
+
+- Redirect request HTTP ke HTTPS (status `308`).
+- Paksa URL generator Laravel memakai skema `https`.
+
+Rollback cepat jika ada isu proxy/sertifikat:
+
+1. Ubah `FORCE_HTTPS=false`.
+2. Jalankan:
+
+```bash
+php artisan optimize:clear
+php artisan optimize
+```
 
 ## 9) Monitoring & Backup Drill
 

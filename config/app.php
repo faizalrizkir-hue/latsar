@@ -56,6 +56,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Force HTTPS
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, the application will force all generated URLs to use
+    | HTTPS and middleware will redirect HTTP requests to HTTPS.
+    |
+    */
+    'force_https' => (bool) env('FORCE_HTTPS', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Asset URL
     |--------------------------------------------------------------------------
     |
