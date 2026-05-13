@@ -93,7 +93,5 @@ Route::middleware(['auth.session', 'db.lock'])->group(function () {
         Route::post('/element-preferences/archive-progress', [ElementPreferenceController::class, 'archiveProgress'])->name('element-preferences.archive-progress');
         Route::post('/element-preferences/load-archive', [ElementPreferenceController::class, 'loadArchive'])->name('element-preferences.load-archive');
         Route::post('/informasi-umum', [GeneralInformationController::class, 'update'])->name('informasi-umum.update');
-        Route::post('/dashboard/renstra-trend', [DashboardController::class, 'updateRenstraTrend'])->name('dashboard.renstra-trend.update');
     });
 });
-

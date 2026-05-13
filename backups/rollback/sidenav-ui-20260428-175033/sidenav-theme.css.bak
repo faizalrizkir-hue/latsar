@@ -1,0 +1,279 @@
+:root {
+    --sidenav-bg: #111419;
+    --sidenav-bg-soft: #171c24;
+    --sidenav-border: #252d38;
+    --sidenav-text: #d8deea;
+    --sidenav-muted: #8b97ab;
+    --sidenav-active: #1f6fff;
+    --sidenav-active-strong: #1a5fe0;
+}
+
+.sidenav {
+    background: linear-gradient(180deg, #10141a 0%, #0f1319 100%) !important;
+    border-right: 1px solid var(--sidenav-border) !important;
+    box-shadow: 0 20px 42px rgba(0, 0, 0, 0.42) !important;
+    padding: 14px 12px 14px !important;
+    gap: 12px !important;
+}
+
+.brand {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    justify-content: center !important;
+    width: 100% !important;
+    padding: 8px 2px 10px !important;
+    border-radius: 0 !important;
+}
+
+.brand img {
+    width: 100% !important;
+    max-width: 252px !important;
+    filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.35));
+}
+
+.sidenav .brand img.logo-light {
+    display: none !important;
+}
+
+.sidenav .brand img.logo-dark {
+    display: block !important;
+}
+
+.user-card {
+    background: linear-gradient(180deg, #171d26 0%, #141a22 100%) !important;
+    border: 1px solid #252f3b !important;
+    box-shadow: none !important;
+    border-radius: 12px !important;
+    color: #ecf2ff !important;
+    padding: 12px !important;
+}
+
+.user-card > div:last-child {
+    color: var(--sidenav-muted) !important;
+}
+
+.user-card .avatar {
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.3);
+}
+
+.nav {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 4px 0 !important;
+    gap: 4px !important;
+}
+
+.nav-section-label {
+    color: var(--sidenav-muted) !important;
+    margin: 10px 2px 4px !important;
+    padding: 6px 4px 4px !important;
+    font-size: 0.69rem !important;
+    letter-spacing: 0.08em !important;
+}
+
+.nav-section-label::after {
+    background: linear-gradient(90deg, rgba(139, 151, 171, 0.42), rgba(139, 151, 171, 0.06)) !important;
+}
+
+.nav li.has-sub::after,
+.nav li a::before,
+.nav li a.nav-toggle::before,
+.nav li button.nav-toggle::before,
+.nav-sub li.nav-sub-child::before {
+    display: none !important;
+}
+
+.nav li a,
+.nav li a.nav-toggle,
+.nav li button.nav-toggle {
+    color: var(--sidenav-text) !important;
+    border: 1px solid transparent !important;
+    background: transparent !important;
+    border-radius: 10px !important;
+    padding: 10px 12px !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+.nav li a .nav-text {
+    font-size: 0.9rem !important;
+    font-weight: 650 !important;
+}
+
+.nav li a .nav-icon,
+.nav li a.nav-toggle .nav-icon {
+    width: 20px !important;
+    height: 20px !important;
+    background: transparent !important;
+    color: #a6b4cc !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    font-size: 0.78rem !important;
+}
+
+.nav li a .nav-icon svg,
+.nav li a.nav-toggle .nav-icon svg {
+    width: 16px !important;
+    height: 16px !important;
+    stroke-width: 2 !important;
+}
+
+.nav li .chevron {
+    color: #8fa1bd !important;
+    margin-left: auto !important;
+}
+
+.nav li a:hover,
+.nav li button.nav-toggle:hover,
+.nav li a.nav-toggle:hover {
+    background: rgba(37, 99, 235, 0.14) !important;
+    border-color: rgba(95, 145, 244, 0.36) !important;
+    color: #f5f9ff !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+.nav li a.active,
+.nav li.open > a.nav-toggle,
+.nav li.open > button.nav-toggle {
+    background: linear-gradient(180deg, var(--sidenav-active) 0%, var(--sidenav-active-strong) 100%) !important;
+    border-color: rgba(128, 171, 255, 0.84) !important;
+    color: #ffffff !important;
+    box-shadow: 0 10px 20px rgba(31, 111, 255, 0.28) !important;
+}
+
+.nav li a.active .nav-icon,
+.nav li.open > a.nav-toggle .nav-icon,
+.nav li.open > button.nav-toggle .nav-icon {
+    color: #ffffff !important;
+}
+
+.nav-sub {
+    margin: 2px 0 6px 12px !important;
+    padding: 0 0 0 12px !important;
+    border-left: 1px solid #2d3747 !important;
+    gap: 4px !important;
+}
+
+.nav-sub a {
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    color: #b4c0d4 !important;
+    box-shadow: none !important;
+    padding: 8px 10px !important;
+    border-radius: 8px !important;
+    font-size: 0.84rem !important;
+}
+
+.nav-sub a .sub-icon {
+    color: #7992bb !important;
+}
+
+.nav-sub a:hover {
+    background: rgba(37, 99, 235, 0.14) !important;
+    border-color: rgba(95, 145, 244, 0.32) !important;
+    color: #e7eeff !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.nav-sub a.active,
+.nav-sub li.nav-sub-parent > a.active,
+.nav-sub li.nav-sub-child > a.active {
+    background: rgba(31, 111, 255, 0.2) !important;
+    border-color: rgba(128, 171, 255, 0.62) !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+}
+
+.sidenav-logout-form {
+    margin-top: auto;
+    padding-top: 8px;
+}
+
+.sidenav-logout-btn {
+    width: 100%;
+    min-height: 42px;
+    border-radius: 10px;
+    border: 1px solid #323b48;
+    background: linear-gradient(180deg, #232932 0%, #1d232c 100%);
+    color: #dfe6f3;
+    font-weight: 700;
+    font-size: 0.92rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.sidenav-logout-btn .logout-icon {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sidenav-logout-btn .logout-icon svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.sidenav-logout-btn:hover {
+    background: linear-gradient(180deg, #2a3240 0%, #242b36 100%);
+    border-color: #4a5568;
+    color: #f5f8ff;
+}
+
+.sidenav-logout-btn:focus-visible {
+    outline: 0;
+    border-color: rgba(128, 171, 255, 0.78);
+    box-shadow: 0 0 0 3px rgba(31, 111, 255, 0.24);
+}
+
+.app.sidenav-collapsed .sidenav {
+    width: 86px !important;
+    min-width: 86px !important;
+    padding: 12px 8px !important;
+}
+
+.app.sidenav-collapsed .brand {
+    justify-content: center !important;
+}
+
+.app.sidenav-collapsed .brand img {
+    width: 38px !important;
+}
+
+.app.sidenav-collapsed .user-card {
+    padding: 8px 6px !important;
+}
+
+.app.sidenav-collapsed .sidenav-logout-btn {
+    min-height: 38px;
+    padding: 0;
+}
+
+.app.sidenav-collapsed .sidenav-logout-btn .logout-text {
+    display: none;
+}
+
+@media (max-width: 960px) {
+    .sidenav {
+        border-right: 0 !important;
+        border-bottom: 1px solid var(--sidenav-border) !important;
+    }
+
+    .sidenav-logout-form {
+        margin-top: 4px;
+    }
+}

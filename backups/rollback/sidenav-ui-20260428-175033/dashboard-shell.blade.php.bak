@@ -9,14 +9,15 @@
     <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/sidenav-theme.css') }}">
     <script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
     <script>
-        // Kunci tema ke light agar konsisten di semua halaman.
+        // Terapkan tema tersimpan sedini mungkin supaya tidak kedip dan tidak kembali ke gelap
         (function(){
             try{
-                localStorage.setItem('dashboard-theme', 'light');
+                const saved = localStorage.getItem('dashboard-theme');
+                const initial = saved || 'light';
+                document.documentElement.setAttribute('data-theme', initial);
             }catch(e){
-                // ignore storage failures
+                document.documentElement.setAttribute('data-theme', 'light');
             }
-            document.documentElement.setAttribute('data-theme', 'light');
         })();
     </script>
     @livewireStyles
@@ -60,11 +61,6 @@
     $headnavCrumbs = \App\Support\DashboardShellPayloadNormalizer::sanitizeHeadnavCrumbs($headnavCrumbs ?? []);
     $toastQueue = \App\Support\DashboardShellPayloadNormalizer::sanitizeToastQueue($toastQueue ?? []);
     $idleTimeoutMs = max(60_000, (int) ($idleTimeoutMs ?? (int) config('session.idle_timeout', 60) * 60 * 1000));
-    $unreadNavBadge = $notificationUnreadCount > 99 ? '99+' : (string) $notificationUnreadCount;
-    $appVersionTag = trim((string) config('app.asset_version', ''));
-    if ($appVersionTag === '') {
-        $appVersionTag = 'local';
-    }
 @endphp
 <body class="legacy-page">
 <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="true"></div>
@@ -75,12 +71,6 @@
             <img class="logo-dark" src="{{ \App\Support\VersionedAsset::url('static/logo-sikap-dark.png') }}" alt="Logo SIKAP">
         </div>
         <div class="user-card">
-            <a href="{{ route('profile.edit') }}" class="user-card-quick-action" aria-label="Edit profil" title="Edit profil">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25Z"/>
-                    <path d="M14.06 4.94 17.81 8.7"/>
-                </svg>
-            </a>
             <div class="avatar">
                 @if(!empty($photoUrl))
                     <img src="{{ $photoUrl }}" alt="Foto profil {{ $user['display_name'] ?? 'User' }}">
@@ -88,32 +78,19 @@
                     {{ $avatarLabel($user['display_name'] ?? null) }}
                 @endif
             </div>
-            <div class="user-card-head">
-                <strong class="user-card-name">{{ $user['display_name'] ?? 'Admin' }}</strong>
-            </div>
-            <div class="user-card-role">{{ $userRoleLabel }}</div>
+            <strong>{{ $user['display_name'] ?? 'Admin' }}</strong>
+            <div style="color:var(--text-muted);font-size:0.85rem;">{{ $userRoleLabel }}</div>
         </div>
         <ul class="nav" id="navMain">
             <li class="nav-section-label" aria-hidden="true"><span>Utama</span></li>
-            <li>
-                <a href="{{ route('dashboard') }}" data-nav-tooltip="Dashboard" title="Dashboard">
-                    <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 14a8 8 0 1 1 16 0"/><path d="M12 14l4-4"/><circle cx="12" cy="14" r="1.2"/></svg></span>
-                    <span class="nav-text">Dashboard</span>
-                    @if($notificationUnreadCount > 0)
-                        <span class="nav-badge" aria-label="{{ $notificationUnreadCount }} notifikasi belum dibaca">{{ $unreadNavBadge }}</span>
-                    @endif
-                </a>
-            </li>
+            <li><a href="{{ route('dashboard') }}"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 14a8 8 0 1 1 16 0"/><path d="M12 14l4-4"/><circle cx="12" cy="14" r="1.2"/></svg></span><span class="nav-text">Dashboard</span></a></li>
             <li class="nav-section-label" aria-hidden="true"><span>Penilaian Element</span></li>
             @foreach($navElements as $elementNav)
             @continue(empty($elementNav['slug']))
-            @php
-                $elementNavTitle = (string) ($elementNav['nav_title'] ?? ($elementNav['title'] ?? 'Element'));
-            @endphp
             <li class="has-sub">
-                <a class="nav-toggle" data-sub-toggle="{{ $elementNav['slug'] }}" data-nav-tooltip="{{ $elementNavTitle }}" title="{{ $elementNavTitle }}">
+                <a class="nav-toggle" data-sub-toggle="{{ $elementNav['slug'] }}">
                     <span class="nav-icon">{{ $elementNav['icon_label'] ?? 'E' }}</span>
-                    <span class="nav-text">{{ $elementNavTitle }}</span>
+                    <span class="nav-text">{{ $elementNav['nav_title'] ?? ($elementNav['title'] ?? 'Element') }}</span>
                     <span class="chevron">&rsaquo;</span>
                 </a>
                 <ul class="nav-sub" id="sub-{{ $elementNav['slug'] }}">
@@ -136,14 +113,15 @@
             </li>
             @endforeach
             <li class="nav-section-label" aria-hidden="true"><span>Lainnya</span></li>
-            <li><a href="{{ route('aoi.index') }}" data-nav-tooltip="Area Of Improvement (AoI)" title="Area Of Improvement (AoI)"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="14" height="14" rx="2"/><path d="M11 4v14M4 11h14"/><path d="M19 16v6M16 19h6"/></svg></span><span class="nav-text">Area Of Improvement (AoI)</span></a></li>
+            <li><a href="{{ route('aoi.index') }}"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="14" height="14" rx="2"/><path d="M11 4v14M4 11h14"/><path d="M19 16v6M16 19h6"/></svg></span><span class="nav-text">Area Of Improvement (AoI)</span></a></li>
             @if($userRoleKey !== 'qa')
-                <li><a href="{{ route('dms.index') }}" data-nav-tooltip="Data Management System" title="Data Management System"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 8a3 3 0 0 1 3-3h4l2 2h6a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3Z"/><path d="M3 9h18"/></svg></span><span class="nav-text">Data Management System</span></a></li>
-                <li><a href="{{ route('informasi-umum.index') }}" data-nav-tooltip="Informasi Umum" title="Informasi Umum"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 10.5v5"/><path d="M12 7.5h.01"/></svg></span><span class="nav-text">Informasi Umum</span></a></li>
+                <li><a href="{{ route('dms.index') }}"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 8a3 3 0 0 1 3-3h4l2 2h6a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3Z"/><path d="M3 9h18"/></svg></span><span class="nav-text">Data Management System</span></a></li>
+                <li><a href="{{ route('informasi-umum.index') }}"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 10.5v5"/><path d="M12 7.5h.01"/></svg></span><span class="nav-text">Informasi Umum</span></a></li>
             @endif
         </ul>
-        <form action="{{ route('logout') }}" method="GET" class="sidenav-logout-form">
-            <button type="submit" class="sidenav-logout-btn" data-nav-tooltip="Logout" title="Logout">
+        <form action="{{ route('logout') }}" method="POST" class="sidenav-logout-form">
+            @csrf
+            <button type="submit" class="sidenav-logout-btn">
                 <span class="logout-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24">
                         <path d="M10 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4"/>
@@ -154,9 +132,7 @@
                 <span class="logout-text">Logout</span>
             </button>
         </form>
-        <div class="sidenav-footer-meta">&copy; Inspektorat Provinsi DKI Jakarta 2025</div>
     </aside>
-    <button type="button" class="sidenav-backdrop" id="sidenavBackdrop" aria-label="Tutup menu samping"></button>
 
     <main class="content legacy-content">
     <div class="headnav topbar">
@@ -193,6 +169,13 @@
             </div>
             <div class="top-actions-divider" aria-hidden="true"></div>
             <div class="top-actions">
+                <button class="theme-toggle" id="themeToggle" aria-pressed="true">
+                    <span class="icon" aria-hidden="true">
+                        <svg class="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5" /><path d="M12 2.5v2.5M12 19v2.5M4.5 12H2M22 12h-2.5M5.6 5.6 4 4M20 20l-1.6-1.6M18.4 5.6 20 4M4 20l1.6-1.6" /></svg>
+                        <svg class="icon-moon" viewBox="0 0 24 24"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 8.5 8.5 0 1 0 20.5 14.5Z" /></svg>
+                    </span>
+                    <span class="text">Gelap</span>
+                </button>
                 <div class="notify-menu">
                     <button
                         type="button"
@@ -271,15 +254,12 @@
                                             'pembersihan data' => 'Hapus Isian',
                                             'pengisian/perubahan data' => 'Isi Data',
                                             'isi/ubah data' => 'Isi Data',
-                                            'isi data' => 'Isi Data',
-                                            'hapus isian' => 'Hapus Isian',
-                                            'bersihkan' => 'Bersihkan',
                                         ];
 
                                         foreach ($legacyActionMap as $legacyAction => $compactAction) {
                                             if (Str::startsWith(Str::lower($normalized), $legacyAction)) {
                                                 $rest = trim((string) Str::substr($normalized, Str::length($legacyAction)));
-                                                $normalized = $compactAction.' | '.($rest !== '' ? $rest : '');
+                                                $normalized = $compactAction.($rest !== '' ? ' | '. $rest : '');
                                                 break;
                                             }
                                         }
@@ -311,7 +291,7 @@
                                     }
 
                                     $notifyActionClass = match (Str::lower($notifyActionText)) {
-                                        'isi data', 'isi/ubah data' => 'is-fill',
+                                        'isi data', 'isi/ubah data' => 'is-save',
                                         'hapus isian', 'bersihkan' => 'is-clear',
                                         'verifikasi', 'verifikasi qa', 'verifikasi final qa' => 'is-verify',
                                         'reset verifikasi', 'reset qa', 'reset final qa', 'reset verifikasi qa' => 'is-verify-reset',
@@ -374,7 +354,8 @@
                             <a href="{{ route('accounts.index') }}" role="menuitem">Manajemen Akun</a>
                             <a href="{{ route('element-preferences.index') }}" role="menuitem">Preferensi Element</a>
                         @endif
-                        <form action="{{ route('logout') }}" method="GET" id="idleLogoutForm" data-idle-timeout-ms="{{ $idleTimeoutMs }}">
+                        <form action="{{ route('logout') }}" method="POST" id="idleLogoutForm" data-idle-timeout-ms="{{ $idleTimeoutMs }}">
+                            @csrf
                             <button type="submit" role="menuitem">Logout</button>
                         </form>
                     </div>
@@ -395,78 +376,17 @@
     const initialToasts = @json($toastQueue);
     const root=document.documentElement;
     const SIDENAV_COLLAPSE_KEY='dashboard-sidenav-collapsed';
-    const SIDENAV_MOBILE_BREAKPOINT=960;
     const getAppRoot = () => document.querySelector('.app');
     const getSidenavToggle = () => document.getElementById('sidenavToggle');
-    const isMobileViewport = () => window.innerWidth <= SIDENAV_MOBILE_BREAKPOINT;
+    const getThemeToggle = () => document.getElementById('themeToggle');
     const updateSidenavToggleUi = (collapsed) => {
         const sidenavToggle = getSidenavToggle();
-        const appRoot = getAppRoot();
-        if(!sidenavToggle || !appRoot){
-            return;
-        }
-
-        if(isMobileViewport()){
-            const mobileOpen = appRoot.classList.contains('mobile-sidenav-open');
-            sidenavToggle.setAttribute('aria-pressed', mobileOpen ? 'true' : 'false');
-            sidenavToggle.setAttribute('aria-expanded', mobileOpen ? 'true' : 'false');
-            sidenavToggle.setAttribute('aria-label', mobileOpen ? 'Tutup menu samping' : 'Buka menu samping');
-            return;
-        }
-
-        sidenavToggle.removeAttribute('aria-expanded');
-        sidenavToggle.setAttribute('aria-pressed', collapsed ? 'true' : 'false');
-        sidenavToggle.setAttribute('aria-label', collapsed ? 'Tampilkan menu samping' : 'Sembunyikan menu samping');
-    };
-    const setMobileSidenavOpen = (open) => {
-        const appRoot = getAppRoot();
-        if(!appRoot) return;
-
-        const isOpen = Boolean(open);
-        appRoot.classList.toggle('mobile-sidenav-open', isOpen);
-        document.body.classList.toggle('sidenav-open-lock', isOpen);
-        updateSidenavToggleUi(appRoot.classList.contains('sidenav-collapsed'));
-    };
-    const syncSidenavViewportMode = () => {
-        const appRoot = getAppRoot();
-        if(!appRoot) return;
-
-        if(isMobileViewport()){
-            if(!appRoot.hasAttribute('data-desktop-collapsed')){
-                appRoot.setAttribute(
-                    'data-desktop-collapsed',
-                    appRoot.classList.contains('sidenav-collapsed') ? '1' : '0'
-                );
-            }
-            appRoot.classList.remove('sidenav-collapsed');
-            updateSidenavToggleUi(false);
-            return;
-        }
-
-        const previousDesktopState = appRoot.getAttribute('data-desktop-collapsed');
-        if(previousDesktopState !== null){
-            appRoot.classList.toggle('sidenav-collapsed', previousDesktopState === '1');
-            appRoot.removeAttribute('data-desktop-collapsed');
-        }
-        setMobileSidenavOpen(false);
-        updateSidenavToggleUi(appRoot.classList.contains('sidenav-collapsed'));
+        sidenavToggle?.setAttribute('aria-pressed', collapsed ? 'true' : 'false');
+        sidenavToggle?.setAttribute('aria-label', collapsed ? 'Tampilkan menu samping' : 'Sembunyikan menu samping');
     };
     const setSidenavCollapsed = (collapsed, persist = true) => {
         const appRoot = getAppRoot();
         if(!appRoot) return;
-
-        if(isMobileViewport()){
-            if(persist){
-                try{
-                    localStorage.setItem(SIDENAV_COLLAPSE_KEY, collapsed ? '1' : '0');
-                }catch(_error){
-                    // ignore storage failures
-                }
-            }
-            updateSidenavToggleUi(false);
-            return;
-        }
-
         appRoot.classList.toggle('sidenav-collapsed', collapsed);
         updateSidenavToggleUi(collapsed);
         if(persist){
@@ -492,22 +412,23 @@
     const toggleSidenav = () => {
         const appRoot = getAppRoot();
         if(!appRoot) return;
-
-        if(isMobileViewport()){
-            setMobileSidenavOpen(!appRoot.classList.contains('mobile-sidenav-open'));
-            return;
-        }
-
         const nextCollapsed = !appRoot.classList.contains('sidenav-collapsed');
         setSidenavCollapsed(nextCollapsed, true);
     };
     const applyStoredTheme = () => {
-        root.setAttribute('data-theme', 'light');
-        try{
-            localStorage.setItem('dashboard-theme', 'light');
-        }catch(_error){
-            // ignore storage failures
+        const savedTheme = localStorage.getItem('dashboard-theme') || 'light';
+        root.setAttribute('data-theme', savedTheme);
+        const themeToggle = getThemeToggle();
+        const themeToggleText = themeToggle?.querySelector('.text');
+        themeToggle?.setAttribute('aria-pressed', savedTheme === 'dark' ? 'true' : 'false');
+        if(themeToggleText){
+            themeToggleText.textContent = savedTheme === 'dark' ? 'Terang' : 'Gelap';
         }
+    };
+    const toggleTheme = () => {
+        const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        localStorage.setItem('dashboard-theme', next);
+        applyStoredTheme();
     };
     const keepActiveNavLinkVisible = () => {
         const appRoot = getAppRoot();
@@ -560,7 +481,6 @@
     };
     applyStoredTheme();
     applyStoredSidenavState();
-    syncSidenavViewportMode();
     updateHeadnavScrollState();
     animateTopbarTitle();
     document.addEventListener('click', (e) => {
@@ -568,6 +488,12 @@
         if(!btn) return;
         e.preventDefault();
         toggleSidenav();
+    });
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('#themeToggle');
+        if(!btn) return;
+        e.preventDefault();
+        toggleTheme();
     });
     function renderClock(){
         const liveDateEl=document.getElementById('liveDateTime');
@@ -580,8 +506,6 @@
     document.addEventListener('livewire:navigated', () => {
         applyStoredTheme();
         applyStoredSidenavState();
-        syncSidenavViewportMode();
-        setMobileSidenavOpen(false);
         renderClock();
         updateHeadnavScrollState();
         animateTopbarTitle();
@@ -659,13 +583,6 @@
     };
     // Delegated handler keeps submenu toggle working after wire:navigate swaps DOM.
     document.addEventListener('click', (e) => {
-        const backdrop = e.target.closest('#sidenavBackdrop');
-        if(backdrop){
-            e.preventDefault();
-            setMobileSidenavOpen(false);
-            return;
-        }
-
         const btn = e.target.closest('.nav-toggle[data-sub-toggle]');
         if(!btn) return;
         e.preventDefault();
@@ -689,19 +606,6 @@
         }
         closeAllSubMenus();
     });
-    document.addEventListener('click', (e) => {
-        if(!isMobileViewport()) return;
-        const navLink = e.target.closest('#sidenav a[href]');
-        if(!navLink || navLink.classList.contains('nav-toggle')) return;
-        setMobileSidenavOpen(false);
-    });
-    document.addEventListener('keydown', (e) => {
-        if(e.key !== 'Escape') return;
-        const appRoot = getAppRoot();
-        if(!isMobileViewport() || !appRoot?.classList.contains('mobile-sidenav-open')) return;
-        setMobileSidenavOpen(false);
-    });
-    window.addEventListener('resize', syncSidenavViewportMode);
 
     const getNotifyButton = () => document.getElementById('notifyButton');
     const getNotifyCount = () => document.getElementById('notifyCount');
@@ -861,7 +765,7 @@
         const actionText = String(item?.action_text || '').trim();
         const detailText = String(item?.detail_text || '').trim();
         const actionClass = String(item?.action_class || 'is-save').trim();
-        const actionClassSafe = /^is-(save|fill|clear|verify|verify-reset)$/.test(actionClass) ? actionClass : 'is-save';
+        const actionClassSafe = /^is-(save|clear|verify|verify-reset)$/.test(actionClass) ? actionClass : 'is-save';
         const timeLabel = escapeHtml(item?.time_label || '-');
         const isRead = Boolean(item?.is_read);
 
@@ -1215,12 +1119,11 @@
         clearIdleLogoutTimer();
         closeNotify();
         closeProfile();
-        const logoutUrl=String(idleLogoutForm.getAttribute('action') || '/logout').trim();
-        if(logoutUrl === ''){
-            window.location.assign('/logout');
+        if(typeof idleLogoutForm.requestSubmit === 'function'){
+            idleLogoutForm.requestSubmit();
             return;
         }
-        window.location.assign(logoutUrl);
+        idleLogoutForm.submit();
     }
     function syncIdleLogoutDeadline(){
         const timeoutMs=getIdleTimeoutMs();

@@ -356,6 +356,9 @@ body.keg-modal-open {
     display: flex;
     align-items: flex-start;
     gap: 0.45rem;
+    text-align: left;
+    word-spacing: normal;
+    letter-spacing: 0;
 }
 
 .keg-flow-guide-list .step-no {
@@ -373,6 +376,15 @@ body.keg-modal-open {
     font-weight: 800;
     line-height: 1;
     margin-top: 1px;
+}
+
+.keg-flow-guide-list .step-copy {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: block;
+    text-align: left;
+    overflow-wrap: break-word;
+    word-break: normal;
 }
 
 .keg-flow-guide-note {

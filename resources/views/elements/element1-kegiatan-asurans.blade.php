@@ -103,9 +103,9 @@
                     <span class="keg-flow-guide-progress">{{ $filledStatementRows }}/{{ $totalStatementRows }} pernyataan sudah terisi</span>
                 </div>
                 <ol class="keg-flow-guide-list">
-                    <li><span class="step-no">1</span> Klik ikon pensil pada baris pernyataan yang ingin diisi.</li>
-                    <li><span class="step-no">2</span> Lengkapi tab <strong>Bukti Dukung</strong>, lalu isi <strong>Analisis Bukti Per Level</strong>.</li>
-                    <li><span class="step-no">3</span> Klik tombol <strong>Simpan Data</strong>. Sistem akan menyimpan <strong>Draft</strong> atau otomatis menandai <strong>Lengkap</strong> jika checklist terpenuhi.</li>
+                    <li><span class="step-no">1</span><span class="step-copy">Klik ikon pensil pada baris pernyataan yang ingin diisi.</span></li>
+                    <li><span class="step-no">2</span><span class="step-copy">Lengkapi tab <strong>Bukti Dukung</strong>, lalu isi <strong>Analisis Bukti Per Level</strong>.</span></li>
+                    <li><span class="step-no">3</span><span class="step-copy">Klik tombol <strong>Simpan Data</strong>. Sistem akan menyimpan <strong>Draft</strong> atau otomatis menandai <strong>Lengkap</strong> jika checklist terpenuhi.</span></li>
                 </ol>
                 <div class="keg-flow-guide-note">Status baris: <strong>Belum Diisi</strong> (kosong), <strong>Draft</strong> (sebagian), <strong>Lengkap</strong> (siap/verifikasi).</div>
             </section>

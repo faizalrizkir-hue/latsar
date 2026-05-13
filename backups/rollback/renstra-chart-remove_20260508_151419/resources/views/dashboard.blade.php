@@ -22,43 +22,6 @@
         : [0, -$segmentLength, -$segmentLength * 2, -$segmentLength * 3, -$segmentLength * 4];
     $renstraTrendSeries = is_array($renstraTrendSeries ?? null) ? $renstraTrendSeries : [];
     $canManageRenstraTrend = (bool) ($canManageRenstraTrend ?? false);
-    $buildPublicUploadUrl = static function (string $relativePath): string {
-        $segments = array_values(array_filter(explode('/', str_replace('\\', '/', $relativePath)), static fn ($segment): bool => $segment !== ''));
-        $encodedPath = implode('/', array_map(static fn (string $segment): string => rawurlencode($segment), $segments));
-        return asset($encodedPath);
-    };
-    $renstraPedomanFiles = [
-        'Renstra 2018 - 2022' => 'Rencana Strategis Inspektorat Provinsi DKI Jakarta 2018 - 2022.pdf',
-        'Renstra 2023 - 2026' => 'Rencana Strategis Inspektorat Provinsi DKI Jakarta 2023 - 2026.pdf',
-        'Renstra 2025 - 2029' => 'Rencana Strategis Inspektorat Provinsi DKI Jakarta 2025 - 2029.pdf',
-    ];
-    $renstraPedomanLinks = [];
-    foreach ($renstraPedomanFiles as $renstraLabel => $renstraFilename) {
-        $renstraFilePath = public_path('uploads/pedoman/'.$renstraFilename);
-        $renstraPedomanLinks[$renstraLabel] = is_file($renstraFilePath)
-            ? $buildPublicUploadUrl('uploads/pedoman/'.$renstraFilename)
-            : '';
-    }
-    $resolveRenstraPedomanUrl = static function (?int $year, ?string $renstraLabel) use ($renstraPedomanLinks): string {
-        $label = trim((string) $renstraLabel);
-        if ($label !== '' && isset($renstraPedomanLinks[$label]) && $renstraPedomanLinks[$label] !== '') {
-            return (string) $renstraPedomanLinks[$label];
-        }
-
-        if (is_int($year)) {
-            if ($year >= 2018 && $year <= 2022) {
-                return (string) ($renstraPedomanLinks['Renstra 2018 - 2022'] ?? '');
-            }
-            if ($year >= 2023 && $year <= 2024) {
-                return (string) ($renstraPedomanLinks['Renstra 2023 - 2026'] ?? '');
-            }
-            if ($year >= 2025 && $year <= 2029) {
-                return (string) ($renstraPedomanLinks['Renstra 2025 - 2029'] ?? '');
-            }
-        }
-
-        return '';
-    };
     $formatPercent = static function (float $value): string {
         return rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.');
     };
@@ -161,44 +124,49 @@
                 </div>
             </article>
         </section>
+
         <section class="card apip-element-summary-card apip-renstra-trend-card">
-            <div class="section-head">
+            <div class="section-head apip-summary-head">
                 <div class="apip-summary-head-top">
                     <h3>Grafik Hasil Penilaian Peningkatan Kapabilitas APIP</h3>
                     <div class="apip-summary-actions">
                         <button
                             type="button"
                             class="apip-summary-hint hint-bubble-trigger"
-                            data-hint="Grafik mixed/combo menampilkan Hasil Penilaian (bar), Target Renstra (bar), dan Trend Hasil (line). Gunakan skala waktu di kanan atas untuk fokus analisis."
-                            aria-label="Informasi grafik hasil penilaian renstra">
+                            data-hint="Grafik ini merangkum tren skor per tahun. Setiap tahun menampilkan dua batang: Hasil Penilaian (H) dan Target Renstra (T)."
+                            aria-label="Informasi grafik tren renstra">
                             ?
                         </button>
                     </div>
                 </div>
                 <p>Grafik tunggal per tahun dengan legenda: Hasil Penilaian (H) dan Target Renstra (T).</p>
             </div>
+
             @php
                 $renstraItems = collect($renstraTrendSeries)->values();
                 $renstraRangeGroups = [];
                 $currentRangeLabel = null;
                 $currentRangeStart = 1;
                 $currentRangeSpan = 0;
-                $currentRangeYear = null;
+                $currentRangeYearStart = null;
+                $currentRangeYearEnd = null;
 
                 foreach ($renstraItems as $rangeIndex => $rangeItem) {
-                    $rangeYear = is_numeric($rangeItem['year'] ?? null) ? (int) $rangeItem['year'] : null;
                     $rangeLabel = (string) ($rangeItem['renstra_label'] ?? '-');
+                    $rangeYearLabel = (string) ($rangeItem['year_label'] ?? '-');
 
                     if ($currentRangeLabel === null) {
                         $currentRangeLabel = $rangeLabel;
                         $currentRangeStart = $rangeIndex + 1;
                         $currentRangeSpan = 1;
-                        $currentRangeYear = $rangeYear;
+                        $currentRangeYearStart = $rangeYearLabel;
+                        $currentRangeYearEnd = $rangeYearLabel;
                         continue;
                     }
 
                     if ($rangeLabel === $currentRangeLabel) {
                         $currentRangeSpan++;
+                        $currentRangeYearEnd = $rangeYearLabel;
                         continue;
                     }
 
@@ -206,13 +174,15 @@
                         'label' => $currentRangeLabel,
                         'start' => $currentRangeStart,
                         'span' => $currentRangeSpan,
-                        'doc_url' => $resolveRenstraPedomanUrl($currentRangeYear, $currentRangeLabel),
+                        'year_start' => $currentRangeYearStart,
+                        'year_end' => $currentRangeYearEnd,
                     ];
 
                     $currentRangeLabel = $rangeLabel;
                     $currentRangeStart = $rangeIndex + 1;
                     $currentRangeSpan = 1;
-                    $currentRangeYear = $rangeYear;
+                    $currentRangeYearStart = $rangeYearLabel;
+                    $currentRangeYearEnd = $rangeYearLabel;
                 }
 
                 if ($currentRangeLabel !== null) {
@@ -220,12 +190,13 @@
                         'label' => $currentRangeLabel,
                         'start' => $currentRangeStart,
                         'span' => $currentRangeSpan,
-                        'doc_url' => $resolveRenstraPedomanUrl($currentRangeYear, $currentRangeLabel),
+                        'year_start' => $currentRangeYearStart,
+                        'year_end' => $currentRangeYearEnd,
                     ];
                 }
 
                 $renstraChartSeries = $renstraItems
-                    ->map(function ($trendItem) use ($resolveRenstraPedomanUrl): array {
+                    ->map(function ($trendItem): array {
                         $year = is_numeric($trendItem['year'] ?? null) ? (int) $trendItem['year'] : 0;
                         $hasilScore = is_numeric($trendItem['hasil_score'] ?? null)
                             ? (float) number_format(max(0, min(5, (float) $trendItem['hasil_score'])), 2, '.', '')
@@ -236,14 +207,10 @@
 
                         return [
                             'year' => $year,
-                            'year_label' => (string) $year,
+                            'x' => $year > 0 ? sprintf('%04d-01-01', $year) : null,
                             'hasil_score' => $hasilScore,
                             'target_score' => $targetScore,
                             'renstra_label' => (string) ($trendItem['renstra_label'] ?? '-'),
-                            'renstra_doc_url' => $resolveRenstraPedomanUrl(
-                                $year > 0 ? $year : null,
-                                (string) ($trendItem['renstra_label'] ?? '')
-                            ),
                         ];
                     })
                     ->filter(fn (array $item): bool => is_numeric($item['year'] ?? null) && (int) $item['year'] > 0)
@@ -287,17 +254,27 @@
                 </div>
 
                 <div
-                    class="apip-renstra-apex-chart"
-                    data-renstra-apex
+                    class="apip-renstra-bar-chart apip-renstra-bar-chart--chartjs"
+                    data-renstra-chartjs
                     data-current-year="{{ now()->year }}"
                     data-scale-active="renstra"
                     data-series='@json($renstraChartSeries)'
-                    data-ranges='@json($renstraRangeGroups)'
                     role="img"
                     aria-label="Diagram combo hasil, target, dan trend renstra per tahun">
-                    <div id="apipRenstraApexChart" class="apip-renstra-apex-canvas"></div>
-                    <div class="apip-renstra-ranges-wrap" data-renstra-ranges-wrap aria-hidden="true">
-                        <div class="apip-renstra-ranges" id="apipRenstraRanges"></div>
+                    <div class="apip-renstra-chartjs-wrap">
+                        <canvas id="apipRenstraChartCanvas" class="apip-renstra-chartjs-canvas" aria-label="Chart hasil dan target renstra"></canvas>
+                    </div>
+
+                    <div class="apip-renstra-ranges-wrap" aria-hidden="true">
+                        <div class="apip-renstra-ranges" style="--year-count: {{ max(1, $renstraItems->count()) }};">
+                            @foreach ($renstraRangeGroups as $rangeGroup)
+                                <span
+                                    class="apip-renstra-range-chip"
+                                    style="grid-column: {{ (int) ($rangeGroup['start'] ?? 1) }} / span {{ max(1, (int) ($rangeGroup['span'] ?? 1)) }};">
+                                    {{ (string) ($rangeGroup['label'] ?? '-') }}
+                                </span>
+                            @endforeach
+                        </div>
                     </div>
                 </div>
 
@@ -317,7 +294,7 @@
                             <div class="apip-level-modal__header">
                                 <button type="button" class="apip-level-modal__close" data-renstra-modal-close aria-label="Tutup form renstra">&times;</button>
                                 <p class="apip-level-modal__eyebrow">Administrator</p>
-                                <h4 class="apip-level-modal__title" id="apipRenstraInputModalTitle">Input Hasil &amp; Target Renstra</h4>
+                                <h4 class="apip-level-modal__title" id="apipRenstraInputModalTitle">Input Hasil & Target Renstra</h4>
                                 <p class="apip-level-modal__desc" id="apipRenstraInputModalDesc">
                                     Isi nilai 0 sampai 5. Kosongkan field jika ingin kembali memakai nilai otomatis sistem.
                                 </p>
@@ -334,12 +311,10 @@
                                         @foreach ($renstraItems as $trendIndex => $trendItem)
                                             @php
                                                 $year = (int) ($trendItem['year'] ?? 0);
-                                                $isForcedNoAssessmentYear = in_array($year, [2019, 2020], true);
                                                 $hasilInputValue = (string) ($trendItem['hasil_input_value'] ?? '');
                                                 $targetInputValue = (string) ($trendItem['target_input_value'] ?? '');
                                                 $hasilPlaceholder = (string) ($trendItem['hasil_score_label'] ?? '-');
                                                 $targetPlaceholder = (string) ($trendItem['target_score_label'] ?? '-');
-                                                $fixedHasilInputValue = $isForcedNoAssessmentYear ? '0.00' : $hasilInputValue;
                                             @endphp
                                             <input type="hidden" name="entries[{{ $trendIndex }}][year]" value="{{ $year }}">
                                             <div class="apip-renstra-input-grid__year">{{ $year }}</div>
@@ -350,9 +325,8 @@
                                                     inputmode="decimal"
                                                     class="apip-renstra-input"
                                                     name="entries[{{ $trendIndex }}][hasil_score]"
-                                                    value="{{ old('entries.'.$trendIndex.'.hasil_score', $fixedHasilInputValue) }}"
+                                                    value="{{ old('entries.'.$trendIndex.'.hasil_score', $hasilInputValue) }}"
                                                     placeholder="{{ $hasilPlaceholder !== '-' ? $hasilPlaceholder : '0.00' }}"
-                                                    @if($isForcedNoAssessmentYear) readonly aria-readonly="true" title="Tahun {{ $year }} ditetapkan tidak dilakukan penilaian (nilai 0)." @endif
                                                     autocomplete="off">
                                             </div>
                                             <div class="apip-renstra-input-grid__cell">
@@ -374,14 +348,15 @@
                                 </form>
                             </div>
                             <div class="apip-level-modal__footer apip-level-modal__footer--actions">
-                                <button type="button" class="apip-level-modal__footer-btn btn btn-outline-secondary" data-renstra-modal-close>Tutup</button>
-                                <button type="submit" class="apip-level-modal__footer-btn btn btn-primary" form="apipRenstraInputForm">Simpan</button>
+                                <button type="button" class="apip-renstra-input-cancel apip-level-modal__footer-btn" data-renstra-modal-close>Tutup</button>
+                                <button type="submit" class="apip-renstra-input-submit apip-level-modal__footer-btn" form="apipRenstraInputForm">Simpan Perubahan</button>
                             </div>
                         </div>
                     </div>
                 @endif
             @endif
         </section>
+
         <section class="card apip-element-summary-card apip-element-recap-card">
             @php
                 $levelRecap = [
@@ -633,7 +608,7 @@
                         <div class="apip-level-modal__list" id="apipLevelModalList"></div>
                     </div>
                     <div class="apip-level-modal__footer">
-                        <button type="button" class="apip-level-modal__footer-btn btn btn-outline-secondary" data-level-modal-close>Tutup</button>
+                        <button type="button" class="apip-renstra-input-cancel apip-level-modal__footer-btn" data-level-modal-close>Tutup</button>
                     </div>
                 </div>
             </div>
@@ -997,11 +972,17 @@ const initDashboardRenstraInputModal = () => {
     }
 };
 
-const ensureDashboardApexCharts = (() => {
+const ensureDashboardChartJs = (() => {
     let loaderPromise = null;
-    const scriptId = 'apip-apexcharts-lib';
-    const localScriptSrc = '/vendor/apexcharts/apexcharts.min.js';
-    const cdnScriptSrc = 'https://cdn.jsdelivr.net/npm/apexcharts@3.54.1/dist/apexcharts.min.js';
+    const chartScriptId = 'apip-chartjs-umd';
+    const adapterScriptId = 'apip-chartjs-datefns-adapter';
+    const hasDateAdapter = () => Boolean(
+        window.Chart
+            && window.Chart._adapters
+            && window.Chart._adapters._date
+            && typeof window.Chart._adapters._date.format === 'function'
+    );
+
     const loadScript = (id, src) => new Promise((resolve, reject) => {
         const existing = document.getElementById(id);
         if (existing) {
@@ -1009,13 +990,10 @@ const ensureDashboardApexCharts = (() => {
                 resolve();
                 return;
             }
-            if (existing.dataset.failed === '1') {
-                existing.remove();
-            } else {
-                existing.addEventListener('load', () => resolve(), { once: true });
-                existing.addEventListener('error', () => reject(new Error(`Gagal memuat ${src}`)), { once: true });
-                return;
-            }
+
+            existing.addEventListener('load', () => resolve(), { once: true });
+            existing.addEventListener('error', () => reject(new Error(`Gagal memuat ${src}`)), { once: true });
+            return;
         }
 
         const script = document.createElement('script');
@@ -1026,24 +1004,27 @@ const ensureDashboardApexCharts = (() => {
             script.dataset.loaded = '1';
             resolve();
         };
-        script.onerror = () => {
-            script.dataset.failed = '1';
-            script.remove();
-            reject(new Error(`Gagal memuat ${src}`));
-        };
+        script.onerror = () => reject(new Error(`Gagal memuat ${src}`));
         document.head.appendChild(script);
     });
 
     return () => {
-        if (window.ApexCharts) {
+        if (window.Chart && hasDateAdapter()) {
             return Promise.resolve();
         }
+
         if (loaderPromise) {
             return loaderPromise;
         }
 
-        loaderPromise = loadScript(scriptId, localScriptSrc)
-            .catch(() => loadScript(scriptId, cdnScriptSrc))
+        const chartLoader = window.Chart
+            ? Promise.resolve()
+            : loadScript(chartScriptId, 'https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js');
+
+        loaderPromise = chartLoader
+            .then(() => hasDateAdapter()
+                ? Promise.resolve()
+                : loadScript(adapterScriptId, 'https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js'))
             .catch((error) => {
                 loaderPromise = null;
                 throw error;
@@ -1053,16 +1034,14 @@ const ensureDashboardApexCharts = (() => {
     };
 })();
 
-const initDashboardRenstraApexChart = () => {
-    const chartRoot = document.querySelector('[data-renstra-apex]');
-    if (!chartRoot || chartRoot.dataset.renstraApexBound === '1') return;
+const initDashboardRenstraScaleSwitch = () => {
+    const chartRoot = document.querySelector('[data-renstra-chartjs]');
+    if (!chartRoot || chartRoot.dataset.renstraScaleBound === '1') return;
 
-    const trendCard = chartRoot.closest('.apip-renstra-trend-card');
-    const chartCanvas = chartRoot.querySelector('#apipRenstraApexChart');
-    const rangeWrap = chartRoot.querySelector('[data-renstra-ranges-wrap]');
-    const rangeMount = chartRoot.querySelector('#apipRenstraRanges');
+    const canvas = chartRoot.querySelector('#apipRenstraChartCanvas');
+    const rangeWrap = chartRoot.querySelector('.apip-renstra-ranges-wrap');
     const scaleButtons = Array.from(document.querySelectorAll('[data-renstra-scale]'));
-    if (!chartCanvas || scaleButtons.length === 0) return;
+    if (!canvas || scaleButtons.length === 0) return;
 
     let rawSeries = [];
     try {
@@ -1071,36 +1050,18 @@ const initDashboardRenstraApexChart = () => {
         rawSeries = [];
     }
 
-    let rawRangeGroups = [];
-    try {
-        rawRangeGroups = JSON.parse(chartRoot.getAttribute('data-ranges') || '[]');
-    } catch (error) {
-        rawRangeGroups = [];
-    }
-    const rangeDocUrlByLabel = new Map(
-        (Array.isArray(rawRangeGroups) ? rawRangeGroups : [])
-            .map((group) => ({
-                label: String(group?.label ?? '-'),
-                docUrl: String(group?.doc_url ?? '').trim(),
-            }))
-            .filter((group) => group.label !== '' && group.docUrl !== '')
-            .map((group) => [group.label, group.docUrl])
-    );
-
     const series = Array.isArray(rawSeries)
         ? rawSeries
             .map((item) => {
                 const year = Number.parseInt(item?.year ?? '', 10);
                 if (!Number.isFinite(year) || year <= 0) return null;
-                const hasilScore = Number.parseFloat(item?.hasil_score ?? '');
-                const targetScore = Number.parseFloat(item?.target_score ?? '');
+                const hasilScoreRaw = Number.parseFloat(item?.hasil_score ?? '');
+                const targetScoreRaw = Number.parseFloat(item?.target_score ?? '');
                 return {
                     year,
-                    yearLabel: String(item?.year_label ?? year),
-                    renstraLabel: String(item?.renstra_label ?? '-'),
-                    renstraDocUrl: String(item?.renstra_doc_url ?? '').trim(),
-                    hasilScore: Number.isFinite(hasilScore) ? Math.max(0, Math.min(5, hasilScore)) : null,
-                    targetScore: Number.isFinite(targetScore) ? Math.max(0, Math.min(5, targetScore)) : null,
+                    x: Date.UTC(year, 0, 1),
+                    hasilScore: Number.isFinite(hasilScoreRaw) ? Math.max(0, Math.min(5, hasilScoreRaw)) : null,
+                    targetScore: Number.isFinite(targetScoreRaw) ? Math.max(0, Math.min(5, targetScoreRaw)) : null,
                 };
             })
             .filter((item) => item !== null)
@@ -1109,7 +1070,6 @@ const initDashboardRenstraApexChart = () => {
 
     if (series.length === 0) return;
 
-    const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const years = series.map((item) => item.year);
     const parsedCurrentYear = Number.parseInt(chartRoot.dataset.currentYear || '', 10);
     const fallbackCurrentYear = years[years.length - 1];
@@ -1117,33 +1077,23 @@ const initDashboardRenstraApexChart = () => {
     const closestVisibleCurrentYear = years.includes(currentYear)
         ? currentYear
         : years.filter((year) => year <= currentYear).slice(-1)[0] || fallbackCurrentYear;
-    const scaleToneClasses = ['is-scale-3y', 'is-scale-5y', 'is-scale-ytd', 'is-scale-renstra'];
-    let scaleSwitchTimer = null;
 
-    const applyScaleToneClass = (scaleKey) => {
-        const toneClass = `is-scale-${scaleKey}`;
-        [chartRoot, trendCard].filter(Boolean).forEach((node) => {
-            node.classList.remove(...scaleToneClasses);
-            node.classList.add(toneClass);
-        });
-    };
-
-    const triggerScaleSwitchAnimation = (scaleKey) => {
-        applyScaleToneClass(scaleKey);
-        if (prefersReducedMotion) return;
-
-        const targets = [chartRoot, trendCard].filter(Boolean);
-        targets.forEach((node) => node.classList.remove('is-scale-switching'));
-        void chartRoot.offsetWidth;
-        targets.forEach((node) => node.classList.add('is-scale-switching'));
-
-        if (scaleSwitchTimer !== null) {
-            window.clearTimeout(scaleSwitchTimer);
+    const getVisibleSeries = (scaleKey) => {
+        if (scaleKey === '3y') {
+            const minYear = closestVisibleCurrentYear - 2;
+            return series.filter((item) => item.year >= minYear && item.year <= closestVisibleCurrentYear);
         }
-        scaleSwitchTimer = window.setTimeout(() => {
-            targets.forEach((node) => node.classList.remove('is-scale-switching'));
-            scaleSwitchTimer = null;
-        }, 460);
+
+        if (scaleKey === '5y') {
+            const minYear = closestVisibleCurrentYear - 4;
+            return series.filter((item) => item.year >= minYear && item.year <= closestVisibleCurrentYear);
+        }
+
+        if (scaleKey === 'ytd') {
+            return series.filter((item) => item.year === closestVisibleCurrentYear);
+        }
+
+        return series;
     };
 
     const updateScaleButtonState = (activeScale) => {
@@ -1155,88 +1105,6 @@ const initDashboardRenstraApexChart = () => {
         });
     };
 
-    const getVisibleSeries = (scaleKey) => {
-        if (scaleKey === '3y') {
-            const minYear = closestVisibleCurrentYear - 2;
-            return series.filter((item) => item.year >= minYear && item.year <= closestVisibleCurrentYear);
-        }
-        if (scaleKey === '5y') {
-            const minYear = closestVisibleCurrentYear - 4;
-            return series.filter((item) => item.year >= minYear && item.year <= closestVisibleCurrentYear);
-        }
-        if (scaleKey === 'ytd') {
-            return series.filter((item) => item.year === closestVisibleCurrentYear);
-        }
-        return series;
-    };
-
-    const buildRangeGroups = (visibleSeries) => {
-        const groups = [];
-        let current = null;
-        visibleSeries.forEach((item, index) => {
-            if (!current) {
-                const currentLabel = item.renstraLabel || '-';
-                current = {
-                    label: currentLabel,
-                    start: index + 1,
-                    span: 1,
-                    docUrl: item.renstraDocUrl || rangeDocUrlByLabel.get(currentLabel) || '',
-                };
-                return;
-            }
-            if ((item.renstraLabel || '-') === current.label) {
-                current.span += 1;
-                if (!current.docUrl) {
-                    current.docUrl = item.renstraDocUrl || rangeDocUrlByLabel.get(current.label) || '';
-                }
-                return;
-            }
-            groups.push(current);
-            const currentLabel = item.renstraLabel || '-';
-            current = {
-                label: currentLabel,
-                start: index + 1,
-                span: 1,
-                docUrl: item.renstraDocUrl || rangeDocUrlByLabel.get(currentLabel) || '',
-            };
-        });
-        if (current) {
-            groups.push(current);
-        }
-        return groups;
-    };
-
-    const renderRangeChips = (visibleSeries, activeScale) => {
-        if (!rangeWrap || !rangeMount) return;
-        const showRanges = activeScale === 'renstra';
-        rangeWrap.hidden = false;
-        rangeWrap.setAttribute('aria-hidden', showRanges ? 'false' : 'true');
-        chartRoot.classList.toggle('is-ranges-hidden', !showRanges);
-        rangeMount.innerHTML = '';
-        if (!showRanges || visibleSeries.length === 0) return;
-
-        const rangeGroups = buildRangeGroups(visibleSeries);
-        rangeMount.style.setProperty('--year-count', String(Math.max(1, visibleSeries.length)));
-        rangeGroups.forEach((group) => {
-            const hasDocUrl = typeof group.docUrl === 'string' && group.docUrl.trim() !== '';
-            const chip = document.createElement(hasDocUrl ? 'a' : 'span');
-            chip.className = 'apip-renstra-range-chip';
-            chip.style.gridColumn = `${group.start} / span ${Math.max(1, group.span)}`;
-            chip.textContent = group.label || '-';
-            if (hasDocUrl) {
-                chip.classList.add('is-link');
-                chip.setAttribute('href', group.docUrl);
-                chip.setAttribute('target', '_blank');
-                chip.setAttribute('rel', 'noopener noreferrer');
-                chip.setAttribute('title', `Buka dokumen ${group.label || 'Renstra'}`);
-                chip.setAttribute('aria-label', `Buka dokumen ${group.label || 'Renstra'}`);
-            } else {
-                chip.classList.add('is-disabled');
-            }
-            rangeMount.appendChild(chip);
-        });
-    };
-
     const chartFallback = (message) => {
         const fallback = document.createElement('div');
         fallback.className = 'empty-state apip-recap-empty';
@@ -1245,206 +1113,184 @@ const initDashboardRenstraApexChart = () => {
         chartRoot.appendChild(fallback);
     };
 
-    ensureDashboardApexCharts()
+    ensureDashboardChartJs()
         .then(() => {
-            if (!window.ApexCharts) {
-                chartFallback('Library ApexCharts tidak tersedia.');
+            if (!window.Chart) {
+                chartFallback('Library Chart.js tidak tersedia.');
                 return;
             }
 
-            if (chartRoot._apexChart && typeof chartRoot._apexChart.destroy === 'function') {
-                chartRoot._apexChart.destroy();
-                chartRoot._apexChart = null;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                chartFallback('Canvas chart tidak dapat diinisialisasi.');
+                return;
             }
 
-            let activeScale = (chartRoot.getAttribute('data-scale-active') || 'renstra').trim().toLowerCase();
-            if (!['3y', '5y', 'ytd', 'renstra'].includes(activeScale)) {
-                activeScale = 'renstra';
-            }
+            const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            let chartInstance = null;
+            let activeScale = 'renstra';
 
-            const buildChartPayload = (visibleSeries) => {
-                const categories = visibleSeries.map((item) => item.yearLabel);
-                const hasilData = visibleSeries.map((item) => (
-                    item.hasilScore === null || Number.isNaN(Number(item.hasilScore)) ? null : Number(item.hasilScore)
-                ));
-                const targetData = visibleSeries.map((item) => (
-                    item.targetScore === null || Number.isNaN(Number(item.targetScore)) ? null : Number(item.targetScore)
-                ));
-                const trendData = visibleSeries.map((item) => (
-                    item.hasilScore === null || Number.isNaN(Number(item.hasilScore)) ? null : Number(item.hasilScore)
-                ));
+            const buildDatasets = (visibleSeries) => {
+                const hasilData = visibleSeries.map((item) => item.hasilScore);
+                const targetData = visibleSeries.map((item) => item.targetScore);
 
-                return {
-                    categories,
-                    series: [
-                        { name: 'Hasil Penilaian', type: 'column', data: hasilData },
-                        { name: 'Target Renstra', type: 'column', data: targetData },
-                        { name: 'Trend Hasil', type: 'line', data: trendData },
-                    ],
-                };
+                return [
+                    {
+                        type: 'bar',
+                        label: 'Hasil Penilaian',
+                        data: hasilData,
+                        backgroundColor: 'rgba(52, 71, 240, 0.9)',
+                        borderColor: 'rgba(38, 54, 210, 1)',
+                        borderWidth: 1,
+                        borderRadius: 9,
+                        barThickness: 14,
+                        maxBarThickness: 16,
+                        categoryPercentage: 0.68,
+                        barPercentage: 0.92,
+                        order: 2,
+                    },
+                    {
+                        type: 'bar',
+                        label: 'Target Renstra',
+                        data: targetData,
+                        backgroundColor: 'rgba(43, 201, 191, 0.88)',
+                        borderColor: 'rgba(28, 171, 162, 1)',
+                        borderWidth: 1,
+                        borderRadius: 9,
+                        barThickness: 14,
+                        maxBarThickness: 16,
+                        categoryPercentage: 0.68,
+                        barPercentage: 0.92,
+                        order: 2,
+                    },
+                    {
+                        type: 'line',
+                        label: 'Trend Hasil',
+                        data: hasilData,
+                        borderColor: '#f28a22',
+                        backgroundColor: 'rgba(242, 138, 34, 0.2)',
+                        borderWidth: 2.5,
+                        pointRadius: 4,
+                        pointHoverRadius: 5,
+                        pointBorderWidth: 2,
+                        pointBackgroundColor: '#fff6eb',
+                        pointBorderColor: '#f28a22',
+                        tension: 0.28,
+                        spanGaps: true,
+                        fill: false,
+                        order: 1,
+                    },
+                ];
             };
 
-            const initialVisibleSeries = getVisibleSeries(activeScale);
-            const initialPayload = buildChartPayload(initialVisibleSeries);
-            renderRangeChips(initialVisibleSeries, activeScale);
-
-            const chart = new window.ApexCharts(chartCanvas, {
-                chart: {
-                    type: 'line',
-                    height: 300,
-                    stacked: false,
-                    toolbar: { show: false },
-                    zoom: { enabled: false },
-                    selection: { enabled: false },
-                    animations: prefersReducedMotion
-                        ? { enabled: false }
-                        : {
-                            enabled: true,
-                            easing: 'easeout',
-                            speed: 720,
-                            animateGradually: { enabled: true, delay: 80 },
-                            dynamicAnimation: { enabled: true, speed: 420 },
-                        },
-                },
-                series: initialPayload.series,
-                stroke: {
-                    width: [0, 0, 3],
-                    curve: 'smooth',
-                },
-                colors: ['#3447f0', '#2bc9bf', '#f28a22'],
-                fill: {
-                    opacity: [0.92, 0.88, 1],
-                },
-                plotOptions: {
-                    bar: {
-                        columnWidth: '34%',
-                        borderRadius: 8,
-                        borderRadiusApplication: 'end',
-                    },
-                },
-                dataLabels: {
-                    enabled: false,
-                },
-                markers: {
-                    size: [0, 0, 4.5],
-                    hover: { sizeOffset: 2 },
-                    strokeWidth: 2,
-                    strokeColors: '#f28a22',
-                    colors: ['#ffffff'],
-                },
-                xaxis: {
-                    type: 'category',
-                    categories: initialPayload.categories,
-                    tickPlacement: 'on',
-                    labels: {
-                        style: {
-                            colors: '#294a76',
-                            fontSize: '12px',
-                            fontWeight: 700,
-                        },
-                    },
-                    axisBorder: {
-                        color: '#b7c9e5',
-                    },
-                    axisTicks: {
-                        color: '#b7c9e5',
-                    },
-                },
-                yaxis: [
-                    {
-                        seriesName: 'Hasil Penilaian',
-                        min: 0,
-                        max: 5,
-                        tickAmount: 5,
-                        decimalsInFloat: 2,
-                        title: {
-                            text: 'Level',
-                            rotate: -90,
-                            offsetX: -8,
-                            offsetY: 0,
-                            style: {
-                                color: '#4d6386',
-                                fontSize: '12px',
-                                fontWeight: 800,
-                            },
-                        },
-                        labels: {
-                            style: {
-                                colors: '#5a7092',
-                                fontSize: '12px',
-                                fontWeight: 700,
-                            },
-                            formatter: (value) => Number(value).toFixed(0),
-                        },
-                    },
-                    {
-                        seriesName: 'Target Renstra',
-                        opposite: true,
-                        min: 0,
-                        max: 5,
-                        tickAmount: 5,
-                        decimalsInFloat: 2,
-                        labels: {
-                            style: {
-                                colors: '#5a7092',
-                                fontSize: '12px',
-                                fontWeight: 700,
-                            },
-                            formatter: (value) => Number(value).toFixed(0),
-                        },
-                    },
-                ],
-                grid: {
-                    borderColor: '#d8e5f7',
-                    strokeDashArray: 2,
-                    padding: {
-                        left: 6,
-                        right: 6,
-                        top: 4,
-                        bottom: 2,
-                    },
-                },
-                legend: {
-                    show: false,
-                },
-                tooltip: {
-                    shared: false,
-                    intersect: true,
-                    followCursor: false,
-                    hideEmptySeries: false,
-                    x: {
-                        show: true,
-                    },
-                    y: {
-                        formatter: (value) => {
-                            if (value === null || Number.isNaN(Number(value))) return '-';
-                            return Number(value).toFixed(2);
-                        },
-                    },
-                },
-                noData: {
-                    text: 'Data chart tidak tersedia',
-                },
-            });
-
-            chart.render().then(() => {
-                chartRoot._apexChart = chart;
-                chartRoot.dataset.renstraChartReady = '1';
-            });
-
-            const updateChart = (scaleKey) => {
+            const renderChart = (scaleKey, animated = true) => {
                 const visibleSeries = getVisibleSeries(scaleKey);
-                const payload = buildChartPayload(visibleSeries);
-                renderRangeChips(visibleSeries, scaleKey);
-                triggerScaleSwitchAnimation(scaleKey);
+                const labels = visibleSeries.map((item) => String(item.year));
+                const datasets = buildDatasets(visibleSeries);
 
-                chart.updateOptions({
-                    series: payload.series,
-                    xaxis: {
-                        categories: payload.categories,
-                    },
-                }, false, true, true);
-                chartRoot.setAttribute('data-scale-active', scaleKey);
+                chartRoot.classList.toggle('is-ranges-hidden', scaleKey !== 'renstra');
+                if (rangeWrap) {
+                    rangeWrap.hidden = scaleKey !== 'renstra';
+                }
+
+                if (!chartInstance) {
+                    chartInstance = new window.Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels,
+                            datasets,
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: prefersReducedMotion || !animated
+                                ? false
+                                : {
+                                    duration: 640,
+                                    easing: 'easeOutQuart',
+                                },
+                            interaction: {
+                                mode: 'index',
+                                axis: 'x',
+                                intersect: false,
+                            },
+                            plugins: {
+                                legend: {
+                                    display: false,
+                                },
+                                tooltip: {
+                                    mode: 'index',
+                                    intersect: false,
+                                    position: 'nearest',
+                                    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+                                    borderColor: 'rgba(148, 163, 184, 0.45)',
+                                    borderWidth: 1,
+                                    padding: 10,
+                                    titleColor: '#e2e8f0',
+                                    bodyColor: '#f8fafc',
+                                    displayColors: true,
+                                    callbacks: {
+                                        title(items) {
+                                            return items?.[0]?.label ?? '';
+                                        },
+                                        label(context) {
+                                            const value = Number.parseFloat(context?.parsed?.y);
+                                            if (!Number.isFinite(value)) {
+                                                return `${context.dataset.label}: -`;
+                                            }
+                                            return `${context.dataset.label}: ${value.toFixed(2)}`;
+                                        },
+                                    },
+                                },
+                            },
+                            scales: {
+                                x: {
+                                    offset: true,
+                                    grid: {
+                                        display: false,
+                                    },
+                                    ticks: {
+                                        autoSkip: false,
+                                        maxRotation: 0,
+                                        minRotation: 0,
+                                        color: '#294a76',
+                                        font: {
+                                            size: 12,
+                                            weight: '700',
+                                        },
+                                    },
+                                },
+                                y: {
+                                    min: 0,
+                                    max: 5,
+                                    ticks: {
+                                        stepSize: 1,
+                                        color: '#5a7092',
+                                        font: {
+                                            size: 12,
+                                            weight: '700',
+                                        },
+                                    },
+                                    grid: {
+                                        color: '#d8e5f7',
+                                        drawBorder: false,
+                                    },
+                                },
+                            },
+                        },
+                    });
+                    return;
+                }
+
+                chartInstance.options.animation = prefersReducedMotion || !animated
+                    ? false
+                    : {
+                        duration: 520,
+                        easing: 'easeOutQuart',
+                    };
+                chartInstance.data.labels = labels;
+                chartInstance.data.datasets = datasets;
+                chartInstance.update();
             };
 
             scaleButtons.forEach((button) => {
@@ -1453,22 +1299,31 @@ const initDashboardRenstraApexChart = () => {
                 button.addEventListener('click', () => {
                     const nextScale = (button.getAttribute('data-renstra-scale') || '').trim().toLowerCase();
                     if (nextScale === '' || nextScale === activeScale) return;
-                    if (!['3y', '5y', 'ytd', 'renstra'].includes(nextScale)) return;
                     activeScale = nextScale;
                     updateScaleButtonState(activeScale);
-                    updateChart(activeScale);
+                    renderChart(activeScale, true);
                 });
             });
 
             updateScaleButtonState(activeScale);
-            applyScaleToneClass(activeScale);
+            renderChart(activeScale, false);
+
+            if (chartRoot.dataset.renstraChartResizeBound !== '1') {
+                chartRoot.dataset.renstraChartResizeBound = '1';
+                window.addEventListener('resize', () => {
+                    if (chartInstance) {
+                        chartInstance.resize();
+                    }
+                });
+            }
+
+            chartRoot.dataset.renstraChartReady = '1';
         })
-        .catch((error) => {
-            const detail = error instanceof Error && error.message ? ` (${error.message})` : '';
-            chartFallback(`ApexCharts gagal dimuat. Silakan refresh halaman.${detail}`);
+        .catch(() => {
+            chartFallback('Chart.js gagal dimuat. Silakan periksa koneksi internet dan refresh halaman.');
         });
 
-    chartRoot.dataset.renstraApexBound = '1';
+    chartRoot.dataset.renstraScaleBound = '1';
 };
 
 const initDashboardSpeedometer = () => {
@@ -1605,7 +1460,7 @@ const initDashboardQaToggle = () => {
 const initDashboardHomePage = () => {
     initDashboardLevelRecapModal();
     initDashboardRenstraInputModal();
-    initDashboardRenstraApexChart();
+    initDashboardRenstraScaleSwitch();
     initDashboardQaToggle();
     initDashboardSpeedometer();
 };
@@ -1614,4 +1469,3 @@ document.addEventListener('DOMContentLoaded', initDashboardHomePage);
 document.addEventListener('livewire:navigated', initDashboardHomePage);
 </script>
 @endpush
-

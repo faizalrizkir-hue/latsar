@@ -1,0 +1,4078 @@
+﻿diff --git a/app/Http/Controllers/DashboardController.php b/app/Http/Controllers/DashboardController.php
+index 0dc6ee9c..d33dd4f7 100644
+--- a/app/Http/Controllers/DashboardController.php
++++ b/app/Http/Controllers/DashboardController.php
+@@ -5,15 +5,19 @@
+ use App\Http\Controllers\Controller;
+ use App\Models\Element1KegiatanAsurans;
+ use App\Models\ElementAssessment;
++use App\Models\ElementProgressArchive;
+ use App\Models\ElementTeamAssignment;
+ use App\Models\Notification;
++use App\Models\RenstraTrendOverride;
+ use App\Services\AssessmentSummaryCache;
+ use App\Services\DashboardShellDataBuilder;
+ use App\Services\ElementPreferenceService;
+ use App\Services\SchemaMetadataCache;
+ use App\Support\DashboardHomeViewNormalizer;
+ use Illuminate\Database\Eloquent\Model;
++use Illuminate\Http\Request;
+ use Illuminate\Support\Collection;
++use Illuminate\Support\Facades\Schema;
+ use Illuminate\Support\Facades\Session;
+ use Illuminate\Support\Str;
+ 
+@@ -47,6 +51,7 @@ public function index()
+         }
+ 
+         $sessionUser = (array) Session::get('user', []);
++        $canManageRenstraTrend = $this->isAdminRole((string) ($sessionUser['role'] ?? ''));
+         $summaryPayload = $this->assessmentSummaryCache->remember(
+             'dashboard-index',
+             $sessionUser,
+@@ -99,6 +104,7 @@ function () use ($sessionUser): array {
+                     ? $this->meterPercentFromScore($overallWeightedScoreQa)
+                     : 0;
+                 $meterNeedleDegQa = (float) number_format(-90 + (180 * ($meterPercentQa / 100)), 2, '.', '');
++                $renstraTrendSeries = $this->buildRenstraTrendSeries($summaryModules, $overallWeightedScore);
+ 
+                 return [
+                     'elementWeights' => $elementWeights,
+@@ -112,6 +118,7 @@ function () use ($sessionUser): array {
+                     'meterNeedleDeg' => $meterNeedleDeg,
+                     'meterPercentQa' => $meterPercentQa,
+                     'meterNeedleDegQa' => $meterNeedleDegQa,
++                    'renstraTrendSeries' => $renstraTrendSeries,
+                 ];
+             }
+         );
+@@ -129,6 +136,9 @@ function () use ($sessionUser): array {
+         $meterNeedleDeg = (float) ($summaryPayload['meterNeedleDeg'] ?? 0);
+         $meterPercentQa = (float) ($summaryPayload['meterPercentQa'] ?? 0);
+         $meterNeedleDegQa = (float) ($summaryPayload['meterNeedleDegQa'] ?? 0);
++        $renstraTrendSeries = is_array($summaryPayload['renstraTrendSeries'] ?? null)
++            ? $summaryPayload['renstraTrendSeries']
++            : [];
+ 
+         $elements = DashboardHomeViewNormalizer::enrichElements($elements, $accessibleElementSlugs);
+         $dashboardUi = DashboardHomeViewNormalizer::buildUiMeta(
+@@ -153,6 +163,8 @@ function () use ($sessionUser): array {
+             'meterNeedleDeg' => $meterNeedleDeg,
+             'meterPercentQa' => (float) number_format($meterPercentQa, 2, '.', ''),
+             'meterNeedleDegQa' => $meterNeedleDegQa,
++            'renstraTrendSeries' => $renstraTrendSeries,
++            'canManageRenstraTrend' => $canManageRenstraTrend,
+             'dashboardUi' => $dashboardUi,
+             'notifications' => $notifications,
+             'user' => Session::get('user'),
+@@ -164,6 +176,110 @@ function () use ($sessionUser): array {
+         return view('dashboard', array_merge($viewData, $shellData));
+     }
+ 
++    public function updateRenstraTrend(Request $request)
++    {
++        $overrideTable = (new RenstraTrendOverride())->getTable();
++        if (!Schema::hasTable($overrideTable)) {
++            return redirect()
++                ->route('dashboard')
++                ->with('status', 'Tabel pengaturan Renstra belum tersedia. Jalankan migrasi terlebih dahulu.');
++        }
++
++        $entriesInput = collect((array) $request->input('entries', []))
++            ->map(function ($item): array {
++                $entry = is_array($item) ? $item : [];
++
++                return [
++                    'year' => $entry['year'] ?? null,
++                    'hasil_score' => $this->normalizeNullableDecimalInput($entry['hasil_score'] ?? null),
++                    'target_score' => $this->normalizeNullableDecimalInput($entry['target_score'] ?? null),
++                ];
++            })
++            ->values()
++            ->all();
++        $request->merge(['entries' => $entriesInput]);
++
++        $validated = $request->validate([
++            'entries' => ['required', 'array', 'min:1'],
++            'entries.*.year' => ['required', 'integer', 'between:2018,2029'],
++            'entries.*.hasil_score' => ['nullable', 'numeric', 'between:0,5'],
++            'entries.*.target_score' => ['nullable', 'numeric', 'between:0,5'],
++        ]);
++
++        $entries = collect((array) ($validated['entries'] ?? []))
++            ->map(fn (array $entry): array => [
++                'year' => (int) ($entry['year'] ?? 0),
++                'hasil_score' => $this->normalizeScoreRange($entry['hasil_score'] ?? null),
++                'target_score' => $this->normalizeScoreRange($entry['target_score'] ?? null),
++            ])
++            ->filter(fn (array $entry): bool => $entry['year'] >= 2018 && $entry['year'] <= 2029)
++            ->unique('year')
++            ->values();
++
++        $sessionUser = (array) Session::get('user', []);
++        $updatedBy = trim((string) ($sessionUser['username'] ?? ''));
++        foreach ($entries as $entry) {
++            $year = (int) ($entry['year'] ?? 0);
++            $hasilScore = $entry['hasil_score'] ?? null;
++            $targetScore = $entry['target_score'] ?? null;
++
++            if ($hasilScore === null && $targetScore === null) {
++                RenstraTrendOverride::query()->where('year', $year)->delete();
++                continue;
++            }
++
++            RenstraTrendOverride::query()->updateOrCreate(
++                ['year' => $year],
++                [
++                    'hasil_score' => $hasilScore,
++                    'target_score' => $targetScore,
++                    'updated_by' => $updatedBy !== '' ? $updatedBy : null,
++                ]
++            );
++        }
++
++        $this->assessmentSummaryCache->bumpVersion();
++
++        return redirect()
++            ->route('dashboard')
++            ->with('status', 'Pengaturan grafik hasil dan target Renstra berhasil diperbarui.');
++    }
++
++    private function isAdminRole(string $role): bool
++    {
++        $normalizedRole = Str::lower(trim($role));
++        return in_array($normalizedRole, ['administrator', 'admin', 'superadmin'], true);
++    }
++
++    private function normalizeNullableDecimalInput(mixed $value): mixed
++    {
++        if ($value === null) {
++            return null;
++        }
++
++        if (is_string($value)) {
++            $normalized = trim(str_replace(',', '.', $value));
++            return $normalized === '' ? null : $normalized;
++        }
++
++        return $value;
++    }
++
++    private function normalizeScoreRange(mixed $value): ?float
++    {
++        if ($value === null || $value === '') {
++            return null;
++        }
++
++        if (!is_numeric($value)) {
++            return null;
++        }
++
++        $normalized = max(0, min(5, (float) $value));
++
++        return (float) number_format($normalized, 2, '.', '');
++    }
++
+     private function buildPhotoUrl(?string $path): string
+     {
+         if (!$path) {
+@@ -265,6 +381,321 @@ private function buildElementSummaries(array $summaryModules, array $subtopicMod
+         return $elements;
+     }
+ 
++    /**
++     * @param array<string, array<string, mixed>> $summaryModules
++     * @return array<int, array<string, mixed>>
++     */
++    private function buildRenstraTrendSeries(array $summaryModules, float $currentOverallWeightedScore): array
++    {
++        $periodTargets = [
++            [
++                'key' => 'renstra_2018_2022',
++                'label' => 'Renstra 2018 - 2022',
++                'start' => 2018,
++                'end' => 2022,
++            ],
++            [
++                'key' => 'renstra_2023_2026',
++                'label' => 'Renstra 2023 - 2026',
++                'start' => 2023,
++                'end' => 2024,
++            ],
++            [
++                'key' => 'renstra_2025_2029',
++                'label' => 'Renstra 2025 - 2029',
++                'start' => 2025,
++                'end' => 2029,
++            ],
++        ];
++        $targetScoresByYear = [
++            2018 => 3.00,
++            2019 => 4.00,
++            2020 => 4.00,
++            2021 => 4.00,
++            2022 => 5.00,
++            2023 => 3.25,
++            2024 => 3.50,
++            2025 => 3.00,
++            2026 => 3.00,
++            2027 => 3.00,
++            2028 => 3.00,
++            2029 => 3.00,
++        ];
++
++        $archiveScoresByYear = $this->archiveOverallScoresByBudgetYear($summaryModules);
++        $currentYear = (int) now()->format('Y');
++        $periodTargets = collect($periodTargets)
++            ->sortByDesc(fn (array $item): int => (int) ($item['start'] ?? 0))
++            ->values();
++
++        $startYear = (int) collect($periodTargets)->min(fn (array $item): int => (int) ($item['start'] ?? 0));
++        $endYear = (int) collect($periodTargets)->max(fn (array $item): int => (int) ($item['end'] ?? 0));
++
++        if ($startYear <= 0 || $endYear < $startYear) {
++            return [];
++        }
++
++        $years = range($startYear, $endYear);
++        $overrideTable = (new RenstraTrendOverride())->getTable();
++        $overridesByYear = collect();
++        if (Schema::hasTable($overrideTable)) {
++            $overridesByYear = RenstraTrendOverride::query()
++                ->whereBetween('year', [$startYear, $endYear])
++                ->get()
++                ->keyBy(fn (RenstraTrendOverride $item): int => (int) $item->year);
++        }
++
++        return collect($years)->map(function (int $year) use ($archiveScoresByYear, $currentYear, $currentOverallWeightedScore, $periodTargets, $targetScoresByYear, $overridesByYear): array {
++            /** @var RenstraTrendOverride|null $override */
++            $override = $overridesByYear->get($year);
++            $hasManualResult = is_numeric($override?->hasil_score);
++            $manualResultScore = $hasManualResult
++                ? (float) number_format(max(0, min(5, (float) $override->hasil_score)), 2, '.', '')
++                : null;
++            $hasManualTarget = is_numeric($override?->target_score);
++            $manualTargetScore = $hasManualTarget
++                ? (float) number_format(max(0, min(5, (float) $override->target_score)), 2, '.', '')
++                : null;
++
++            $resultScore = null;
++            $sourceLabel = 'Belum ada data arsip';
++            if ($hasManualResult) {
++                $resultScore = $manualResultScore;
++                $updatedByLabel = trim((string) ($override?->updated_by ?? ''));
++                $sourceLabel = $updatedByLabel !== ''
++                    ? 'Input manual admin ('.$updatedByLabel.')'
++                    : 'Input manual admin';
++            } elseif (array_key_exists($year, $archiveScoresByYear)) {
++                $resultScore = (float) $archiveScoresByYear[$year];
++                $sourceLabel = 'Arsip TA '.$year;
++            } elseif ($year === $currentYear) {
++                $resultScore = (float) $currentOverallWeightedScore;
++                $sourceLabel = 'Data aktif TA '.$currentYear;
++            }
++
++            $targetPeriod = $periodTargets->first(function (array $item) use ($year): bool {
++                $periodStart = (int) ($item['start'] ?? 0);
++                $periodEnd = (int) ($item['end'] ?? 0);
++                return $year >= $periodStart && $year <= $periodEnd;
++            });
++            $targetScore = $hasManualTarget
++                ? $manualTargetScore
++                : (array_key_exists($year, $targetScoresByYear) && is_numeric($targetScoresByYear[$year] ?? null)
++                    ? (float) $targetScoresByYear[$year]
++                    : null);
++
++            $hasResultData = is_numeric($resultScore);
++            $normalizedResultScore = $hasResultData
++                ? (float) number_format(max(0, min(5, (float) $resultScore)), 2, '.', '')
++                : null;
++            $resultLevelData = $hasResultData
++                ? $this->getLevelData((float) $normalizedResultScore)
++                : ['level' => null, 'predikat' => 'Belum Dinilai', 'description' => 'Belum ada data penilaian pada tahun ini.'];
++            $resultLevel = is_numeric($resultLevelData['level'] ?? null) ? (int) $resultLevelData['level'] : null;
++
++            $hasTargetData = is_numeric($targetScore);
++            $normalizedTargetScore = $hasTargetData
++                ? (float) number_format(max(0, min(5, (float) $targetScore)), 2, '.', '')
++                : null;
++
++            return [
++                'year' => $year,
++                'year_label' => (string) $year,
++                'renstra_label' => is_array($targetPeriod) ? (string) ($targetPeriod['label'] ?? '-') : '-',
++                'hasil_has_data' => $hasResultData,
++                'hasil_score' => $normalizedResultScore,
++                'hasil_score_label' => $hasResultData ? number_format((float) $normalizedResultScore, 2) : '-',
++                'hasil_percent' => $hasResultData ? (float) number_format(((float) $normalizedResultScore / 5) * 100, 2, '.', '') : 0.0,
++                'hasil_level' => $resultLevel,
++                'hasil_level_class' => $resultLevel !== null ? 'is-level-'.$resultLevel : 'pending',
++                'hasil_predikat' => (string) ($resultLevelData['predikat'] ?? 'Belum Dinilai'),
++                'hasil_source_label' => $sourceLabel,
++                'hasil_manual' => $hasManualResult,
++                'hasil_input_value' => $hasManualResult ? number_format((float) $manualResultScore, 2, '.', '') : null,
++                'target_has_data' => $hasTargetData,
++                'target_score' => $normalizedTargetScore,
++                'target_score_label' => $hasTargetData ? number_format((float) $normalizedTargetScore, 2) : '-',
++                'target_percent' => $hasTargetData ? (float) number_format(((float) $normalizedTargetScore / 5) * 100, 2, '.', '') : 0.0,
++                'target_level_label' => $hasTargetData ? ('L'.((int) ($this->getLevelData((float) $normalizedTargetScore)['level'] ?? 0))) : '-',
++                'target_manual' => $hasManualTarget,
++                'target_input_value' => $hasManualTarget ? number_format((float) $manualTargetScore, 2, '.', '') : null,
++            ];
++        })->all();
++    }
++
++    /**
++     * @param array<string, array<string, mixed>> $summaryModules
++     * @return array<int, float>
++     */
++    private function archiveOverallScoresByBudgetYear(array $summaryModules): array
++    {
++        if (!$this->elementPreferenceService->hasProgressArchiveTable()) {
++            return [];
++        }
++
++        $archives = ElementProgressArchive::query()
++            ->select(['id', 'budget_year', 'snapshot', 'updated_at'])
++            ->orderBy('budget_year')
++            ->orderBy('updated_at')
++            ->orderBy('id')
++            ->get();
++
++        if ($archives->isEmpty()) {
++            return [];
++        }
++
++        $scoresByYear = [];
++        foreach ($archives as $archive) {
++            $year = is_numeric($archive->budget_year ?? null) ? (int) $archive->budget_year : 0;
++            if ($year <= 0) {
++                continue;
++            }
++
++            $snapshot = is_array($archive->snapshot) ? $archive->snapshot : [];
++            $score = $this->calculateOverallScoreFromArchiveSnapshot($snapshot, $summaryModules);
++            if (!is_numeric($score)) {
++                continue;
++            }
++
++            $scoresByYear[$year] = (float) $score;
++        }
++
++        return $scoresByYear;
++    }
++
++    /**
++     * @param array<string, mixed> $snapshot
++     * @param array<string, array<string, mixed>> $summaryModules
++     */
++    private function calculateOverallScoreFromArchiveSnapshot(array $snapshot, array $summaryModules): ?float
++    {
++        $snapshotTables = is_array($snapshot['tables'] ?? null)
++            ? (array) $snapshot['tables']
++            : [];
++        $assessmentTable = $snapshotTables['element_assessments'] ?? null;
++        if (!is_array($assessmentTable)) {
++            return null;
++        }
++
++        $assessmentRows = is_array($assessmentTable['rows'] ?? null)
++            ? (array) ($assessmentTable['rows'] ?? [])
++            : [];
++        if (count($assessmentRows) === 0) {
++            return null;
++        }
++
++        $latestScoreBySubtopic = [];
++        foreach ($assessmentRows as $row) {
++            if (!is_array($row)) {
++                continue;
++            }
++
++            $subtopicSlug = trim((string) ($row['subtopic_slug'] ?? ''));
++            $weightedTotal = is_numeric($row['weighted_total'] ?? null)
++                ? (float) $row['weighted_total']
++                : null;
++            if ($subtopicSlug === '' || $weightedTotal === null) {
++                continue;
++            }
++
++            $createdAtRaw = trim((string) ($row['created_at'] ?? ''));
++            $createdAtTs = $createdAtRaw !== '' ? (int) strtotime($createdAtRaw) : 0;
++            $rowId = is_numeric($row['id'] ?? null) ? (int) $row['id'] : 0;
++
++            $existing = $latestScoreBySubtopic[$subtopicSlug] ?? null;
++            if (!is_array($existing)) {
++                $latestScoreBySubtopic[$subtopicSlug] = [
++                    'score' => (float) number_format($weightedTotal, 2, '.', ''),
++                    'created_at_ts' => $createdAtTs,
++                    'id' => $rowId,
++                ];
++                continue;
++            }
++
++            $isNewer = $createdAtTs > (int) ($existing['created_at_ts'] ?? 0)
++                || ($createdAtTs === (int) ($existing['created_at_ts'] ?? 0) && $rowId > (int) ($existing['id'] ?? 0));
++            if ($isNewer) {
++                $latestScoreBySubtopic[$subtopicSlug] = [
++                    'score' => (float) number_format($weightedTotal, 2, '.', ''),
++                    'created_at_ts' => $createdAtTs,
++                    'id' => $rowId,
++                ];
++            }
++        }
++
++        if (count($latestScoreBySubtopic) === 0) {
++            return null;
++        }
++
++        $overallScore = 0.0;
++        $hasAnyElementData = false;
++
++        foreach ($summaryModules as $elementSlug => $summaryConfig) {
++            if (!is_array($summaryConfig)) {
++                continue;
++            }
++
++            $elementWeight = (float) ($summaryConfig['element_weight'] ?? 0);
++            $subtopicSlugs = collect((array) ($summaryConfig['subtopic_slugs'] ?? []))
++                ->map(fn ($slug) => trim((string) $slug))
++                ->filter(fn (string $slug): bool => $slug !== '')
++                ->values();
++            if ($subtopicSlugs->isEmpty()) {
++                continue;
++            }
++
++            $configuredWeightsRaw = collect((array) ($summaryConfig['subtopic_weights'] ?? []))
++                ->mapWithKeys(function ($weight, $slug): array {
++                    return [(string) $slug => (float) $weight];
++                });
++            $configuredWeightTotal = (float) $configuredWeightsRaw->sum();
++            $weightDivider = $configuredWeightTotal > 1.5 ? 100 : 1;
++            $configuredWeights = $configuredWeightsRaw
++                ->map(fn ($weight) => (float) $weight / $weightDivider);
++
++            $defaultWeight = 0.0;
++            if ($configuredWeights->isEmpty()) {
++                $defaultWeight = 1 / max(1, $subtopicSlugs->count());
++            } else {
++                $missingCount = (int) $subtopicSlugs
++                    ->filter(fn (string $slug): bool => !$configuredWeights->has($slug))
++                    ->count();
++                $configuredTotal = (float) $configuredWeights->sum();
++                if ($missingCount > 0 && $configuredTotal < 1) {
++                    $defaultWeight = (1 - $configuredTotal) / $missingCount;
++                }
++            }
++
++            $elementRawScore = 0.0;
++            $elementHasData = false;
++            foreach ($subtopicSlugs as $subtopicSlug) {
++                $subtopicSnapshot = $latestScoreBySubtopic[(string) $subtopicSlug] ?? null;
++                if (!is_array($subtopicSnapshot) || !is_numeric($subtopicSnapshot['score'] ?? null)) {
++                    continue;
++                }
++
++                $subtopicScore = (float) ($subtopicSnapshot['score'] ?? 0);
++                $subtopicWeight = (float) ($configuredWeights->get((string) $subtopicSlug, $defaultWeight));
++                $elementRawScore += ($subtopicScore * $subtopicWeight);
++                $elementHasData = true;
++            }
++
++            if (!$elementHasData) {
++                continue;
++            }
++
++            $elementScore = (float) number_format($elementRawScore, 2, '.', '');
++            $overallScore += ($elementScore * $elementWeight);
++            $hasAnyElementData = true;
++        }
++
++        if (!$hasAnyElementData) {
++            return null;
++        }
++
++        return (float) number_format($overallScore, 2, '.', '');
++    }
++
+     private function buildSubtopicSummaries(string $elementSlug, array $summaryConfig, array $subtopicModules): array
+     {
+         $preferredSlugs = collect((array) ($summaryConfig['subtopic_slugs'] ?? []))
+diff --git a/public/css/dashboard-home.css b/public/css/dashboard-home.css
+index 4b52c947..1047dc3a 100644
+--- a/public/css/dashboard-home.css
++++ b/public/css/dashboard-home.css
+@@ -7,19 +7,6 @@ .apip-home-page {
+     --apip-card-border-dark-strong: rgba(147, 197, 253, 0.62);
+ }
+ 
+-/* Pastikan floating QA toggle benar-benar menempel ke viewport saat scroll. */
+-body.legacy-page {
+-    transform: none !important;
+-    animation: none !important;
+-    opacity: 1 !important;
+-}
+-
+-body.legacy-page .app,
+-body.legacy-page .content.legacy-content,
+-body.legacy-page .content-panel.legacy-container {
+-    transform: none !important;
+-}
+-
+ .apip-home-page .qa-only:not(.qa-meter-overlay) {
+     opacity: 1;
+     transform: translate3d(0, 0, 0);
+@@ -451,85 +438,1696 @@ .meter-level.is-level-2 .meter-predikat {
+     color: #d97706;
+ }
+ 
+-.meter-level.is-level-3 .meter-predikat {
+-    color: #16a34a;
++.meter-level.is-level-3 .meter-predikat {
++    color: #16a34a;
++}
++
++.meter-level.is-level-4 .meter-predikat {
++    color: #2563eb;
++}
++
++.meter-level.is-level-5 .meter-predikat {
++    color: #7c3aed;
++}
++
++.meter-level.pending .meter-predikat {
++    color: #64748b;
++}
++
++.meter-note {
++    margin: 0;
++    color: var(--text-muted);
++    font-size: 0.8rem;
++    line-height: 1.45;
++    text-align: justify;
++    text-justify: inter-word;
++}
++
++.apip-home-page .qa-level-font {
++    font-family: "Georgia", "Times New Roman", serif;
++    font-style: italic;
++    font-weight: 700;
++    letter-spacing: 0.01em;
++}
++
++.apip-meter-card.is-level-1 {
++    --meter-tone: #dc2626;
++}
++
++.apip-meter-card.is-level-2 {
++    --meter-tone: #d97706;
++}
++
++.apip-meter-card.is-level-3 {
++    --meter-tone: #16a34a;
++}
++
++.apip-meter-card.is-level-4 {
++    --meter-tone: #2563eb;
++}
++
++.apip-meter-card.is-level-5 {
++    --meter-tone: #7c3aed;
++}
++
++.apip-meter-card.pending {
++    --meter-tone: #64748b;
++}
++
++.apip-element-summary-card {
++    display: grid;
++    gap: 10px;
++    padding: 14px;
++    border: 2px solid var(--apip-card-border);
++}
++
++.apip-summary-head-top {
++    display: flex;
++    align-items: flex-start;
++    justify-content: space-between;
++    gap: 10px;
++}
++
++.apip-summary-actions {
++    margin-left: auto;
++    display: inline-flex;
++    align-items: center;
++    gap: 8px;
++}
++
++.apip-summary-hint {
++    flex: 0 0 auto;
++}
++
++.apip-renstra-trend-card {
++    --apip-renstra-bars-height: 220px;
++    --apip-renstra-top-safe: 10px;
++    --apip-renstra-label-row-height: 36px;
++    --apip-renstra-chart-total-height: calc(var(--apip-renstra-bars-height) + var(--apip-renstra-label-row-height) + var(--apip-renstra-top-safe));
++    --apip-renstra-baseline-offset: var(--apip-renstra-label-row-height);
++    position: relative;
++    isolation: isolate;
++    overflow: hidden;
++    gap: 12px;
++    border: 2px solid #7fa9e3;
++    box-shadow:
++        0 20px 36px rgba(37, 99, 235, 0.16),
++        0 10px 22px rgba(15, 23, 42, 0.1),
++        inset 0 1px 0 rgba(255, 255, 255, 0.92);
++    background:
++        radial-gradient(125% 105% at 8% -26%, rgba(96, 165, 250, 0.24), rgba(96, 165, 250, 0) 56%),
++        radial-gradient(90% 90% at 92% 106%, rgba(45, 212, 191, 0.14), rgba(45, 212, 191, 0) 62%),
++        linear-gradient(180deg, #f8fbff 0%, #eff6ff 100%);
++}
++
++.apip-renstra-trend-card::before {
++    content: "";
++    position: absolute;
++    left: 0;
++    right: 0;
++    top: 0;
++    height: 4px;
++    background: linear-gradient(90deg, #2f5de6 0%, #32b9e8 46%, #2ec9a4 100%);
++    opacity: 0.92;
++    pointer-events: none;
++    z-index: 0;
++}
++
++.apip-renstra-trend-card::after {
++    content: none;
++}
++
++.apip-renstra-trend-card:hover {
++    border-color: #6799db;
++    box-shadow:
++        0 24px 42px rgba(37, 99, 235, 0.2),
++        0 12px 24px rgba(15, 23, 42, 0.12),
++        inset 0 1px 0 rgba(255, 255, 255, 0.94);
++}
++
++.apip-renstra-trend-card > * {
++    position: relative;
++    z-index: 1;
++}
++
++.apip-renstra-chart-legend {
++    display: flex;
++    flex-wrap: wrap;
++    gap: 10px;
++    align-items: center;
++    justify-content: space-between;
++}
++
++.apip-renstra-chart-legend-main {
++    display: inline-flex;
++    flex-wrap: wrap;
++    align-items: center;
++    gap: 10px;
++}
++
++.apip-renstra-scale-switch {
++    display: inline-flex;
++    align-items: center;
++    gap: 6px;
++    padding: 3px;
++    border-radius: 999px;
++    border: 1px solid #bfd1ea;
++    background: linear-gradient(180deg, rgba(247, 252, 255, 0.98), rgba(236, 245, 255, 0.96));
++    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
++}
++
++.apip-renstra-scale-btn {
++    min-height: 28px;
++    padding: 0 12px;
++    border: 1px solid transparent;
++    border-radius: 999px;
++    background: transparent;
++    color: #486388;
++    font-size: 0.75rem;
++    font-weight: 800;
++    letter-spacing: 0.01em;
++    cursor: pointer;
++    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.16s ease, box-shadow 0.2s ease;
++}
++
++.apip-renstra-scale-btn:hover {
++    transform: translateY(-1px);
++    color: #254979;
++}
++
++.apip-renstra-scale-btn.is-active {
++    border-color: rgba(91, 142, 224, 0.62);
++    background: linear-gradient(180deg, #fefefe, #e9f2ff);
++    color: #1d3f78;
++    box-shadow: 0 6px 12px rgba(37, 99, 235, 0.14);
++}
++
++.apip-renstra-scale-btn:focus-visible {
++    outline: 2px solid rgba(59, 130, 246, 0.42);
++    outline-offset: 1px;
++}
++
++.apip-renstra-manage-btn {
++    display: inline-flex;
++    align-items: center;
++    justify-content: center;
++    min-height: 34px;
++    padding: 0 14px;
++    border-radius: 999px;
++    border: 1px solid rgba(87, 129, 214, 0.78);
++    background: linear-gradient(180deg, #edf4ff, #dceaff);
++    color: #1d3f8a;
++    font-size: 0.8rem;
++    font-weight: 800;
++    letter-spacing: 0.01em;
++    line-height: 1;
++    cursor: pointer;
++    box-shadow: 0 8px 16px rgba(37, 99, 235, 0.16);
++    transition: transform 0.18s ease, box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease;
++}
++
++.apip-renstra-manage-btn:hover {
++    transform: translateY(-1px);
++    border-color: rgba(61, 112, 206, 0.9);
++    background: linear-gradient(180deg, #e3efff, #d0e3ff);
++    box-shadow: 0 10px 20px rgba(37, 99, 235, 0.22);
++}
++
++.apip-renstra-manage-btn:active {
++    transform: translateY(0);
++}
++
++.apip-renstra-manage-btn:focus-visible {
++    outline: 2px solid rgba(59, 130, 246, 0.42);
++    outline-offset: 2px;
++}
++
++.apip-renstra-legend-item {
++    display: inline-flex;
++    align-items: center;
++    gap: 6px;
++    padding: 4px 10px;
++    border-radius: 999px;
++    border: 1px solid #bfd1ea;
++    background: linear-gradient(180deg, rgba(248, 252, 255, 0.98), rgba(238, 246, 255, 0.96));
++    font-size: 0.76rem;
++    color: #345178;
++    font-weight: 700;
++}
++
++.apip-renstra-legend-btn {
++    cursor: pointer;
++    transition: transform 0.16s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
++}
++
++.apip-renstra-legend-btn:hover {
++    transform: translateY(-1px);
++    border-color: #9fbae0;
++    background: linear-gradient(180deg, rgba(252, 255, 255, 0.99), rgba(231, 242, 255, 0.97));
++    box-shadow: 0 8px 16px rgba(37, 99, 235, 0.14);
++}
++
++.apip-renstra-legend-btn:active {
++    transform: translateY(0);
++}
++
++.apip-renstra-legend-btn:focus-visible {
++    outline: 2px solid rgba(59, 130, 246, 0.42);
++    outline-offset: 2px;
++}
++
++.apip-renstra-legend-item--note {
++    border-style: dashed;
++    color: #506787;
++}
++
++.apip-renstra-status-note {
++    display: inline-flex;
++    align-items: center;
++    min-height: 28px;
++    padding: 0 10px;
++    border-radius: 999px;
++    border: 1px solid #8fd8b4;
++    background: linear-gradient(180deg, #f2fff8, #e8faf1);
++    color: #1f6b4a;
++    font-size: 0.75rem;
++    font-weight: 800;
++}
++
++.apip-renstra-legend-swatch {
++    display: inline-block;
++    width: 10px;
++    height: 10px;
++    border-radius: 999px;
++}
++
++.apip-renstra-legend-swatch.is-hasil {
++    background: linear-gradient(180deg, #3843f4, #1f2be2);
++}
++
++.apip-renstra-legend-swatch.is-target {
++    background: linear-gradient(180deg, #34d6c9, #22bfb3);
++}
++
++.apip-renstra-bar-chart {
++    display: grid;
++    gap: 8px;
++    position: relative;
++    isolation: isolate;
++    padding: 10px 10px 12px;
++    border: 2px solid rgba(151, 181, 220, 0.86);
++    border-radius: 16px;
++    background:
++        linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(238, 247, 255, 0.84));
++    box-shadow:
++        inset 0 1px 0 rgba(255, 255, 255, 0.85),
++        0 12px 22px rgba(15, 23, 42, 0.08);
++    transition: opacity 0.24s ease, transform 0.24s ease;
++}
++
++.apip-renstra-bar-chart--chartjs {
++    gap: 10px;
++}
++
++.apip-renstra-bar-chart.is-scaling {
++    opacity: 0.76;
++    transform: translateY(3px);
++}
++
++.apip-renstra-chartjs-wrap {
++    position: relative;
++    min-height: 318px;
++    border-radius: 14px;
++    border: 1px solid rgba(176, 198, 226, 0.6);
++    background: linear-gradient(180deg, rgba(249, 252, 255, 0.95), rgba(240, 247, 255, 0.9));
++    padding: 10px 10px 8px;
++}
++
++.apip-renstra-chartjs-canvas {
++    display: block;
++    width: 100%;
++    height: 288px;
++}
++
++.apip-renstra-main-row {
++    display: flex;
++    gap: 12px;
++    align-items: flex-start;
++    position: relative;
++    isolation: isolate;
++}
++
++.apip-renstra-y-axis {
++    flex: 0 0 32px;
++    height: var(--apip-renstra-chart-total-height);
++    padding-top: var(--apip-renstra-top-safe);
++    padding-bottom: var(--apip-renstra-baseline-offset);
++    display: flex;
++    flex-direction: column;
++    justify-content: space-between;
++    align-items: flex-end;
++    font-size: 0.72rem;
++    color: #5a7092;
++    font-weight: 700;
++    position: relative;
++    z-index: 1;
++}
++
++.apip-renstra-y-axis span {
++    transform: none;
++}
++
++.apip-renstra-plot-wrap {
++    position: relative;
++    flex: 1 1 auto;
++    height: var(--apip-renstra-chart-total-height);
++    min-height: var(--apip-renstra-chart-total-height);
++    overflow: visible;
++    padding: 0 8px;
++    border-radius: 14px;
++    border: 1px solid rgba(176, 198, 226, 0.6);
++    background: linear-gradient(180deg, rgba(249, 252, 255, 0.95), rgba(240, 247, 255, 0.9));
++    z-index: 2;
++}
++
++.apip-renstra-grid {
++    position: absolute;
++    left: 8px;
++    top: var(--apip-renstra-top-safe);
++    right: 8px;
++    bottom: var(--apip-renstra-baseline-offset);
++    display: grid;
++    grid-template-rows: repeat(5, 1fr);
++    min-width: max(100%, calc(var(--year-count, 1) * 72px));
++    pointer-events: none;
++    border-bottom: 1px solid #adc4e7;
++    z-index: 0;
++}
++
++.apip-renstra-grid-line {
++    border-top: 1px solid #d8e5f7;
++}
++
++.apip-renstra-grid-line:last-child {
++    border-top-color: #d8e5f7;
++}
++
++.apip-renstra-trend-overlay {
++    position: absolute;
++    left: 8px;
++    top: var(--apip-renstra-top-safe);
++    right: 8px;
++    bottom: var(--apip-renstra-baseline-offset);
++    width: auto;
++    height: auto;
++    z-index: 2;
++    pointer-events: none;
++    overflow: visible;
++}
++
++.apip-renstra-trend-line {
++    fill: none;
++    stroke: #f28a22;
++    stroke-width: 2.7;
++    stroke-linecap: round;
++    stroke-linejoin: round;
++    opacity: 0.94;
++    filter: drop-shadow(0 3px 9px rgba(242, 138, 34, 0.34));
++}
++
++.apip-renstra-trend-line.is-single-point {
++    opacity: 0;
++}
++
++.apip-renstra-trend-dot {
++    fill: #fff7ed;
++    stroke: #f28a22;
++    stroke-width: 2;
++    filter: drop-shadow(0 2px 8px rgba(242, 138, 34, 0.32));
++    opacity: 0;
++    transform-origin: center;
++}
++
++@keyframes apipRenstraTrendDotPop {
++    0% {
++        opacity: 0;
++        transform: scale(0.55);
++    }
++    70% {
++        opacity: 1;
++        transform: scale(1.16);
++    }
++    100% {
++        opacity: 1;
++        transform: scale(1);
++    }
++}
++
++.apip-renstra-bar-chart.is-trend-empty .apip-renstra-trend-overlay {
++    opacity: 0;
++}
++
++.apip-renstra-bar-chart.is-trend-pending .apip-renstra-trend-overlay {
++    opacity: 0;
++}
++
++.apip-renstra-years {
++    position: relative;
++    z-index: 1;
++    display: grid;
++    grid-template-columns: repeat(var(--year-count, 1), minmax(64px, 1fr));
++    gap: 10px;
++    align-items: end;
++    min-width: max(100%, calc(var(--year-count, 1) * 72px));
++    min-height: var(--apip-renstra-chart-total-height);
++}
++
++.apip-renstra-year-group {
++    --renstra-year-index: 0;
++    position: relative;
++    display: grid;
++    grid-template-rows: calc(var(--apip-renstra-bars-height) + var(--apip-renstra-top-safe)) auto;
++    gap: 8px;
++    min-width: 0;
++    border-radius: 12px;
++    padding: 2px;
++    transition: transform 180ms ease;
++}
++
++.apip-renstra-ranges {
++    display: grid;
++    grid-template-columns: repeat(var(--year-count, 1), minmax(64px, 1fr));
++    gap: 10px;
++    min-width: max(100%, calc(var(--year-count, 1) * 72px));
++    margin-top: 2px;
++}
++
++.apip-renstra-ranges-wrap {
++    margin-left: 44px;
++    margin-top: -2px;
++    padding: 0 8px;
++    overflow-x: hidden;
++    overflow-y: visible;
++    max-height: 56px;
++    opacity: 1;
++    transition: max-height 0.25s ease, opacity 0.22s ease, margin-top 0.22s ease;
++}
++
++.apip-renstra-bar-chart.is-ranges-hidden .apip-renstra-ranges-wrap {
++    max-height: 0;
++    margin-top: 0;
++    opacity: 0;
++    pointer-events: none;
++}
++
++.apip-renstra-range-chip {
++    display: inline-flex;
++    align-items: center;
++    justify-content: center;
++    min-height: 30px;
++    padding: 4px 8px;
++    border-radius: 999px;
++    border: 1px solid #a9c4e7;
++    background: linear-gradient(180deg, rgba(252, 255, 255, 0.98), rgba(235, 245, 255, 0.95));
++    font-size: 0.76rem;
++    color: #345178;
++    font-weight: 700;
++    line-height: 1.25;
++    text-align: center;
++    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82), 0 4px 12px rgba(15, 23, 42, 0.08);
++}
++
++.apip-renstra-year-bars {
++    position: relative;
++    display: flex;
++    align-items: flex-end;
++    justify-content: center;
++    gap: 8px;
++    height: calc(var(--apip-renstra-bars-height) + var(--apip-renstra-top-safe));
++    overflow: visible;
++    z-index: 2;
++}
++
++.apip-renstra-bar-shell {
++    position: relative;
++    flex: 0 0 18px;
++    min-width: 18px;
++    min-height: calc(var(--apip-renstra-bars-height) + var(--apip-renstra-top-safe));
++    display: flex;
++    align-items: flex-end;
++    justify-content: center;
++    z-index: 1;
++}
++
++.apip-renstra-bar-track {
++    position: relative;
++    width: 14px;
++    height: var(--apip-renstra-bars-height);
++    border-radius: 999px;
++    background: transparent;
++    overflow: visible;
++    display: flex;
++    align-items: flex-end;
++    z-index: 1;
++}
++
++.apip-renstra-bar-track.is-target {
++    border: none;
++}
++
++.apip-renstra-bar-fill {
++    --renstra-bar-delay: 0ms;
++    display: block;
++    width: 14px;
++    min-height: 0;
++    height: 0;
++    border-radius: 999px;
++    transition: height 360ms ease, transform 180ms ease, filter 180ms ease, box-shadow 180ms ease;
++    transform-origin: bottom center;
++    position: relative;
++    cursor: pointer;
++    z-index: 2;
++    opacity: 0;
++    transform: scaleY(0);
++    animation: apipRenstraBarRise 760ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
++    animation-delay: calc((var(--renstra-year-index, 0) * 56ms) + var(--renstra-bar-delay, 0ms));
++    will-change: transform, opacity;
++}
++
++@keyframes apipRenstraBarRise {
++    0% {
++        opacity: 0.18;
++        transform: scaleY(0);
++    }
++    65% {
++        opacity: 1;
++        transform: scaleY(1.05);
++    }
++    100% {
++        opacity: 1;
++        transform: scaleY(1);
++    }
++}
++
++.apip-renstra-bar-fill.is-hasil {
++    background: linear-gradient(180deg, #3f4dff 0%, #1e28d6 100%);
++    box-shadow: 0 6px 14px rgba(31, 42, 216, 0.24);
++}
++
++.apip-renstra-bar-fill.is-target {
++    background: linear-gradient(180deg, #43dccf 0%, #22bfb3 100%);
++    box-shadow: 0 6px 14px rgba(34, 191, 179, 0.24);
++}
++
++.apip-renstra-bar-fill::after {
++    content: attr(title);
++    position: absolute;
++    left: 50%;
++    bottom: calc(100% + 8px);
++    transform: translate(-50%, 6px);
++    white-space: nowrap;
++    padding: 4px 8px;
++    border-radius: 8px;
++    border: 1px solid rgba(173, 190, 215, 0.85);
++    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(242, 248, 255, 0.96));
++    color: #284568;
++    font-size: 0.68rem;
++    font-weight: 700;
++    letter-spacing: 0.01em;
++    box-shadow: 0 8px 16px rgba(15, 23, 42, 0.14);
++    opacity: 0;
++    pointer-events: none;
++    transition: opacity 140ms ease, transform 140ms ease;
++    z-index: 900;
++}
++
++@media (hover: hover) {
++    .apip-renstra-year-group:hover {
++        transform: translateY(-2px);
++        z-index: 3;
++    }
++
++    .apip-renstra-year-group:hover .apip-renstra-year-label {
++        color: #173e73;
++    }
++
++    .apip-renstra-bar-shell:hover,
++    .apip-renstra-bar-shell:focus-within {
++        z-index: 420;
++    }
++
++    .apip-renstra-bar-track:hover,
++    .apip-renstra-bar-track:focus-within {
++        z-index: 440;
++    }
++
++    .apip-renstra-bar-fill:hover {
++        transform: translateY(-2px) scaleX(1.14) !important;
++        filter: saturate(1.14) brightness(1.08);
++        z-index: 460;
++    }
++
++    .apip-renstra-bar-fill:hover::after {
++        opacity: 1;
++        transform: translate(-50%, 0);
++        z-index: 480;
++    }
++
++    .apip-renstra-range-chip:hover {
++        border-color: rgba(91, 153, 238, 0.66);
++        background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(226, 239, 255, 0.96));
++        color: #1f4e88;
++        box-shadow: 0 8px 16px rgba(37, 99, 235, 0.14);
++    }
++}
++
++/* apip-bar-height-classes:start */
++.apip-bar-h-0 { height: 0% !important; }
++.apip-bar-h-1 { height: 1% !important; }
++.apip-bar-h-2 { height: 2% !important; }
++.apip-bar-h-3 { height: 3% !important; }
++.apip-bar-h-4 { height: 4% !important; }
++.apip-bar-h-5 { height: 5% !important; }
++.apip-bar-h-6 { height: 6% !important; }
++.apip-bar-h-7 { height: 7% !important; }
++.apip-bar-h-8 { height: 8% !important; }
++.apip-bar-h-9 { height: 9% !important; }
++.apip-bar-h-10 { height: 10% !important; }
++.apip-bar-h-11 { height: 11% !important; }
++.apip-bar-h-12 { height: 12% !important; }
++.apip-bar-h-13 { height: 13% !important; }
++.apip-bar-h-14 { height: 14% !important; }
++.apip-bar-h-15 { height: 15% !important; }
++.apip-bar-h-16 { height: 16% !important; }
++.apip-bar-h-17 { height: 17% !important; }
++.apip-bar-h-18 { height: 18% !important; }
++.apip-bar-h-19 { height: 19% !important; }
++.apip-bar-h-20 { height: 20% !important; }
++.apip-bar-h-21 { height: 21% !important; }
++.apip-bar-h-22 { height: 22% !important; }
++.apip-bar-h-23 { height: 23% !important; }
++.apip-bar-h-24 { height: 24% !important; }
++.apip-bar-h-25 { height: 25% !important; }
++.apip-bar-h-26 { height: 26% !important; }
++.apip-bar-h-27 { height: 27% !important; }
++.apip-bar-h-28 { height: 28% !important; }
++.apip-bar-h-29 { height: 29% !important; }
++.apip-bar-h-30 { height: 30% !important; }
++.apip-bar-h-31 { height: 31% !important; }
++.apip-bar-h-32 { height: 32% !important; }
++.apip-bar-h-33 { height: 33% !important; }
++.apip-bar-h-34 { height: 34% !important; }
++.apip-bar-h-35 { height: 35% !important; }
++.apip-bar-h-36 { height: 36% !important; }
++.apip-bar-h-37 { height: 37% !important; }
++.apip-bar-h-38 { height: 38% !important; }
++.apip-bar-h-39 { height: 39% !important; }
++.apip-bar-h-40 { height: 40% !important; }
++.apip-bar-h-41 { height: 41% !important; }
++.apip-bar-h-42 { height: 42% !important; }
++.apip-bar-h-43 { height: 43% !important; }
++.apip-bar-h-44 { height: 44% !important; }
++.apip-bar-h-45 { height: 45% !important; }
++.apip-bar-h-46 { height: 46% !important; }
++.apip-bar-h-47 { height: 47% !important; }
++.apip-bar-h-48 { height: 48% !important; }
++.apip-bar-h-49 { height: 49% !important; }
++.apip-bar-h-50 { height: 50% !important; }
++.apip-bar-h-51 { height: 51% !important; }
++.apip-bar-h-52 { height: 52% !important; }
++.apip-bar-h-53 { height: 53% !important; }
++.apip-bar-h-54 { height: 54% !important; }
++.apip-bar-h-55 { height: 55% !important; }
++.apip-bar-h-56 { height: 56% !important; }
++.apip-bar-h-57 { height: 57% !important; }
++.apip-bar-h-58 { height: 58% !important; }
++.apip-bar-h-59 { height: 59% !important; }
++.apip-bar-h-60 { height: 60% !important; }
++.apip-bar-h-61 { height: 61% !important; }
++.apip-bar-h-62 { height: 62% !important; }
++.apip-bar-h-63 { height: 63% !important; }
++.apip-bar-h-64 { height: 64% !important; }
++.apip-bar-h-65 { height: 65% !important; }
++.apip-bar-h-66 { height: 66% !important; }
++.apip-bar-h-67 { height: 67% !important; }
++.apip-bar-h-68 { height: 68% !important; }
++.apip-bar-h-69 { height: 69% !important; }
++.apip-bar-h-70 { height: 70% !important; }
++.apip-bar-h-71 { height: 71% !important; }
++.apip-bar-h-72 { height: 72% !important; }
++.apip-bar-h-73 { height: 73% !important; }
++.apip-bar-h-74 { height: 74% !important; }
++.apip-bar-h-75 { height: 75% !important; }
++.apip-bar-h-76 { height: 76% !important; }
++.apip-bar-h-77 { height: 77% !important; }
++.apip-bar-h-78 { height: 78% !important; }
++.apip-bar-h-79 { height: 79% !important; }
++.apip-bar-h-80 { height: 80% !important; }
++.apip-bar-h-81 { height: 81% !important; }
++.apip-bar-h-82 { height: 82% !important; }
++.apip-bar-h-83 { height: 83% !important; }
++.apip-bar-h-84 { height: 84% !important; }
++.apip-bar-h-85 { height: 85% !important; }
++.apip-bar-h-86 { height: 86% !important; }
++.apip-bar-h-87 { height: 87% !important; }
++.apip-bar-h-88 { height: 88% !important; }
++.apip-bar-h-89 { height: 89% !important; }
++.apip-bar-h-90 { height: 90% !important; }
++.apip-bar-h-91 { height: 91% !important; }
++.apip-bar-h-92 { height: 92% !important; }
++.apip-bar-h-93 { height: 93% !important; }
++.apip-bar-h-94 { height: 94% !important; }
++.apip-bar-h-95 { height: 95% !important; }
++.apip-bar-h-96 { height: 96% !important; }
++.apip-bar-h-97 { height: 97% !important; }
++.apip-bar-h-98 { height: 98% !important; }
++.apip-bar-h-99 { height: 99% !important; }
++.apip-bar-h-100 { height: 100% !important; }
++/* apip-bar-height-classes:end */
++
++.apip-renstra-year-values {
++    display: none;
++}
++
++.apip-renstra-year-label {
++    margin: 0;
++    font-size: 0.78rem;
++    font-weight: 800;
++    text-align: center;
++    color: #203c66;
++}
++
++.apip-renstra-period {
++    margin: 0;
++    font-size: 0.68rem;
++    line-height: 1.3;
++    text-align: center;
++    color: #476389;
++    font-weight: 700;
++}
++
++.apip-renstra-source {
++    margin: 0;
++    text-align: center;
++    font-size: 0.66rem;
++    line-height: 1.25;
++    color: #5d7395;
++    font-weight: 700;
++}
++
++.apip-renstra-year-group.is-empty .apip-renstra-bar-track.is-hasil {
++    opacity: 0.7;
++}
++
++.apip-renstra-year-group.is-empty .apip-renstra-bar-fill.is-hasil {
++    opacity: 0.35;
++}
++
++.apip-element-recap-card {
++    gap: 14px;
++}
++
++.apip-recap-kpi-strip {
++    display: grid;
++    grid-template-columns: repeat(3, minmax(0, 1fr));
++    gap: 10px;
++}
++
++.apip-recap-kpi {
++    border: 1px solid var(--apip-card-border);
++    border-radius: 12px;
++    background: linear-gradient(180deg, rgba(250, 253, 255, 0.94), rgba(241, 247, 255, 0.92));
++    padding: 10px 12px;
++    display: grid;
++    gap: 3px;
++}
++
++.apip-recap-kpi span {
++    font-size: 0.78rem;
++    color: var(--text-muted);
++    font-weight: 700;
++    letter-spacing: 0.01em;
++}
++
++.apip-recap-kpi strong {
++    font-size: 1.32rem;
++    line-height: 1;
++    color: #0f2644;
++    letter-spacing: -0.02em;
++}
++
++.apip-recap-grid {
++    display: grid;
++    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
++    gap: 10px;
++}
++
++.apip-recap-pending-row {
++    margin-top: 10px;
++}
++
++.apip-recap-level-card {
++    --recap-neon: rgba(148, 163, 184, 0.28);
++    --recap-accent: #94a3b8;
++    border: 1px solid rgba(173, 190, 215, 0.72);
++    border-radius: 18px;
++    background:
++        radial-gradient(120% 90% at 12% -22%, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0) 58%),
++        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(243, 249, 255, 0.95));
++    padding: 10px 11px;
++    display: grid;
++    gap: 8px;
++    border-left: 4px solid var(--recap-accent);
++    position: relative;
++    overflow: hidden;
++    box-shadow:
++        inset 0 1px 0 rgba(255, 255, 255, 0.88),
++        0 10px 20px rgba(15, 23, 42, 0.1);
++    transition: transform 0.22s ease, box-shadow 0.24s ease, border-color 0.24s ease;
++}
++
++.apip-recap-level-card::before {
++    content: '';
++    position: absolute;
++    top: -22%;
++    left: -12%;
++    width: 62%;
++    height: 48%;
++    border-radius: 999px;
++    background: linear-gradient(180deg, rgba(255, 255, 255, 0.54), rgba(255, 255, 255, 0));
++    pointer-events: none;
++}
++
++.apip-recap-level-card::after {
++    content: '';
++    position: absolute;
++    inset: 0;
++    border-radius: inherit;
++    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
++    pointer-events: none;
++}
++
++.apip-recap-level-card:hover {
++    transform: translateY(-2px);
++    border-color: color-mix(in srgb, var(--recap-accent) 56%, #c7d7ec 44%);
++    box-shadow:
++        inset 0 1px 0 rgba(255, 255, 255, 0.92),
++        0 0 0 1px color-mix(in srgb, var(--recap-accent) 22%, #ffffff 78%),
++        0 0 20px var(--recap-neon),
++        0 14px 28px rgba(15, 23, 42, 0.16);
++}
++
++.apip-recap-level-card.is-level-1 {
++    --recap-accent: #ef4444;
++    --recap-neon: rgba(239, 68, 68, 0.36);
++}
++
++.apip-recap-level-card.is-level-2 {
++    --recap-accent: #f59e0b;
++    --recap-neon: rgba(245, 158, 11, 0.36);
++}
++
++.apip-recap-level-card.is-level-3 {
++    --recap-accent: #22c55e;
++    --recap-neon: rgba(34, 197, 94, 0.34);
++}
++
++.apip-recap-level-card.is-level-4 {
++    --recap-accent: #3b82f6;
++    --recap-neon: rgba(59, 130, 246, 0.36);
++}
++
++.apip-recap-level-card.is-level-5 {
++    --recap-accent: #8b5cf6;
++    --recap-neon: rgba(139, 92, 246, 0.36);
++}
++
++.apip-recap-level-card.pending {
++    --recap-accent: #94a3b8;
++    --recap-neon: rgba(148, 163, 184, 0.3);
++}
++
++.apip-recap-level-card-pending-row {
++    border-style: dashed;
++    background:
++        radial-gradient(110% 90% at 10% -22%, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0) 58%),
++        linear-gradient(180deg, rgba(250, 252, 255, 0.98), rgba(242, 247, 253, 0.96));
++}
++
++.apip-recap-level-card-pending-row .apip-recap-level-list {
++    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
++}
++
++.apip-recap-level-head {
++    display: flex;
++    align-items: flex-start;
++    justify-content: space-between;
++    gap: 8px;
++}
++
++.apip-recap-level-title-wrap {
++    min-width: 0;
++    display: grid;
++    gap: 5px;
++}
++
++.apip-recap-level-title-wrap h4 {
++    margin: 0;
++    font-size: 0.93rem;
++    line-height: 1.2;
++    color: #1b2c46;
++    letter-spacing: -0.01em;
++}
++
++.apip-level-info-btn {
++    border: 1px solid rgba(37, 99, 235, 0.34);
++    border-radius: 999px;
++    background: linear-gradient(180deg, rgba(59, 130, 246, 0.14), rgba(37, 99, 235, 0.18));
++    color: #1f4bb3;
++    font-size: 0.74rem;
++    font-weight: 800;
++    line-height: 1;
++    padding: 5px 10px;
++    cursor: pointer;
++    transition: transform 0.18s ease, box-shadow 0.2s ease, border-color 0.2s ease;
++}
++
++.apip-level-info-btn:hover {
++    transform: translateY(-1px);
++    border-color: rgba(37, 99, 235, 0.5);
++    box-shadow: 0 8px 14px rgba(37, 99, 235, 0.18);
++}
++
++.apip-recap-level-count {
++    display: inline-flex;
++    align-items: baseline;
++    gap: 5px;
++}
++
++.apip-recap-level-count strong {
++    font-size: 1.18rem;
++    line-height: 1;
++    color: color-mix(in srgb, var(--recap-accent) 68%, #13233c 32%);
++    text-shadow: 0 0 10px color-mix(in srgb, var(--recap-neon) 65%, transparent 35%);
++}
++
++.apip-recap-level-count span {
++    font-size: 0.76rem;
++    color: #5b6f8e;
++    font-weight: 700;
++    text-transform: uppercase;
++    letter-spacing: 0.04em;
++}
++
++.apip-recap-level-list {
++    display: grid;
++    gap: 6px;
++}
++
++.apip-recap-element-item {
++    display: flex;
++    align-items: center;
++    justify-content: space-between;
++    gap: 8px;
++    border: 1px solid #d4deee;
++    border-radius: 12px;
++    background: linear-gradient(180deg, #fbfdff, #f3f8ff);
++    padding: 7px 8px;
++    transition: transform 0.18s ease, border-color 0.2s ease, box-shadow 0.22s ease;
++}
++
++.apip-recap-element-item:hover {
++    transform: translateX(1px);
++    border-color: color-mix(in srgb, var(--recap-accent) 44%, #cdddf2 56%);
++    box-shadow: 0 8px 14px color-mix(in srgb, var(--recap-neon) 55%, transparent 45%);
++}
++
++.apip-recap-element-name {
++    font-size: 0.84rem;
++    font-weight: 700;
++    color: #1f2f46;
++    line-height: 1.3;
++}
++
++.apip-recap-empty {
++    min-height: 60px;
++    border-radius: 10px;
++    font-size: 0.8rem;
++}
++
++.apip-level-modal[hidden] {
++    display: none !important;
++}
++
++.apip-level-modal {
++    position: fixed;
++    inset: 0;
++    z-index: 6000;
++    display: flex;
++    align-items: flex-start;
++    justify-content: center;
++    padding: clamp(0.75rem, 2vh, 1.5rem) clamp(0.75rem, 2vw, 1.5rem);
++    min-height: 100dvh;
++    overflow-y: auto;
++    overflow-x: hidden;
++    opacity: 0;
++    pointer-events: none;
++    transition: opacity 220ms ease;
++}
++
++.apip-level-modal.is-open {
++    opacity: 1;
++    pointer-events: auto;
++}
++
++.apip-level-modal__backdrop {
++    position: absolute;
++    inset: 0;
++    background: rgba(15, 23, 42, 0.42);
++    opacity: 0;
++    transition: opacity 220ms ease;
++}
++
++.apip-level-modal.is-open .apip-level-modal__backdrop {
++    opacity: 1;
++}
++
++.apip-level-modal__dialog {
++    --modal-accent: #3b82f6;
++    --modal-glow: rgba(59, 130, 246, 0.34);
++    position: relative;
++    width: min(860px, calc(100vw - 2rem));
++    max-height: min(84dvh, 760px);
++    margin: clamp(0.5rem, 2.2vh, 1.8rem) auto clamp(0.6rem, 2vh, 1.2rem);
++    overflow: hidden;
++    border-radius: 18px;
++    border: 1px solid color-mix(in srgb, var(--modal-accent) 42%, #c2d7f1 58%);
++    background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(241, 248, 255, 0.97));
++    box-shadow:
++        0 0 0 1px color-mix(in srgb, var(--modal-accent) 18%, transparent 82%),
++        0 22px 46px rgba(15, 23, 42, 0.22);
++    display: flex;
++    flex-direction: column;
++    opacity: 0;
++    transform: translateY(14px) scale(0.98);
++    transition: opacity 220ms ease, transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
++}
++
++.apip-level-modal.is-open .apip-level-modal__dialog {
++    opacity: 1;
++    transform: translateY(0) scale(1);
++}
++
++.apip-level-modal__dialog.is-level-1 {
++    --modal-accent: #ef4444;
++    --modal-glow: rgba(239, 68, 68, 0.32);
++}
++
++.apip-level-modal__dialog.is-level-2 {
++    --modal-accent: #f59e0b;
++    --modal-glow: rgba(245, 158, 11, 0.33);
++}
++
++.apip-level-modal__dialog.is-level-3 {
++    --modal-accent: #22c55e;
++    --modal-glow: rgba(34, 197, 94, 0.3);
++}
++
++.apip-level-modal__dialog.is-level-4 {
++    --modal-accent: #3b82f6;
++    --modal-glow: rgba(59, 130, 246, 0.34);
++}
++
++.apip-level-modal__dialog.is-level-5 {
++    --modal-accent: #8b5cf6;
++    --modal-glow: rgba(139, 92, 246, 0.34);
++}
++
++.apip-level-modal__dialog.is-pending {
++    --modal-accent: #64748b;
++    --modal-glow: rgba(100, 116, 139, 0.3);
++}
++
++.apip-level-modal__header {
++    display: flex;
++    flex-direction: column;
++    gap: 4px;
++    position: relative;
++    z-index: 1;
++    background: linear-gradient(
++        160deg,
++        color-mix(in srgb, var(--modal-accent) 18%, #edf4ff 82%),
++        color-mix(in srgb, var(--modal-accent) 12%, #e4efff 88%)
++    );
++    border-bottom: 1px solid color-mix(in srgb, var(--modal-accent) 28%, #d2e0f4 72%);
++    box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.65);
++    padding: 0.92rem 3rem 0.92rem 1.18rem;
++    flex: 0 0 auto;
++}
++
++.apip-level-modal__body {
++    flex: 1 1 auto;
++    min-height: 0;
++    padding: 0.95rem 1.18rem;
++    overflow: auto;
++    overscroll-behavior: contain;
++    max-height: calc(min(84dvh, 760px) - 128px);
++}
++
++.apip-level-modal__dialog.has-footer .apip-level-modal__body {
++    max-height: calc(min(84dvh, 760px) - 186px);
++}
++
++.apip-level-modal__footer {
++    flex: 0 0 auto;
++    display: flex;
++    justify-content: flex-end;
++    gap: 8px;
++    padding: 0.8rem 1.18rem;
++    border-top: 1px solid color-mix(in srgb, var(--modal-accent) 22%, #d4e1f3 78%);
++    background: linear-gradient(180deg, #f8fbff, #eef5ff);
++}
++
++.apip-level-modal__footer--actions {
++    justify-content: flex-end;
++}
++
++.apip-level-modal__footer-btn {
++    min-height: 36px;
++}
++
++.apip-level-modal__close {
++    position: absolute;
++    top: 10px;
++    right: 10px;
++    width: 38px;
++    height: 38px;
++    border-radius: 11px;
++    border: 1px solid color-mix(in srgb, var(--modal-accent) 34%, #b8cdee 66%);
++    background: linear-gradient(180deg, #ffffff, #edf4ff);
++    color: color-mix(in srgb, var(--modal-accent) 62%, #314b70 38%);
++    font-size: 1.4rem;
++    line-height: 1;
++    font-weight: 700;
++    cursor: pointer;
++    display: inline-flex;
++    align-items: center;
++    justify-content: center;
++    box-shadow: 0 5px 14px rgba(15, 23, 42, 0.12);
++    transition: transform 0.18s ease, box-shadow 0.2s ease, border-color 0.2s ease;
++}
++
++.apip-level-modal__close:hover {
++    transform: translateY(-1px);
++    border-color: color-mix(in srgb, var(--modal-accent) 48%, #9fbce9 52%);
++    box-shadow: 0 9px 18px rgba(15, 23, 42, 0.18);
++}
++
++.apip-level-modal__eyebrow {
++    margin: 0 0 3px;
++    font-size: 0.78rem;
++    font-weight: 800;
++    color: color-mix(in srgb, var(--modal-accent) 56%, #4d6282 44%);
++    text-transform: uppercase;
++    letter-spacing: 0.08em;
++}
++
++.apip-level-modal__title {
++    margin: 0;
++    font-size: 1.18rem;
++    color: #21354f;
++    letter-spacing: 0.01em;
++    font-weight: 800;
++}
++
++.apip-level-modal__desc {
++    margin: 6px 0 0;
++    color: #3f5678;
++    font-weight: 650;
++    font-size: 0.9rem;
++    line-height: 1.5;
++}
++
++.apip-renstra-input-modal .apip-level-modal__dialog {
++    width: min(1180px, calc(100vw - 2rem));
++    max-height: min(94vh, 1060px);
++}
++
++.apip-renstra-input-modal .apip-level-modal__body {
++    max-height: calc(min(94vh, 1060px) - 128px);
++}
++
++.apip-level-modal__count {
++    margin-top: 0;
++    padding: 8px 10px;
++    border: 1px solid color-mix(in srgb, var(--modal-accent) 28%, #d4e3f8 72%);
++    border-radius: 11px;
++    background: linear-gradient(180deg, #f9fcff, #f3f8ff);
++    font-size: 0.84rem;
++    font-weight: 700;
++    color: #27446f;
++}
++
++.apip-level-modal__list {
++    margin-top: 12px;
++    display: grid;
++    gap: 10px;
++}
++
++.apip-level-modal__list::after {
++    content: "";
++    display: block;
++    height: 12px;
++}
++
++.apip-level-modal__item {
++    border: 1px solid color-mix(in srgb, var(--modal-accent) 18%, #d6dfed 82%);
++    border-radius: 11px;
++    background: linear-gradient(180deg, #ffffff, #f7fbff);
++    padding: 11px 12px;
++    display: grid;
++    gap: 8px;
++    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
++}
++
++.apip-level-modal__item h5 {
++    margin: 0;
++    font-size: 0.96rem;
++    line-height: 1.34;
++    color: #172a49;
++    letter-spacing: -0.01em;
++}
++
++.apip-level-modal__meta {
++    display: flex;
++    flex-wrap: wrap;
++    gap: 6px;
++}
++
++.apip-level-modal__chip {
++    display: inline-flex;
++    align-items: center;
++    gap: 6px;
++    padding: 4px 8px;
++    border-radius: 999px;
++    border: 1px solid color-mix(in srgb, var(--modal-accent) 24%, #d4e2f5 76%);
++    background: color-mix(in srgb, var(--modal-accent) 8%, #ffffff 92%);
++    font-size: 0.76rem;
++    line-height: 1;
++}
++
++.apip-level-modal__chip-label {
++    color: #617393;
++    font-weight: 700;
++}
++
++.apip-level-modal__chip-value {
++    color: #1b365f;
++    font-weight: 800;
++}
++
++.apip-level-modal__subtopics {
++    margin: 0;
++    font-size: 0.8rem;
++    line-height: 1.52;
++    color: #435878;
++    font-weight: 600;
++    text-wrap: pretty;
++}
++
++.apip-level-modal__subtopics-overview {
++    color: #1d3f75;
++    font-weight: 700;
++}
++
++.apip-level-modal__subtopic-list {
++    display: grid;
++    gap: 9px;
++}
++
++.apip-level-modal__subtopic-item {
++    border: 1px solid color-mix(in srgb, var(--modal-accent) 20%, #d3def0 80%);
++    border-radius: 10px;
++    background: linear-gradient(180deg, #fdfefe, #f6faff);
++    padding: 10px 11px;
++    display: grid;
++    gap: 6px;
++}
++
++.apip-level-modal__subtopic-head {
++    margin: 0;
++    font-size: 0.86rem;
++    line-height: 1.34;
++    font-weight: 800;
++    color: #15335f;
++    letter-spacing: -0.01em;
++}
++
++.apip-level-modal__subtopic-note {
++    margin: 0;
++    font-size: 0.84rem;
++    line-height: 1.58;
++    color: #3e5679;
++    font-weight: 600;
++    text-wrap: pretty;
++}
++
++.apip-level-modal__empty {
++    border: 1px dashed #c4d4ee;
++    border-radius: 11px;
++    padding: 14px 12px;
++    text-align: center;
++    color: #607390;
++    font-size: 0.84rem;
++    font-weight: 700;
++}
++
++.apip-renstra-input-form {
++    display: grid;
++    gap: 12px;
++}
++
++.apip-renstra-input-grid {
++    display: grid;
++    grid-template-columns: 88px minmax(220px, 1.2fr) minmax(130px, 1fr) minmax(130px, 1fr);
++    gap: 8px;
++    align-items: center;
++    min-width: 700px;
++}
++
++.apip-renstra-input-grid__head {
++    padding: 8px 10px;
++    border: 1px solid #c2d6f1;
++    border-radius: 10px;
++    background: linear-gradient(180deg, #f8fbff, #eef5ff);
++    color: #244671;
++    font-size: 0.78rem;
++    font-weight: 800;
++    text-transform: uppercase;
++    letter-spacing: 0.04em;
++}
++
++.apip-renstra-input-grid__year,
++.apip-renstra-input-grid__label,
++.apip-renstra-input-grid__cell {
++    min-height: 40px;
++    display: flex;
++    align-items: center;
++}
++
++.apip-renstra-input-grid__year {
++    justify-content: center;
++    border: 1px solid #cfe0f7;
++    border-radius: 10px;
++    background: #f7fbff;
++    color: #1e3f72;
++    font-weight: 800;
++    font-size: 0.9rem;
++}
++
++.apip-renstra-input-grid__label {
++    padding: 0 10px;
++    border: 1px solid #d4e3f6;
++    border-radius: 10px;
++    background: #fbfdff;
++    color: #3f597f;
++    font-size: 0.82rem;
++    font-weight: 700;
++}
++
++.apip-renstra-input {
++    width: 100%;
++    min-height: 40px;
++    padding: 0 11px;
++    border-radius: 10px;
++    border: 1px solid #bcd2ee;
++    background: #ffffff;
++    color: #173a69;
++    font-size: 0.88rem;
++    font-weight: 700;
++    transition: border-color 0.18s ease, box-shadow 0.2s ease, background 0.18s ease;
++}
++
++.apip-renstra-input::placeholder {
++    color: #8aa1bf;
++    font-weight: 650;
++}
++
++.apip-renstra-input:focus {
++    outline: none;
++    border-color: #5f8fd9;
++    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
++    background: #fbfdff;
++}
++
++.apip-renstra-input-actions {
++    display: flex;
++    justify-content: flex-end;
++    gap: 8px;
++    padding-top: 6px;
++}
++
++.apip-renstra-input-cancel,
++.apip-renstra-input-submit {
++    display: inline-flex;
++    align-items: center;
++    justify-content: center;
++    min-height: 36px;
++    padding: 0 14px;
++    border-radius: 10px;
++    border: 1px solid #bed2ee;
++    font-size: 0.82rem;
++    font-weight: 800;
++    cursor: pointer;
++    transition: transform 0.16s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
++}
++
++.apip-renstra-input-cancel {
++    background: linear-gradient(180deg, #f8fbff, #edf4ff);
++    color: #2c4f80;
+ }
+ 
+-.meter-level.is-level-4 .meter-predikat {
+-    color: #2563eb;
++.apip-renstra-input-submit {
++    border-color: #4d80ce;
++    background: linear-gradient(180deg, #3d7df0, #2a66d4);
++    color: #ffffff;
++    box-shadow: 0 8px 16px rgba(37, 99, 235, 0.24);
+ }
+ 
+-.meter-level.is-level-5 .meter-predikat {
+-    color: #7c3aed;
++.apip-renstra-input-cancel:hover,
++.apip-renstra-input-submit:hover {
++    transform: translateY(-1px);
+ }
+ 
+-.meter-level.pending .meter-predikat {
+-    color: #64748b;
++.apip-renstra-input-submit:hover {
++    box-shadow: 0 10px 18px rgba(37, 99, 235, 0.28);
+ }
+ 
+-.meter-note {
+-    margin: 0;
+-    color: var(--text-muted);
++.apip-renstra-input-error {
++    padding: 9px 10px;
++    border: 1px solid #f2b0b6;
++    border-radius: 10px;
++    background: linear-gradient(180deg, #fff6f7, #ffecef);
++    color: #b4233f;
+     font-size: 0.8rem;
+-    line-height: 1.45;
+-    text-align: justify;
+-    text-justify: inter-word;
+-}
+-
+-.apip-home-page .qa-level-font {
+-    font-family: "Georgia", "Times New Roman", serif;
+-    font-style: italic;
+     font-weight: 700;
+-    letter-spacing: 0.01em;
+ }
+ 
+-.apip-meter-card.is-level-1 {
+-    --meter-tone: #dc2626;
++body.apip-modal-open {
++    overflow: hidden;
++    padding-right: var(--apip-scrollbar-comp, 0px);
+ }
+ 
+-.apip-meter-card.is-level-2 {
+-    --meter-tone: #d97706;
+-}
++@media (prefers-reduced-motion: reduce) {
++    .apip-recap-level-card,
++    .apip-recap-element-item {
++        transition: none;
++    }
+ 
+-.apip-meter-card.is-level-3 {
+-    --meter-tone: #16a34a;
+-}
++    .apip-recap-level-card:hover,
++    .apip-recap-element-item:hover {
++        transform: none;
++    }
+ 
+-.apip-meter-card.is-level-4 {
+-    --meter-tone: #2563eb;
++    .apip-renstra-bar-fill {
++        animation: none;
++        opacity: 1;
++        transform: none;
++    }
+ }
+ 
+-.apip-meter-card.is-level-5 {
+-    --meter-tone: #7c3aed;
+-}
++@media (max-width: 920px) {
++    .apip-recap-kpi-strip {
++        grid-template-columns: repeat(2, minmax(0, 1fr));
++    }
+ 
+-.apip-meter-card.pending {
+-    --meter-tone: #64748b;
+-}
++    .apip-level-modal {
++        padding: 0.5rem;
++    }
+ 
+-.apip-element-summary-card {
+-    display: grid;
+-    gap: 10px;
+-    padding: 14px;
+-    border: 2px solid var(--apip-card-border);
+-}
++    .apip-level-modal__dialog {
++        width: calc(100vw - 1rem);
++        max-height: calc(100dvh - 1rem);
++    }
+ 
+-.apip-summary-head-top {
+-    display: flex;
+-    align-items: flex-start;
+-    justify-content: space-between;
+-    gap: 10px;
+-}
++    .apip-level-modal__body {
++        max-height: calc(100dvh - 9rem);
++        padding: 0.72rem 0.85rem;
++    }
+ 
+-.apip-summary-actions {
+-    margin-left: auto;
+-    display: inline-flex;
+-    align-items: center;
+-    gap: 8px;
++    .apip-level-modal__dialog.has-footer .apip-level-modal__body {
++        max-height: calc(100dvh - 12.5rem);
++    }
++
++    .apip-level-modal__header {
++        padding: 0.78rem 2.9rem 0.78rem 0.85rem;
++    }
++
++    .apip-level-modal__footer {
++        padding: 0.7rem 0.85rem;
++    }
++
++    .apip-level-modal__item {
++        padding: 10px 11px;
++        gap: 7px;
++    }
++
++    .apip-level-modal__item h5 {
++        font-size: 0.92rem;
++    }
++
++    .apip-level-modal__subtopic-head {
++        font-size: 0.83rem;
++    }
++
++    .apip-level-modal__subtopic-note {
++        font-size: 0.81rem;
++        line-height: 1.52;
++    }
++
++    .apip-renstra-input-grid {
++        min-width: 640px;
++        grid-template-columns: 76px minmax(200px, 1.1fr) minmax(120px, 1fr) minmax(120px, 1fr);
++    }
++
++    .apip-renstra-chartjs-wrap {
++        min-height: 296px;
++    }
++
++    .apip-renstra-chartjs-canvas {
++        height: 268px;
++    }
+ }
+ 
+-.apip-summary-hint {
+-    flex: 0 0 auto;
++@media (max-width: 560px) {
++    .apip-recap-kpi-strip {
++        grid-template-columns: 1fr;
++    }
++
++    .apip-recap-grid {
++        grid-template-columns: 1fr;
++    }
++
++    .apip-level-modal {
++        align-items: flex-start;
++        justify-content: center;
++        padding: 0.5rem;
++    }
++
++    .apip-level-modal__dialog {
++        width: calc(100vw - 1rem);
++        max-height: calc(100dvh - 1rem);
++        border-radius: 14px;
++    }
++
++    .apip-level-modal__header {
++        padding: 0.78rem 2.9rem 0.78rem 0.85rem;
++    }
++
++    .apip-level-modal__body {
++        max-height: calc(100dvh - 9rem);
++        padding: 0.72rem 0.85rem;
++    }
++
++    .apip-level-modal__dialog.has-footer .apip-level-modal__body {
++        max-height: calc(100dvh - 12rem);
++    }
++
++    .apip-level-modal__item {
++        padding: 9px 10px;
++    }
++
++    .apip-level-modal__footer {
++        padding: 0.66rem 0.85rem;
++    }
++
++    .apip-level-modal__footer-btn {
++        min-height: 34px;
++        padding: 0 12px;
++    }
++
++    .apip-level-modal__chip {
++        font-size: 0.73rem;
++    }
++
++    .apip-level-modal__subtopics {
++        font-size: 0.78rem;
++    }
++
++    .apip-level-modal__subtopic-head {
++        font-size: 0.81rem;
++    }
++
++    .apip-level-modal__subtopic-note {
++        font-size: 0.79rem;
++        line-height: 1.5;
++    }
++
++    .apip-renstra-manage-btn {
++        width: 100%;
++        justify-content: center;
++    }
++
++    .apip-renstra-legend-btn {
++        flex: 1 1 0;
++        justify-content: center;
++        min-height: 34px;
++    }
++
++    .apip-renstra-scale-switch {
++        width: 100%;
++        justify-content: space-between;
++    }
++
++    .apip-renstra-scale-btn {
++        flex: 1 1 0;
++        min-height: 30px;
++        padding: 0 8px;
++        text-align: center;
++    }
++
++    .apip-renstra-chartjs-wrap {
++        min-height: 264px;
++        padding: 8px 8px 6px;
++    }
++
++    .apip-renstra-chartjs-canvas {
++        height: 238px;
++    }
++
++    .apip-renstra-input-grid {
++        min-width: 600px;
++    }
++
++    .apip-renstra-input-actions {
++        justify-content: stretch;
++    }
++
++    .apip-renstra-input-cancel,
++    .apip-renstra-input-submit {
++        flex: 1 1 0;
++        justify-content: center;
++    }
+ }
+ 
+ .apip-detail-stack {
+@@ -1299,6 +2897,183 @@ :root[data-theme="dark"] .level-chip.pending {
+     background: rgba(51, 65, 85, 0.7);
+ }
+ 
++:root[data-theme="dark"] .apip-renstra-legend-item {
++    border-color: rgba(148, 163, 184, 0.44);
++    background: linear-gradient(180deg, rgba(30, 41, 59, 0.86), rgba(15, 23, 42, 0.9));
++    color: #bfd3f4;
++}
++
++:root[data-theme="dark"] .apip-renstra-scale-switch {
++    border-color: rgba(148, 163, 184, 0.44);
++    background: linear-gradient(180deg, rgba(30, 41, 59, 0.86), rgba(15, 23, 42, 0.9));
++}
++
++:root[data-theme="dark"] .apip-renstra-scale-btn {
++    color: #9fb9de;
++}
++
++:root[data-theme="dark"] .apip-renstra-scale-btn:hover {
++    color: #dbeafe;
++}
++
++:root[data-theme="dark"] .apip-renstra-scale-btn.is-active {
++    border-color: rgba(125, 180, 255, 0.72);
++    background: linear-gradient(180deg, rgba(37, 99, 235, 0.42), rgba(30, 41, 59, 0.9));
++    color: #eaf3ff;
++    box-shadow: 0 10px 18px rgba(2, 6, 23, 0.42);
++}
++
++:root[data-theme="dark"] .apip-renstra-legend-btn:hover {
++    border-color: rgba(125, 180, 255, 0.76);
++    background: linear-gradient(180deg, rgba(30, 64, 175, 0.34), rgba(30, 41, 59, 0.82));
++    box-shadow: 0 10px 18px rgba(2, 6, 23, 0.36);
++}
++
++:root[data-theme="dark"] .apip-renstra-manage-btn {
++    border-color: rgba(96, 165, 250, 0.62);
++    background: linear-gradient(180deg, rgba(30, 64, 175, 0.4), rgba(30, 41, 59, 0.74));
++    color: #dbeafe;
++    box-shadow: 0 10px 18px rgba(2, 6, 23, 0.36);
++}
++
++:root[data-theme="dark"] .apip-renstra-manage-btn:hover {
++    border-color: rgba(125, 180, 255, 0.84);
++    background: linear-gradient(180deg, rgba(37, 99, 235, 0.5), rgba(30, 41, 59, 0.82));
++}
++
++:root[data-theme="dark"] .apip-renstra-legend-item--note {
++    color: #a8bddb;
++}
++
++:root[data-theme="dark"] .apip-renstra-status-note {
++    border-color: rgba(52, 211, 153, 0.52);
++    background: linear-gradient(180deg, rgba(6, 78, 59, 0.52), rgba(15, 23, 42, 0.74));
++    color: #bbf7d0;
++}
++
++:root[data-theme="dark"] .apip-renstra-trend-card {
++    border-color: rgba(96, 165, 250, 0.74);
++    box-shadow:
++        0 20px 34px rgba(2, 6, 23, 0.5),
++        0 10px 22px rgba(37, 99, 235, 0.22),
++        inset 0 1px 0 rgba(147, 197, 253, 0.22);
++}
++
++:root[data-theme="dark"] .apip-renstra-trend-card::after {
++    border-color: rgba(96, 165, 250, 0.46);
++}
++
++:root[data-theme="dark"] .apip-renstra-plot-wrap {
++    border-color: rgba(148, 163, 184, 0.4);
++    background: linear-gradient(180deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.86));
++}
++
++:root[data-theme="dark"] .apip-renstra-bar-chart {
++    border-color: rgba(96, 165, 250, 0.56);
++    background: linear-gradient(180deg, rgba(16, 26, 43, 0.9), rgba(13, 22, 36, 0.9));
++    box-shadow:
++        inset 0 1px 0 rgba(147, 197, 253, 0.16),
++        0 10px 20px rgba(2, 6, 23, 0.42);
++}
++
++:root[data-theme="dark"] .apip-renstra-year-group {
++    border-color: rgba(148, 163, 184, 0.44);
++    background: transparent;
++}
++
++:root[data-theme="dark"] .apip-renstra-grid-line {
++    border-top-color: rgba(148, 163, 184, 0.32);
++}
++
++:root[data-theme="dark"] .apip-renstra-grid-line:last-child {
++    border-top-color: rgba(148, 163, 184, 0.58);
++}
++
++:root[data-theme="dark"] .apip-renstra-y-axis {
++    color: #9fb3d2;
++}
++
++:root[data-theme="dark"] .apip-renstra-bar-track {
++    border-color: transparent;
++    background: transparent;
++}
++
++:root[data-theme="dark"] .apip-renstra-year-label,
++:root[data-theme="dark"] .apip-renstra-period {
++    color: #e2ebfb;
++}
++
++:root[data-theme="dark"] .apip-renstra-year-values {
++    color: #b9c8df;
++}
++
++:root[data-theme="dark"] .apip-renstra-range-chip {
++    border-color: rgba(148, 163, 184, 0.44);
++    background: linear-gradient(180deg, rgba(30, 41, 59, 0.86), rgba(15, 23, 42, 0.9));
++    color: #bfd3f4;
++}
++
++:root[data-theme="dark"] .apip-renstra-trend-line {
++    stroke: #f59e0b;
++    filter: drop-shadow(0 4px 11px rgba(245, 158, 11, 0.46));
++}
++
++:root[data-theme="dark"] .apip-renstra-trend-dot {
++    fill: #23190a;
++    stroke: #f59e0b;
++    filter: drop-shadow(0 3px 9px rgba(245, 158, 11, 0.42));
++}
++
++:root[data-theme="dark"] .apip-renstra-bar-fill::after {
++    border-color: rgba(148, 163, 184, 0.5);
++    background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.94));
++    color: #dbeafe;
++    box-shadow: 0 8px 16px rgba(2, 6, 23, 0.5);
++}
++
++:root[data-theme="dark"] .apip-renstra-input-grid__head {
++    border-color: rgba(96, 165, 250, 0.38);
++    background: linear-gradient(180deg, rgba(17, 30, 48, 0.92), rgba(15, 23, 42, 0.9));
++    color: #c7dbf8;
++}
++
++:root[data-theme="dark"] .apip-renstra-input-grid__year {
++    border-color: rgba(148, 163, 184, 0.4);
++    background: rgba(15, 23, 42, 0.8);
++    color: #cde2ff;
++}
++
++:root[data-theme="dark"] .apip-renstra-input-grid__label {
++    border-color: rgba(148, 163, 184, 0.36);
++    background: rgba(15, 23, 42, 0.74);
++    color: #b9cce7;
++}
++
++:root[data-theme="dark"] .apip-renstra-input {
++    border-color: rgba(148, 163, 184, 0.44);
++    background: rgba(15, 23, 42, 0.9);
++    color: #e2ecfb;
++}
++
++:root[data-theme="dark"] .apip-renstra-input::placeholder {
++    color: #8ea6c8;
++}
++
++:root[data-theme="dark"] .apip-renstra-input-cancel {
++    border-color: rgba(148, 163, 184, 0.42);
++    background: linear-gradient(180deg, rgba(30, 41, 59, 0.86), rgba(15, 23, 42, 0.9));
++    color: #cfe0f8;
++}
++
++:root[data-theme="dark"] .apip-renstra-input-submit {
++    border-color: rgba(96, 165, 250, 0.7);
++    background: linear-gradient(180deg, rgba(37, 99, 235, 0.82), rgba(30, 64, 175, 0.88));
++}
++
++:root[data-theme="dark"] .apip-renstra-source {
++    color: #9fb3d2;
++}
++
+ :root[data-theme="dark"] .btn-open-element {
+     color: #dbeafe;
+     border-color: rgba(96, 165, 250, 0.48);
+@@ -1312,6 +3087,13 @@ @media (max-width: 1200px) {
+ }
+ 
+ @media (max-width: 768px) {
++    .apip-renstra-trend-card {
++        --apip-renstra-bars-height: 160px;
++        --apip-renstra-top-safe: 8px;
++        --apip-renstra-label-row-height: 28px;
++        --apip-renstra-chart-total-height: calc(var(--apip-renstra-bars-height) + var(--apip-renstra-label-row-height) + var(--apip-renstra-top-safe));
++        --apip-renstra-baseline-offset: var(--apip-renstra-label-row-height);
++    }
+     .apip-summary-head-top {
+         flex-wrap: wrap;
+     }
+@@ -1334,6 +3116,91 @@ @media (max-width: 768px) {
+         grid-template-columns: 1fr;
+     }
+ 
++    .apip-renstra-bar-chart {
++        gap: 6px;
++    }
++
++    .apip-renstra-chart-legend {
++        align-items: stretch;
++    }
++
++    .apip-renstra-chart-legend-main {
++        width: 100%;
++    }
++
++    .apip-renstra-scale-switch {
++        width: 100%;
++        justify-content: space-between;
++    }
++
++    .apip-renstra-scale-btn {
++        flex: 1 1 0;
++        min-height: 30px;
++        padding: 0 8px;
++        text-align: center;
++    }
++
++    .apip-renstra-main-row {
++        gap: 8px;
++        align-items: flex-start;
++    }
++
++    .apip-renstra-y-axis {
++        flex-basis: 26px;
++    }
++
++    .apip-renstra-plot-wrap {
++        height: var(--apip-renstra-chart-total-height);
++        min-height: var(--apip-renstra-chart-total-height);
++        padding: 0 8px;
++        overflow-x: auto;
++    }
++
++    .apip-renstra-grid {
++        inset: var(--apip-renstra-top-safe) 8px var(--apip-renstra-baseline-offset) 8px;
++    }
++
++    .apip-renstra-years {
++        grid-template-columns: repeat(var(--year-count, 1), minmax(72px, 1fr));
++        gap: 8px;
++        min-height: var(--apip-renstra-chart-total-height);
++    }
++
++    .apip-renstra-ranges {
++        grid-template-columns: repeat(var(--year-count, 1), minmax(72px, 1fr));
++        gap: 8px;
++    }
++
++    .apip-renstra-ranges-wrap {
++        margin-left: 34px;
++        margin-top: 0;
++        padding: 0 8px;
++        overflow-x: auto;
++    }
++
++    .apip-renstra-range-chip {
++        min-height: 28px;
++        font-size: 0.7rem;
++        padding: 4px 6px;
++    }
++
++    .apip-renstra-year-bars {
++        height: calc(var(--apip-renstra-bars-height) + var(--apip-renstra-top-safe));
++    }
++
++    .apip-renstra-bar-shell {
++        min-height: calc(var(--apip-renstra-bars-height) + var(--apip-renstra-top-safe));
++    }
++
++    .apip-renstra-bar-track {
++        height: var(--apip-renstra-bars-height);
++    }
++
++    .apip-renstra-period {
++        font-size: 0.76rem;
++        line-height: 1.25;
++    }
++
+     .apip-element-detail > summary {
+         flex-direction: column;
+         align-items: flex-start;
+diff --git a/resources/views/dashboard.blade.php b/resources/views/dashboard.blade.php
+index 856a90d6..7aaa170e 100644
+--- a/resources/views/dashboard.blade.php
++++ b/resources/views/dashboard.blade.php
+@@ -20,6 +20,8 @@
+     $segmentOffsets = is_array($dashboardUi['segment_offsets'] ?? null)
+         ? $dashboardUi['segment_offsets']
+         : [0, -$segmentLength, -$segmentLength * 2, -$segmentLength * 3, -$segmentLength * 4];
++    $renstraTrendSeries = is_array($renstraTrendSeries ?? null) ? $renstraTrendSeries : [];
++    $canManageRenstraTrend = (bool) ($canManageRenstraTrend ?? false);
+     $formatPercent = static function (float $value): string {
+         return rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.');
+     };
+@@ -123,247 +125,492 @@ class="apip-meter-hint hint-bubble-trigger"
+             </article>
+         </section>
+ 
+-        <section class="card apip-element-summary-card">
++        <section class="card apip-element-summary-card apip-renstra-trend-card">
+             <div class="section-head apip-summary-head">
+                 <div class="apip-summary-head-top">
+-                    <h3>Rangkuman Skor per Element</h3>
++                    <h3>Grafik Hasil Penilaian Peningkatan Kapabilitas APIP</h3>
+                     <div class="apip-summary-actions">
+                         <button
+                             type="button"
+                             class="apip-summary-hint hint-bubble-trigger"
+-                            data-hint="{{ $weightedScoreHintText }}"
+-                            aria-label="Informasi rumus skor tertimbang">
++                            data-hint="Grafik ini merangkum tren skor per tahun. Setiap tahun menampilkan dua batang: Hasil Penilaian (H) dan Target Renstra (T)."
++                            aria-label="Informasi grafik tren renstra">
+                             ?
+                         </button>
+                     </div>
+                 </div>
+-                <p>Ringkasan skor tertimbang, skor, dan level untuk setiap element.</p>
++                <p>Grafik tunggal per tahun dengan legenda: Hasil Penilaian (H) dan Target Renstra (T).</p>
+             </div>
+-            <div class="table-wrapper apip-element-table-wrap">
+-                <table class="apip-element-table">
+-                    <thead>
+-                        <tr>
+-                            <th>Element</th>
+-                            <th>Bobot</th>
+-                            <th>Skor Element</th>
+-                            <th>Skor Tertimbang Element</th>
+-                            <th>Level</th>
+-                            <th>Predikat</th>
+-                            <th>Aksi</th>
+-                        </tr>
+-                    </thead>
+-                    <tbody>
+-                        @forelse ($elements as $element)
+-                            <tr>
+-                                <td>
+-                                    <strong>{{ $element['title'] }}</strong>
+-                                    <div class="row-meta element-level-note" title="{{ $element['description'] ?? '' }}">
+-                                        <span class="qa-mandiri-prefix">Mandiri: </span>{{ $element['description'] ?? '' }}
+-                                    </div>
+-                                    <div class="row-meta qa-note-separator qa-only" aria-hidden="true"></div>
+-                                    <div class="row-meta element-level-note qa-only qa-level-font" title="{{ $element['qa_description'] ?? '' }}">
+-                                        QA: {{ $element['qa_description'] ?? '' }}
+-                                    </div>
+-                                </td>
+-                                <td>{{ number_format((float) ($element['weight'] ?? 0) * 100, 0) }}%</td>
+-                                <td>
+-                                    <div class="apip-split-metric">
+-                                        <div class="apip-split-metric-row">
+-                                            <span class="apip-split-metric-label qa-mandiri-label">Mandiri</span>
+-                                            <span>{{ is_numeric($element['score'] ?? null) ? number_format((float) $element['score'], 2) : '-' }}</span>
+-                                        </div>
+-                                        <div class="apip-split-metric-row qa-only">
+-                                            <span class="apip-split-metric-label">QA</span>
+-                                            <span>{{ is_numeric($element['qa_score'] ?? null) ? number_format((float) $element['qa_score'], 2) : '-' }}</span>
+-                                        </div>
+-                                    </div>
+-                                </td>
+-                                <td>
+-                                    <div class="apip-split-metric">
+-                                        <div class="apip-split-metric-row">
+-                                            <span class="apip-split-metric-label qa-mandiri-label">Mandiri</span>
+-                                            <span>{{ number_format((float) ($element['weighted_score'] ?? 0), 2) }}</span>
+-                                        </div>
+-                                        <div class="apip-split-metric-row qa-only">
+-                                            <span class="apip-split-metric-label">QA</span>
+-                                            <span>{{ number_format((float) ($element['qa_weighted_score'] ?? 0), 2) }}</span>
+-                                        </div>
+-                                    </div>
+-                                </td>
+-                                <td>
+-                                    <div class="apip-split-metric">
+-                                        <div class="apip-split-metric-row">
+-                                            <span class="apip-split-metric-label qa-mandiri-label">Mandiri</span>
+-                                            <span class="level-chip {{ $element['level_class'] ?? 'pending' }}">
+-                                                {{ $element['level_label'] ?? '-' }}
+-                                            </span>
+-                                        </div>
+-                                        <div class="apip-split-metric-row qa-only">
+-                                            <span class="apip-split-metric-label">QA</span>
+-                                            <span class="level-chip {{ $element['qa_level_class'] ?? 'pending' }}">
+-                                                {{ $element['qa_level_label'] ?? '-' }}
+-                                            </span>
+-                                        </div>
+-                                    </div>
+-                                </td>
+-                                <td>
+-                                    <div class="apip-split-metric">
+-                                        <div class="apip-split-metric-row">
+-                                            <span class="apip-split-metric-label qa-mandiri-label">Mandiri</span>
+-                                            <span>{{ $element['predikat'] ?? '-' }}</span>
+-                                        </div>
+-                                        <div class="apip-split-metric-row qa-only">
+-                                            <span class="apip-split-metric-label">QA</span>
+-                                            <span>{{ $element['qa_predikat'] ?? '-' }}</span>
+-                                        </div>
++
++            @php
++                $renstraItems = collect($renstraTrendSeries)->values();
++                $renstraRangeGroups = [];
++                $currentRangeLabel = null;
++                $currentRangeStart = 1;
++                $currentRangeSpan = 0;
++                $currentRangeYearStart = null;
++                $currentRangeYearEnd = null;
++
++                foreach ($renstraItems as $rangeIndex => $rangeItem) {
++                    $rangeLabel = (string) ($rangeItem['renstra_label'] ?? '-');
++                    $rangeYearLabel = (string) ($rangeItem['year_label'] ?? '-');
++
++                    if ($currentRangeLabel === null) {
++                        $currentRangeLabel = $rangeLabel;
++                        $currentRangeStart = $rangeIndex + 1;
++                        $currentRangeSpan = 1;
++                        $currentRangeYearStart = $rangeYearLabel;
++                        $currentRangeYearEnd = $rangeYearLabel;
++                        continue;
++                    }
++
++                    if ($rangeLabel === $currentRangeLabel) {
++                        $currentRangeSpan++;
++                        $currentRangeYearEnd = $rangeYearLabel;
++                        continue;
++                    }
++
++                    $renstraRangeGroups[] = [
++                        'label' => $currentRangeLabel,
++                        'start' => $currentRangeStart,
++                        'span' => $currentRangeSpan,
++                        'year_start' => $currentRangeYearStart,
++                        'year_end' => $currentRangeYearEnd,
++                    ];
++
++                    $currentRangeLabel = $rangeLabel;
++                    $currentRangeStart = $rangeIndex + 1;
++                    $currentRangeSpan = 1;
++                    $currentRangeYearStart = $rangeYearLabel;
++                    $currentRangeYearEnd = $rangeYearLabel;
++                }
++
++                if ($currentRangeLabel !== null) {
++                    $renstraRangeGroups[] = [
++                        'label' => $currentRangeLabel,
++                        'start' => $currentRangeStart,
++                        'span' => $currentRangeSpan,
++                        'year_start' => $currentRangeYearStart,
++                        'year_end' => $currentRangeYearEnd,
++                    ];
++                }
++
++                $renstraChartSeries = $renstraItems
++                    ->map(function ($trendItem): array {
++                        $year = is_numeric($trendItem['year'] ?? null) ? (int) $trendItem['year'] : 0;
++                        $hasilScore = is_numeric($trendItem['hasil_score'] ?? null)
++                            ? (float) number_format(max(0, min(5, (float) $trendItem['hasil_score'])), 2, '.', '')
++                            : null;
++                        $targetScore = is_numeric($trendItem['target_score'] ?? null)
++                            ? (float) number_format(max(0, min(5, (float) $trendItem['target_score'])), 2, '.', '')
++                            : null;
++
++                        return [
++                            'year' => $year,
++                            'x' => $year > 0 ? sprintf('%04d-01-01', $year) : null,
++                            'hasil_score' => $hasilScore,
++                            'target_score' => $targetScore,
++                            'renstra_label' => (string) ($trendItem['renstra_label'] ?? '-'),
++                        ];
++                    })
++                    ->filter(fn (array $item): bool => is_numeric($item['year'] ?? null) && (int) $item['year'] > 0)
++                    ->values()
++                    ->all();
++            @endphp
++            @if ($renstraItems->isEmpty())
++                <div class="empty-state apip-recap-empty">Data tren renstra belum tersedia.</div>
++            @else
++                <div class="apip-renstra-chart-legend">
++                    <div class="apip-renstra-chart-legend-main">
++                        @if($canManageRenstraTrend)
++                            <button
++                                type="button"
++                                class="apip-renstra-legend-btn apip-renstra-legend-item"
++                                data-renstra-modal-open
++                                aria-label="Kelola hasil penilaian tahunan">
++                                <span class="apip-renstra-legend-swatch is-hasil" aria-hidden="true"></span>
++                                Hasil Penilaian
++                            </button>
++                            <button
++                                type="button"
++                                class="apip-renstra-legend-btn apip-renstra-legend-item"
++                                data-renstra-modal-open
++                                aria-label="Kelola target renstra tahunan">
++                                <span class="apip-renstra-legend-swatch is-target" aria-hidden="true"></span>
++                                Target Renstra
++                            </button>
++                        @else
++                            <span class="apip-renstra-legend-item apip-renstra-legend-item--note" aria-hidden="true">
++                                Input Hasil dan Target dikelola Administrator.
++                            </span>
++                        @endif
++                    </div>
++                    <div class="apip-renstra-scale-switch" role="group" aria-label="Pilih skala waktu grafik Renstra">
++                        <button type="button" class="apip-renstra-scale-btn" data-renstra-scale="3y">3Y</button>
++                        <button type="button" class="apip-renstra-scale-btn" data-renstra-scale="5y">5Y</button>
++                        <button type="button" class="apip-renstra-scale-btn" data-renstra-scale="ytd">YTD</button>
++                        <button type="button" class="apip-renstra-scale-btn is-active" data-renstra-scale="renstra">Per Renstra</button>
++                    </div>
++                </div>
++
++                <div
++                    class="apip-renstra-bar-chart apip-renstra-bar-chart--chartjs"
++                    data-renstra-chartjs
++                    data-current-year="{{ now()->year }}"
++                    data-scale-active="renstra"
++                    data-series='@json($renstraChartSeries)'
++                    role="img"
++                    aria-label="Diagram combo hasil, target, dan trend renstra per tahun">
++                    <div class="apip-renstra-chartjs-wrap">
++                        <canvas id="apipRenstraChartCanvas" class="apip-renstra-chartjs-canvas" aria-label="Chart hasil dan target renstra"></canvas>
++                    </div>
++
++                    <div class="apip-renstra-ranges-wrap" aria-hidden="true">
++                        <div class="apip-renstra-ranges" style="--year-count: {{ max(1, $renstraItems->count()) }};">
++                            @foreach ($renstraRangeGroups as $rangeGroup)
++                                <span
++                                    class="apip-renstra-range-chip"
++                                    style="grid-column: {{ (int) ($rangeGroup['start'] ?? 1) }} / span {{ max(1, (int) ($rangeGroup['span'] ?? 1)) }};">
++                                    {{ (string) ($rangeGroup['label'] ?? '-') }}
++                                </span>
++                            @endforeach
++                        </div>
++                    </div>
++                </div>
++
++                @if($canManageRenstraTrend)
++                    <div
++                        class="apip-level-modal apip-renstra-input-modal"
++                        id="apipRenstraInputModal"
++                        data-open-on-load="{{ ($errors->has('entries') || $errors->has('entries.*.hasil_score') || $errors->has('entries.*.target_score')) ? '1' : '0' }}"
++                        hidden>
++                        <div class="apip-level-modal__backdrop" data-renstra-modal-close></div>
++                        <div
++                            class="apip-level-modal__dialog apip-renstra-input-modal__dialog is-level-4 has-footer"
++                            role="dialog"
++                            aria-modal="true"
++                            aria-labelledby="apipRenstraInputModalTitle"
++                            aria-describedby="apipRenstraInputModalDesc">
++                            <div class="apip-level-modal__header">
++                                <button type="button" class="apip-level-modal__close" data-renstra-modal-close aria-label="Tutup form renstra">&times;</button>
++                                <p class="apip-level-modal__eyebrow">Administrator</p>
++                                <h4 class="apip-level-modal__title" id="apipRenstraInputModalTitle">Input Hasil & Target Renstra</h4>
++                                <p class="apip-level-modal__desc" id="apipRenstraInputModalDesc">
++                                    Isi nilai 0 sampai 5. Kosongkan field jika ingin kembali memakai nilai otomatis sistem.
++                                </p>
++                            </div>
++                            <div class="apip-level-modal__body">
++                                <form id="apipRenstraInputForm" method="POST" action="{{ route('dashboard.renstra-trend.update') }}" class="apip-renstra-input-form">
++                                    @csrf
++                                    <div class="apip-renstra-input-grid">
++                                        <div class="apip-renstra-input-grid__head">Tahun</div>
++                                        <div class="apip-renstra-input-grid__head">Renstra</div>
++                                        <div class="apip-renstra-input-grid__head">Hasil (H)</div>
++                                        <div class="apip-renstra-input-grid__head">Target (T)</div>
++
++                                        @foreach ($renstraItems as $trendIndex => $trendItem)
++                                            @php
++                                                $year = (int) ($trendItem['year'] ?? 0);
++                                                $hasilInputValue = (string) ($trendItem['hasil_input_value'] ?? '');
++                                                $targetInputValue = (string) ($trendItem['target_input_value'] ?? '');
++                                                $hasilPlaceholder = (string) ($trendItem['hasil_score_label'] ?? '-');
++                                                $targetPlaceholder = (string) ($trendItem['target_score_label'] ?? '-');
++                                            @endphp
++                                            <input type="hidden" name="entries[{{ $trendIndex }}][year]" value="{{ $year }}">
++                                            <div class="apip-renstra-input-grid__year">{{ $year }}</div>
++                                            <div class="apip-renstra-input-grid__label">{{ (string) ($trendItem['renstra_label'] ?? '-') }}</div>
++                                            <div class="apip-renstra-input-grid__cell">
++                                                <input
++                                                    type="text"
++                                                    inputmode="decimal"
++                                                    class="apip-renstra-input"
++                                                    name="entries[{{ $trendIndex }}][hasil_score]"
++                                                    value="{{ old('entries.'.$trendIndex.'.hasil_score', $hasilInputValue) }}"
++                                                    placeholder="{{ $hasilPlaceholder !== '-' ? $hasilPlaceholder : '0.00' }}"
++                                                    autocomplete="off">
++                                            </div>
++                                            <div class="apip-renstra-input-grid__cell">
++                                                <input
++                                                    type="text"
++                                                    inputmode="decimal"
++                                                    class="apip-renstra-input"
++                                                    name="entries[{{ $trendIndex }}][target_score]"
++                                                    value="{{ old('entries.'.$trendIndex.'.target_score', $targetInputValue) }}"
++                                                    placeholder="{{ $targetPlaceholder !== '-' ? $targetPlaceholder : '0.00' }}"
++                                                    autocomplete="off">
++                                            </div>
++                                        @endforeach
+                                     </div>
+-                                </td>
+-                                <td>
+-                                    @if((bool) ($element['can_open'] ?? true))
+-                                        <a class="btn-open-element" href="{{ route('elements.show', $element['slug']) }}">Buka Element</a>
+-                                    @endif
+-                                </td>
+-                            </tr>
+-                        @empty
+-                            <tr>
+-                                <td colspan="7" class="empty-state">Belum ada data ringkasan element.</td>
+-                            </tr>
+-                        @endforelse
+-                    </tbody>
+-                </table>
++
++                                    @error('entries')
++                                        <div class="apip-renstra-input-error">{{ $message }}</div>
++                                    @enderror
++                                </form>
++                            </div>
++                            <div class="apip-level-modal__footer apip-level-modal__footer--actions">
++                                <button type="button" class="apip-renstra-input-cancel apip-level-modal__footer-btn" data-renstra-modal-close>Tutup</button>
++                                <button type="submit" class="apip-renstra-input-submit apip-level-modal__footer-btn" form="apipRenstraInputForm">Simpan Perubahan</button>
++                            </div>
++                        </div>
++                    </div>
++                @endif
++            @endif
++        </section>
++
++        <section class="card apip-element-summary-card apip-element-recap-card">
++            @php
++                $levelRecap = [
++                    'level1' => [
++                        'label' => 'Level 1',
++                        'predikat' => 'Rintisan',
++                        'level_class' => 'is-level-1',
++                        'description' => 'Inisiatif pengawasan masih pada tahap awal dan belum berjalan konsisten.',
++                        'elements' => [],
++                    ],
++                    'level2' => [
++                        'label' => 'Level 2',
++                        'predikat' => 'Terstruktur',
++                        'level_class' => 'is-level-2',
++                        'description' => 'Praktik pengawasan sudah terstruktur, tetapi implementasi belum merata.',
++                        'elements' => [],
++                    ],
++                    'level3' => [
++                        'label' => 'Level 3',
++                        'predikat' => 'Memadai',
++                        'level_class' => 'is-level-3',
++                        'description' => 'Praktik pengawasan memadai dan konsisten dengan ruang perbaikan pada integrasi.',
++                        'elements' => [],
++                    ],
++                    'level4' => [
++                        'label' => 'Level 4',
++                        'predikat' => 'Terintegrasi',
++                        'level_class' => 'is-level-4',
++                        'description' => 'Pengawasan terintegrasi lintas proses dengan dukungan data untuk keputusan strategis.',
++                        'elements' => [],
++                    ],
++                    'level5' => [
++                        'label' => 'Level 5',
++                        'predikat' => 'Optimal',
++                        'level_class' => 'is-level-5',
++                        'description' => 'Kapabilitas optimal, adaptif, dan proaktif dalam menghasilkan nilai tambah organisasi.',
++                        'elements' => [],
++                    ],
++                    'pending' => [
++                        'label' => 'Belum Dinilai',
++                        'predikat' => 'Belum Dinilai',
++                        'level_class' => 'pending',
++                        'description' => 'Element belum memiliki data penilaian mandiri yang cukup untuk menentukan level.',
++                        'elements' => [],
++                    ],
++                ];
++
++                foreach ($elements as $element) {
++                    $levelNumber = is_numeric($element['level'] ?? null) ? (int) $element['level'] : null;
++                    $bucketKey = ($levelNumber !== null && $levelNumber >= 1 && $levelNumber <= 5)
++                        ? 'level'.$levelNumber
++                        : 'pending';
++
++                    $levelRecap[$bucketKey]['elements'][] = [
++                        'slug' => (string) ($element['slug'] ?? ''),
++                        'title' => (string) ($element['title'] ?? 'Element'),
++                        'level_label' => (string) ($element['level_label'] ?? 'Belum Dinilai'),
++                        'predikat' => (string) ($element['predikat'] ?? 'Belum Dinilai'),
++                        'score' => is_numeric($element['score'] ?? null) ? number_format((float) $element['score'], 2) : '-',
++                        'weighted_score' => number_format((float) ($element['weighted_score'] ?? 0), 2),
++                        'subtopic_count' => (int) ($element['subtopic_count'] ?? count((array) ($element['subtopics'] ?? []))),
++                        'assessed_subtopic_count' => (int) ($element['assessed_subtopic_count'] ?? 0),
++                        'subtopic_details' => collect((array) ($element['subtopics'] ?? []))
++                            ->map(function (array $subtopic): array {
++                                $title = trim((string) ($subtopic['title'] ?? ''));
++                                if ($title === '') {
++                                    $title = trim((string) ($subtopic['slug'] ?? 'Sub Topik'));
++                                }
++                                $levelLabel = trim((string) ($subtopic['level_label'] ?? '-'));
++                                $levelNote = trim((string) ($subtopic['level_note'] ?? $subtopic['description'] ?? ''));
++                                if ($levelNote === '') {
++                                    $levelNote = 'Belum ada informasi level sub topik.';
++                                }
++
++                                return [
++                                    'title' => $title,
++                                    'level_label' => $levelLabel !== '' ? $levelLabel : '-',
++                                    'level_note' => $levelNote,
++                                ];
++                            })
++                            ->filter(fn (array $subtopic): bool => ($subtopic['title'] ?? '') !== '')
++                            ->values()
++                            ->all(),
++                        'description' => (string) ($element['description'] ?? ''),
++                        'can_open' => (bool) ($element['can_open'] ?? true),
++                    ];
++                }
++
++                $levelRecapPayload = collect($levelRecap)
++                    ->map(function (array $bucket): array {
++                        return [
++                            'label' => (string) ($bucket['label'] ?? ''),
++                            'predikat' => (string) ($bucket['predikat'] ?? ''),
++                            'description' => (string) ($bucket['description'] ?? ''),
++                            'count' => count($bucket['elements'] ?? []),
++                            'elements' => collect((array) ($bucket['elements'] ?? []))
++                                ->map(function (array $item): array {
++                                    return [
++                                        'title' => (string) ($item['title'] ?? ''),
++                                        'level_label' => (string) ($item['level_label'] ?? 'Belum Dinilai'),
++                                        'predikat' => (string) ($item['predikat'] ?? 'Belum Dinilai'),
++                                        'score' => (string) ($item['score'] ?? '-'),
++                                        'weighted_score' => (string) ($item['weighted_score'] ?? '0.00'),
++                                        'subtopic_count' => (int) ($item['subtopic_count'] ?? 0),
++                                        'assessed_subtopic_count' => (int) ($item['assessed_subtopic_count'] ?? 0),
++                                        'subtopic_details' => collect((array) ($item['subtopic_details'] ?? []))
++                                            ->map(function (array $subtopic): array {
++                                                return [
++                                                    'title' => trim((string) ($subtopic['title'] ?? '')),
++                                                    'level_label' => trim((string) ($subtopic['level_label'] ?? '-')),
++                                                    'level_note' => trim((string) ($subtopic['level_note'] ?? 'Belum ada informasi level sub topik.')),
++                                                ];
++                                            })
++                                            ->filter(fn (array $subtopic): bool => ($subtopic['title'] ?? '') !== '')
++                                            ->all(),
++                                    ];
++                                })
++                                ->values()
++                                ->all(),
++                        ];
++                    })
++                    ->all();
++
++                $totalElementCount = count($elements);
++                $assessedElementCount = $totalElementCount - count($levelRecap['pending']['elements']);
++                $pendingElementCount = count($levelRecap['pending']['elements']);
++                $pendingBucket = $levelRecap['pending'];
++                $mainLevelBuckets = collect($levelRecap)->except('pending')->all();
++            @endphp
++            <div class="section-head apip-summary-head">
++                <div class="apip-summary-head-top">
++                    <h3>Rekapitulasi Level Element</h3>
++                    <div class="apip-summary-actions">
++                        <button
++                            type="button"
++                            class="apip-summary-hint hint-bubble-trigger"
++                            data-hint="Ringkasan ini menampilkan persebaran level mandiri per element. Gunakan tombol Info Level untuk membaca penjelasan level tanpa menambah detail di dashboard utama."
++                            aria-label="Informasi rekapitulasi level element">
++                            ?
++                        </button>
++                    </div>
++                </div>
++                <p>Dashboard ringkas: fokus pada element yang sudah berada di Level 1-5 dan yang belum dinilai.</p>
+             </div>
+-            <div class="apip-detail-stack">
+-                <div class="section-head apip-detail-head">
+-                    <h4>Rincian per Element</h4>
+-                    <p>Klik tombol panah untuk melihat rincian sub topik setiap element.</p>
++
++            <div class="apip-recap-kpi-strip">
++                <div class="apip-recap-kpi">
++                    <span>Total Element</span>
++                    <strong>{{ $totalElementCount }}</strong>
+                 </div>
+-                <section class="apip-element-detail-grid">
+-                    @foreach ($elements as $element)
+-                        <details class="apip-element-detail {{ $element['level_class'] ?? 'pending' }}">
+-                            <summary>
+-                                <div class="detail-main">
+-                                    <div class="detail-title">{{ $element['title'] }}</div>
+-                                    <div class="detail-summary-meta">
+-                                        <span class="detail-meta-chip">Jumlah Sub-Topik: {{ (int) ($element['subtopic_count'] ?? 0) }}</span>
+-                                        <span class="detail-meta-chip is-alt">Jumlah Pernyataan: {{ (int) ($element['statement_count'] ?? 0) }}</span>
+-                                    </div>
+-                                </div>
+-                                <span class="detail-arrow-btn" aria-hidden="true">
+-                                    <svg viewBox="0 0 24 24">
+-                                        <path d="M7 10l5 5 5-5"></path>
+-                                    </svg>
+-                                </span>
+-                            </summary>
+-
+-                            <div class="detail-slide">
+-                                <div class="detail-body">
+-                                    @if (!empty($element['subtopics']))
+-                                        <div class="table-wrapper">
+-                                            <table class="apip-subtopic-table">
+-                                                <thead>
+-                                                    <tr>
+-                                                        <th>Sub Topik</th>
+-                                                        <th>Bobot Internal</th>
+-                                                        <th>Skor</th>
+-                                                        <th>Kontribusi ke Skor Element</th>
+-                                                        <th>Level / Predikat</th>
+-                                                    </tr>
+-                                                </thead>
+-                                                <tbody>
+-                                                    @foreach ($element['subtopics'] as $subtopic)
+-                                                        <tr>
+-                                                            <td>
+-                                                                <strong>{{ $subtopic['title'] }}</strong>
+-                                                                <div class="row-meta subtopic-level-note">
+-                                                                    <span class="qa-mandiri-prefix">Mandiri: </span>{{ (string) ($subtopic['level_note'] ?? 'Belum ada deskripsi level sub topik.') }}
+-                                                                </div>
+-                                                                <div class="row-meta qa-note-separator qa-only" aria-hidden="true"></div>
+-                                                                <div class="row-meta subtopic-level-note qa-only qa-level-font">
+-                                                                    QA: {{ (string) ($subtopic['qa_level_note'] ?? 'Belum ada deskripsi level QA sub topik.') }}
+-                                                                </div>
+-                                                            </td>
+-                                                            <td>{{ $formatPercent((float) ($subtopic['weight'] ?? 0) * 100) }}%</td>
+-                                                            <td>
+-                                                                <div class="apip-split-metric">
+-                                                                    <div class="apip-split-metric-row">
+-                                                                        <span class="apip-split-metric-label qa-mandiri-label">Mandiri</span>
+-                                                                        <span>{{ is_numeric($subtopic['score'] ?? null) ? number_format((float) $subtopic['score'], 2) : '-' }}</span>
+-                                                                    </div>
+-                                                                    <div class="apip-split-metric-row qa-only">
+-                                                                        <span class="apip-split-metric-label">QA</span>
+-                                                                        <span>{{ is_numeric($subtopic['qa_score'] ?? null) ? number_format((float) $subtopic['qa_score'], 2) : '-' }}</span>
+-                                                                    </div>
+-                                                                </div>
+-                                                            </td>
+-                                                            <td>
+-                                                                <div class="apip-split-metric">
+-                                                                    <div class="apip-split-metric-row">
+-                                                                        <span class="apip-split-metric-label qa-mandiri-label">Mandiri</span>
+-                                                                        <span>{{ number_format((float) ($subtopic['weighted_score'] ?? 0), 2) }}</span>
+-                                                                    </div>
+-                                                                    <div class="apip-split-metric-row qa-only">
+-                                                                        <span class="apip-split-metric-label">QA</span>
+-                                                                        <span>{{ number_format((float) ($subtopic['qa_weighted_score'] ?? 0), 2) }}</span>
+-                                                                    </div>
+-                                                                </div>
+-                                                            </td>
+-                                                            <td>
+-                                                                <div class="apip-split-metric">
+-                                                                    <div class="apip-split-metric-row">
+-                                                                        <span class="apip-split-metric-label qa-mandiri-label">Mandiri</span>
+-                                                                        <span class="level-chip {{ $subtopic['level_class'] ?? 'pending' }}">
+-                                                                            {{ $subtopic['level_label'] ?? '-' }}
+-                                                                        </span>
+-                                                                        <span class="predikat-text">{{ $subtopic['predikat'] ?? '-' }}</span>
+-                                                                    </div>
+-                                                                    <div class="apip-split-metric-row qa-only">
+-                                                                        <span class="apip-split-metric-label">QA</span>
+-                                                                        <span class="level-chip {{ $subtopic['qa_level_class'] ?? 'pending' }}">
+-                                                                            {{ $subtopic['qa_level_label'] ?? '-' }}
+-                                                                        </span>
+-                                                                        <span class="predikat-text">{{ $subtopic['qa_predikat'] ?? '-' }}</span>
+-                                                                    </div>
+-                                                                </div>
+-                                                            </td>
+-                                                        </tr>
+-                                                    @endforeach
+-                                                </tbody>
+-                                                <tfoot>
+-                                                    <tr class="subtopic-total-row">
+-                                                        <td>
+-                                                            <span class="subtopic-total-label">Total</span>
+-                                                        </td>
+-                                                        <td>
+-                                                            <span class="subtopic-total-value">{{ (string) ($element['subtopic_weight_total_percent'] ?? '0') }}%</span>
+-                                                        </td>
+-                                                        <td>-</td>
+-                                                        <td>
+-                                                            <div class="apip-split-metric">
+-                                                                <div class="apip-split-metric-row">
+-                                                                    <span class="apip-split-metric-label qa-mandiri-label">Mandiri</span>
+-                                                                    <span class="subtopic-total-value">{{ number_format((float) ($element['subtopic_contribution_total'] ?? 0), 2) }}</span>
+-                                                                </div>
+-                                                                <div class="apip-split-metric-row qa-only">
+-                                                                    <span class="apip-split-metric-label">QA</span>
+-                                                                    <span class="subtopic-total-value">{{ number_format((float) ($element['subtopic_qa_contribution_total'] ?? 0), 2) }}</span>
+-                                                                </div>
+-                                                            </div>
+-                                                        </td>
+-                                                        <td>
+-                                                            <span class="subtopic-total-note">Jumlah Bobot Internal & Kontribusi per element</span>
+-                                                        </td>
+-                                                    </tr>
+-                                                </tfoot>
+-                                            </table>
+-                                        </div>
+-                                    @else
+-                                        <div class="empty-state">Belum ada sub topik terdaftar untuk element ini.</div>
++                <div class="apip-recap-kpi">
++                    <span>Sudah Dinilai</span>
++                    <strong>{{ $assessedElementCount }}</strong>
++                </div>
++                <div class="apip-recap-kpi">
++                    <span>Belum Dinilai</span>
++                    <strong>{{ $pendingElementCount }}</strong>
++                </div>
++            </div>
++
++            <div class="apip-recap-grid">
++                @foreach ($mainLevelBuckets as $levelKey => $bucket)
++                    <article class="apip-recap-level-card {{ $bucket['level_class'] }}">
++                        <div class="apip-recap-level-head">
++                            <div class="apip-recap-level-title-wrap">
++                                <span class="level-chip {{ $bucket['level_class'] }}">{{ $bucket['label'] }}</span>
++                                <h4>{{ $bucket['predikat'] }}</h4>
++                            </div>
++                            <button
++                                type="button"
++                                class="apip-level-info-btn"
++                                data-level-modal-open="{{ $levelKey }}"
++                                aria-label="Lihat informasi {{ $bucket['label'] }}">
++                                Info Level
++                            </button>
++                        </div>
++                        <div class="apip-recap-level-count">
++                            <strong>{{ count($bucket['elements']) }}</strong>
++                            <span>element</span>
++                        </div>
++                        <div class="apip-recap-level-list">
++                            @forelse ($bucket['elements'] as $item)
++                                <div class="apip-recap-element-item">
++                                    <span class="apip-recap-element-name">{{ $item['title'] }}</span>
++                                    @if(($item['can_open'] ?? false) && ($item['slug'] ?? '') !== '')
++                                        <a class="btn-open-element" href="{{ route('elements.show', $item['slug']) }}">Buka</a>
+                                     @endif
+                                 </div>
++                            @empty
++                                <div class="empty-state apip-recap-empty">Belum ada element pada kategori ini.</div>
++                            @endforelse
++                        </div>
++                    </article>
++                @endforeach
++            </div>
++
++            @if ($pendingElementCount > 0)
++                <div class="apip-recap-pending-row">
++                    <article class="apip-recap-level-card pending apip-recap-level-card-pending-row">
++                        <div class="apip-recap-level-head">
++                            <div class="apip-recap-level-title-wrap">
++                                <span class="level-chip pending">{{ $pendingBucket['label'] }}</span>
++                                <h4>Perlu Tindak Lanjut Penilaian</h4>
+                             </div>
+-                        </details>
+-                    @endforeach
+-                </section>
++                            <button
++                                type="button"
++                                class="apip-level-info-btn"
++                                data-level-modal-open="pending"
++                                aria-label="Lihat informasi {{ $pendingBucket['label'] }}">
++                                Info Level
++                            </button>
++                        </div>
++                        <div class="apip-recap-level-count">
++                            <strong>{{ $pendingElementCount }}</strong>
++                            <span>element</span>
++                        </div>
++                        <div class="apip-recap-level-list">
++                            @foreach ($pendingBucket['elements'] as $item)
++                                <div class="apip-recap-element-item">
++                                    <span class="apip-recap-element-name">{{ $item['title'] }}</span>
++                                    @if(($item['can_open'] ?? false) && ($item['slug'] ?? '') !== '')
++                                        <a class="btn-open-element" href="{{ route('elements.show', $item['slug']) }}">Buka</a>
++                                    @endif
++                                </div>
++                            @endforeach
++                        </div>
++                    </article>
++                </div>
++            @endif
++
++            <div class="apip-level-modal" id="apipLevelModal" hidden>
++                <div class="apip-level-modal__backdrop" data-level-modal-close></div>
++                <div
++                    class="apip-level-modal__dialog has-footer"
++                    role="dialog"
++                    aria-modal="true"
++                    aria-labelledby="apipLevelModalTitle"
++                    aria-describedby="apipLevelModalDesc">
++                    <div class="apip-level-modal__header">
++                        <button type="button" class="apip-level-modal__close" data-level-modal-close aria-label="Tutup info level">&times;</button>
++                        <p class="apip-level-modal__eyebrow" id="apipLevelModalEyebrow">Informasi Level</p>
++                        <h4 class="apip-level-modal__title" id="apipLevelModalTitle">Level</h4>
++                        <p class="apip-level-modal__desc" id="apipLevelModalDesc"></p>
++                    </div>
++                    <div class="apip-level-modal__body">
++                        <div class="apip-level-modal__count">
++                            Jumlah Element: <strong id="apipLevelModalCount">0</strong>
++                        </div>
++                        <div class="apip-level-modal__list" id="apipLevelModalList"></div>
++                    </div>
++                    <div class="apip-level-modal__footer">
++                        <button type="button" class="apip-renstra-input-cancel apip-level-modal__footer-btn" data-level-modal-close>Tutup</button>
++                    </div>
++                </div>
+             </div>
+         </section>
+         <button
+@@ -382,78 +629,701 @@ class="apip-qa-toggle apip-qa-toggle-fab"
+ 
+ @push('scripts')
+ <script>
+-const initDashboardElementAccordion = () => {
+-    const accordions = Array.from(document.querySelectorAll('.apip-element-detail'));
+-    if (accordions.length === 0) return;
+-
+-    const easing = 'cubic-bezier(0.22, 1, 0.36, 1)';
+-    const durationMs = 400;
+-
+-    const clearAnimationState = (details, slide) => {
+-        details.classList.remove('is-opening', 'is-closing');
+-        details.removeAttribute('data-animating');
+-        slide.style.transition = '';
+-        slide.style.height = '';
+-        slide.style.overflow = '';
++const dashboardLevelRecapPayload = @json($levelRecapPayload ?? []);
++
++const initDashboardLevelRecapModal = () => {
++    const modal = document.getElementById('apipLevelModal');
++    if (!modal) return;
++    if (modal.parentElement !== document.body) {
++        document.body.appendChild(modal);
++    }
++
++    const modalDialog = modal.querySelector('.apip-level-modal__dialog');
++    const modalTitle = document.getElementById('apipLevelModalTitle');
++    const modalEyebrow = document.getElementById('apipLevelModalEyebrow');
++    const modalDesc = document.getElementById('apipLevelModalDesc');
++    const modalCount = document.getElementById('apipLevelModalCount');
++    const modalList = document.getElementById('apipLevelModalList');
++    const closeButtons = modal.querySelectorAll('[data-level-modal-close]');
++    const openButtons = document.querySelectorAll('[data-level-modal-open]');
++    const payload = (dashboardLevelRecapPayload && typeof dashboardLevelRecapPayload === 'object')
++        ? dashboardLevelRecapPayload
++        : {};
++    const modalToneClasses = ['is-level-1', 'is-level-2', 'is-level-3', 'is-level-4', 'is-level-5', 'is-pending'];
++    const modalTransitionMs = 240;
++
++    const getViewportUiScale = () => {
++        const zoomRaw = getComputedStyle(document.body).zoom;
++        const zoom = Number.parseFloat(zoomRaw || '1');
++        return Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+     };
+ 
+-    const openWithAnimation = (details, slide) => {
+-        if (details.getAttribute('data-animating') === '1') return;
+-        details.setAttribute('data-animating', '1');
+-        details.classList.add('is-opening');
+-        details.open = true;
++    const syncModalToViewport = () => {
++        if (!modal.classList.contains('is-open')) return;
++        const scale = getViewportUiScale();
++        modal.style.top = `${Math.round(window.scrollY / scale)}px`;
++        modal.style.left = `${Math.round(window.scrollX / scale)}px`;
++        modal.style.width = `${Math.ceil(window.innerWidth / scale)}px`;
++        modal.style.height = `${Math.ceil(window.innerHeight / scale)}px`;
++    };
+ 
+-        slide.style.height = '0px';
+-        slide.style.overflow = 'hidden';
++    const clearModalViewportStyles = () => {
++        modal.style.removeProperty('top');
++        modal.style.removeProperty('left');
++        modal.style.removeProperty('width');
++        modal.style.removeProperty('height');
++    };
+ 
+-        requestAnimationFrame(() => {
+-            const targetHeight = slide.scrollHeight;
+-            slide.style.transition = `height ${durationMs}ms ${easing}, opacity 240ms ease`;
+-            slide.style.height = targetHeight + 'px';
+-        });
++    const syncModalBodyLock = () => {
++        const body = document.body;
++        if (!body) return;
++        const shouldLock = modal.classList.contains('is-open');
+ 
++        if (shouldLock) {
++            const scrollbarComp = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
++            if (scrollbarComp > 0) {
++                body.style.setProperty('--apip-scrollbar-comp', `${scrollbarComp}px`);
++            } else {
++                body.style.removeProperty('--apip-scrollbar-comp');
++            }
++            body.classList.add('apip-modal-open');
++            return;
++        }
++
++        body.classList.remove('apip-modal-open');
++        body.style.removeProperty('--apip-scrollbar-comp');
++    };
++
++    const closeModal = () => {
++        modal.classList.remove('is-open');
+         window.setTimeout(() => {
+-            clearAnimationState(details, slide);
+-        }, durationMs + 40);
++            modal.hidden = true;
++            clearModalViewportStyles();
++            syncModalBodyLock();
++        }, modalTransitionMs);
+     };
+ 
+-    const closeWithAnimation = (details, slide) => {
+-        if (details.getAttribute('data-animating') === '1') return;
+-        details.setAttribute('data-animating', '1');
+-        details.classList.add('is-closing');
++    const renderModalContent = (levelKey) => {
++        const levelData = payload[levelKey];
++        if (!levelData) return;
++        if (modalDialog) {
++            modalDialog.classList.remove(...modalToneClasses);
++            const toneClass = {
++                level1: 'is-level-1',
++                level2: 'is-level-2',
++                level3: 'is-level-3',
++                level4: 'is-level-4',
++                level5: 'is-level-5',
++                pending: 'is-pending',
++            }[levelKey] || 'is-pending';
++            modalDialog.classList.add(toneClass);
++        }
+ 
+-        const startHeight = slide.scrollHeight;
+-        slide.style.height = startHeight + 'px';
+-        slide.style.overflow = 'hidden';
++        if (modalEyebrow) {
++            modalEyebrow.textContent = `Informasi ${levelData.label ?? 'Level'}`;
++        }
++        if (modalTitle) {
++            const label = levelData.label ?? 'Level';
++            const predikat = levelData.predikat ?? '';
++            modalTitle.textContent = predikat !== '' && predikat !== 'Belum Dinilai'
++                ? `${label} - ${predikat}`
++                : label;
++        }
++        if (modalDesc) {
++            modalDesc.textContent = levelData.description ?? '';
++        }
++        if (modalCount) {
++            modalCount.textContent = String(levelData.count ?? 0);
++        }
+ 
+-        requestAnimationFrame(() => {
+-            slide.style.transition = `height ${durationMs}ms ${easing}, opacity 220ms ease`;
+-            slide.style.height = '0px';
++        if (!modalList) return;
++
++        const entries = Array.isArray(levelData.elements) ? levelData.elements : [];
++        if (entries.length === 0) {
++            modalList.innerHTML = '<div class="apip-level-modal__empty">Belum ada element pada kategori ini.</div>';
++            return;
++        }
++
++        modalList.innerHTML = '';
++        entries.forEach((item) => {
++            const article = document.createElement('article');
++            article.className = 'apip-level-modal__item';
++
++            const title = document.createElement('h5');
++            title.textContent = item.title ?? '';
++
++            article.appendChild(title);
++
++            const meta = document.createElement('div');
++            meta.className = 'apip-level-modal__meta';
++            const subtopicTotal = Number.parseInt(item.subtopic_count ?? 0, 10);
++            const subtopicAssessed = Number.parseInt(item.assessed_subtopic_count ?? 0, 10);
++            const isSubtopicCountValid = Number.isFinite(subtopicTotal) && subtopicTotal > 0;
++            const subtopicProgress = isSubtopicCountValid
++                ? `${Math.max(0, subtopicAssessed)}/${subtopicTotal}`
++                : '-';
++            const metaFields = [
++                ['Skor', item.score ?? '-'],
++                ['Tertimbang', item.weighted_score ?? '0.00'],
++                ['Sub Topik', subtopicProgress],
++            ];
++
++            metaFields.forEach(([label, value]) => {
++                const chip = document.createElement('span');
++                chip.className = 'apip-level-modal__chip';
++
++                const chipLabel = document.createElement('span');
++                chipLabel.className = 'apip-level-modal__chip-label';
++                chipLabel.textContent = label;
++
++                const chipValue = document.createElement('span');
++                chipValue.className = 'apip-level-modal__chip-value';
++                chipValue.textContent = String(value);
++
++                chip.appendChild(chipLabel);
++                chip.appendChild(chipValue);
++                meta.appendChild(chip);
++            });
++
++            article.appendChild(meta);
++
++            const subtopics = Array.isArray(item.subtopic_details) ? item.subtopic_details : [];
++            if (subtopics.length === 0) {
++                const emptySubtopic = document.createElement('p');
++                emptySubtopic.className = 'apip-level-modal__subtopics';
++                emptySubtopic.textContent = 'Belum ada daftar sub topik untuk element ini.';
++                article.appendChild(emptySubtopic);
++            } else {
++                const subtopicList = document.createElement('div');
++                subtopicList.className = 'apip-level-modal__subtopic-list';
++
++                subtopics.forEach((subtopic) => {
++                    const subtopicRow = document.createElement('div');
++                    subtopicRow.className = 'apip-level-modal__subtopic-item';
++
++                    const subtopicHead = document.createElement('p');
++                    subtopicHead.className = 'apip-level-modal__subtopic-head';
++                    const subtopicTitle = String(subtopic.title ?? '').trim();
++                    const subtopicLevelLabel = String(subtopic.level_label ?? '-').trim() || '-';
++                    subtopicHead.textContent = `${subtopicTitle} (${subtopicLevelLabel})`;
++
++                    const subtopicLevelInfo = document.createElement('p');
++                    subtopicLevelInfo.className = 'apip-level-modal__subtopic-note';
++                    subtopicLevelInfo.textContent = String(subtopic.level_note ?? 'Belum ada informasi level sub topik.');
++
++                    subtopicRow.appendChild(subtopicHead);
++                    subtopicRow.appendChild(subtopicLevelInfo);
++                    subtopicList.appendChild(subtopicRow);
++                });
++
++                article.appendChild(subtopicList);
++            }
++
++            modalList.appendChild(article);
+         });
++    };
+ 
+-        window.setTimeout(() => {
+-            details.open = false;
+-            clearAnimationState(details, slide);
+-        }, durationMs + 40);
++    openButtons.forEach((button) => {
++        if (button.dataset.levelModalBound === '1') return;
++        button.dataset.levelModalBound = '1';
++        button.addEventListener('click', () => {
++            const levelKey = button.getAttribute('data-level-modal-open') || '';
++            renderModalContent(levelKey);
++            modal.hidden = false;
++            requestAnimationFrame(() => {
++                modal.classList.add('is-open');
++                syncModalToViewport();
++                syncModalBodyLock();
++            });
++            if (modalDialog) {
++                modalDialog.scrollTop = 0;
++            }
++        });
++    });
++
++    closeButtons.forEach((button) => {
++        if (button.dataset.levelModalBound === '1') return;
++        button.dataset.levelModalBound = '1';
++        button.addEventListener('click', closeModal);
++    });
++
++    if (modal.dataset.levelModalEscBound !== '1') {
++        modal.dataset.levelModalEscBound = '1';
++        document.addEventListener('keydown', (event) => {
++            if (event.key !== 'Escape') return;
++            if (modal.hidden) return;
++            closeModal();
++        });
++    }
++
++    if (modal.dataset.levelModalViewportBound !== '1') {
++        modal.dataset.levelModalViewportBound = '1';
++        window.addEventListener('resize', syncModalToViewport);
++        window.addEventListener('scroll', syncModalToViewport, { passive: true });
++        window.addEventListener('pageshow', syncModalToViewport);
++    }
++};
++
++const initDashboardRenstraInputModal = () => {
++    const modal = document.getElementById('apipRenstraInputModal');
++    if (!modal) return;
++    if (modal.parentElement !== document.body) {
++        document.body.appendChild(modal);
++    }
++
++    const dialog = modal.querySelector('.apip-level-modal__dialog');
++    const openButtons = document.querySelectorAll('[data-renstra-modal-open]');
++    const closeButtons = modal.querySelectorAll('[data-renstra-modal-close]');
++    const transitionMs = 240;
++
++    const getViewportUiScale = () => {
++        const zoomRaw = getComputedStyle(document.body).zoom;
++        const zoom = Number.parseFloat(zoomRaw || '1');
++        return Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+     };
+ 
+-    accordions.forEach((details) => {
+-        if (details.getAttribute('data-accordion-bound') === '1') return;
+-        details.setAttribute('data-accordion-bound', '1');
++    const syncModalToViewport = () => {
++        if (!modal.classList.contains('is-open')) return;
++        const scale = getViewportUiScale();
++        modal.style.top = `${Math.round(window.scrollY / scale)}px`;
++        modal.style.left = `${Math.round(window.scrollX / scale)}px`;
++        modal.style.width = `${Math.ceil(window.innerWidth / scale)}px`;
++        modal.style.height = `${Math.ceil(window.innerHeight / scale)}px`;
++    };
++
++    const clearModalViewportStyles = () => {
++        modal.style.removeProperty('top');
++        modal.style.removeProperty('left');
++        modal.style.removeProperty('width');
++        modal.style.removeProperty('height');
++    };
+ 
+-        const summary = details.querySelector(':scope > summary');
+-        const slide = details.querySelector(':scope > .detail-slide');
+-        if (!summary || !slide) return;
++    const syncBodyLock = () => {
++        const body = document.body;
++        if (!body) return;
++        const shouldLock = modal.classList.contains('is-open');
+ 
+-        summary.addEventListener('click', function (event) {
+-            event.preventDefault();
+-            if (details.open) {
+-                closeWithAnimation(details, slide);
++        if (shouldLock) {
++            const scrollbarComp = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
++            if (scrollbarComp > 0) {
++                body.style.setProperty('--apip-scrollbar-comp', `${scrollbarComp}px`);
+             } else {
+-                openWithAnimation(details, slide);
++                body.style.removeProperty('--apip-scrollbar-comp');
+             }
++            body.classList.add('apip-modal-open');
++            return;
++        }
++
++        body.classList.remove('apip-modal-open');
++        body.style.removeProperty('--apip-scrollbar-comp');
++    };
++
++    const openModal = () => {
++        modal.hidden = false;
++        requestAnimationFrame(() => {
++            modal.classList.add('is-open');
++            syncModalToViewport();
++            syncBodyLock();
+         });
++        if (dialog) {
++            dialog.scrollTop = 0;
++        }
++    };
++
++    const closeModal = () => {
++        modal.classList.remove('is-open');
++        window.setTimeout(() => {
++            modal.hidden = true;
++            clearModalViewportStyles();
++            syncBodyLock();
++        }, transitionMs);
++    };
++
++    openButtons.forEach((button) => {
++        if (button.dataset.renstraModalBound === '1') return;
++        button.dataset.renstraModalBound = '1';
++        button.addEventListener('click', openModal);
++    });
++
++    closeButtons.forEach((button) => {
++        if (button.dataset.renstraModalBound === '1') return;
++        button.dataset.renstraModalBound = '1';
++        button.addEventListener('click', closeModal);
+     });
++
++    if (modal.dataset.renstraModalEscBound !== '1') {
++        modal.dataset.renstraModalEscBound = '1';
++        document.addEventListener('keydown', (event) => {
++            if (event.key !== 'Escape') return;
++            if (modal.hidden) return;
++            closeModal();
++        });
++    }
++
++    if (modal.dataset.renstraModalViewportBound !== '1') {
++        modal.dataset.renstraModalViewportBound = '1';
++        window.addEventListener('resize', syncModalToViewport);
++        window.addEventListener('scroll', syncModalToViewport, { passive: true });
++        window.addEventListener('pageshow', syncModalToViewport);
++    }
++
++    if (modal.dataset.openOnLoad === '1') {
++        openModal();
++    }
++};
++
++const ensureDashboardChartJs = (() => {
++    let loaderPromise = null;
++    const chartScriptId = 'apip-chartjs-umd';
++    const adapterScriptId = 'apip-chartjs-datefns-adapter';
++    const hasDateAdapter = () => Boolean(
++        window.Chart
++            && window.Chart._adapters
++            && window.Chart._adapters._date
++            && typeof window.Chart._adapters._date.format === 'function'
++    );
++
++    const loadScript = (id, src) => new Promise((resolve, reject) => {
++        const existing = document.getElementById(id);
++        if (existing) {
++            if (existing.dataset.loaded === '1') {
++                resolve();
++                return;
++            }
++
++            existing.addEventListener('load', () => resolve(), { once: true });
++            existing.addEventListener('error', () => reject(new Error(`Gagal memuat ${src}`)), { once: true });
++            return;
++        }
++
++        const script = document.createElement('script');
++        script.id = id;
++        script.src = src;
++        script.defer = true;
++        script.onload = () => {
++            script.dataset.loaded = '1';
++            resolve();
++        };
++        script.onerror = () => reject(new Error(`Gagal memuat ${src}`));
++        document.head.appendChild(script);
++    });
++
++    return () => {
++        if (window.Chart && hasDateAdapter()) {
++            return Promise.resolve();
++        }
++
++        if (loaderPromise) {
++            return loaderPromise;
++        }
++
++        const chartLoader = window.Chart
++            ? Promise.resolve()
++            : loadScript(chartScriptId, 'https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js');
++
++        loaderPromise = chartLoader
++            .then(() => hasDateAdapter()
++                ? Promise.resolve()
++                : loadScript(adapterScriptId, 'https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js'))
++            .catch((error) => {
++                loaderPromise = null;
++                throw error;
++            });
++
++        return loaderPromise;
++    };
++})();
++
++const initDashboardRenstraScaleSwitch = () => {
++    const chartRoot = document.querySelector('[data-renstra-chartjs]');
++    if (!chartRoot || chartRoot.dataset.renstraScaleBound === '1') return;
++
++    const canvas = chartRoot.querySelector('#apipRenstraChartCanvas');
++    const rangeWrap = chartRoot.querySelector('.apip-renstra-ranges-wrap');
++    const scaleButtons = Array.from(document.querySelectorAll('[data-renstra-scale]'));
++    if (!canvas || scaleButtons.length === 0) return;
++
++    let rawSeries = [];
++    try {
++        rawSeries = JSON.parse(chartRoot.getAttribute('data-series') || '[]');
++    } catch (error) {
++        rawSeries = [];
++    }
++
++    const series = Array.isArray(rawSeries)
++        ? rawSeries
++            .map((item) => {
++                const year = Number.parseInt(item?.year ?? '', 10);
++                if (!Number.isFinite(year) || year <= 0) return null;
++                const hasilScoreRaw = Number.parseFloat(item?.hasil_score ?? '');
++                const targetScoreRaw = Number.parseFloat(item?.target_score ?? '');
++                return {
++                    year,
++                    x: Date.UTC(year, 0, 1),
++                    hasilScore: Number.isFinite(hasilScoreRaw) ? Math.max(0, Math.min(5, hasilScoreRaw)) : null,
++                    targetScore: Number.isFinite(targetScoreRaw) ? Math.max(0, Math.min(5, targetScoreRaw)) : null,
++                };
++            })
++            .filter((item) => item !== null)
++            .sort((a, b) => a.year - b.year)
++        : [];
++
++    if (series.length === 0) return;
++
++    const years = series.map((item) => item.year);
++    const parsedCurrentYear = Number.parseInt(chartRoot.dataset.currentYear || '', 10);
++    const fallbackCurrentYear = years[years.length - 1];
++    const currentYear = Number.isFinite(parsedCurrentYear) ? parsedCurrentYear : fallbackCurrentYear;
++    const closestVisibleCurrentYear = years.includes(currentYear)
++        ? currentYear
++        : years.filter((year) => year <= currentYear).slice(-1)[0] || fallbackCurrentYear;
++
++    const getVisibleSeries = (scaleKey) => {
++        if (scaleKey === '3y') {
++            const minYear = closestVisibleCurrentYear - 2;
++            return series.filter((item) => item.year >= minYear && item.year <= closestVisibleCurrentYear);
++        }
++
++        if (scaleKey === '5y') {
++            const minYear = closestVisibleCurrentYear - 4;
++            return series.filter((item) => item.year >= minYear && item.year <= closestVisibleCurrentYear);
++        }
++
++        if (scaleKey === 'ytd') {
++            return series.filter((item) => item.year === closestVisibleCurrentYear);
++        }
++
++        return series;
++    };
++
++    const updateScaleButtonState = (activeScale) => {
++        scaleButtons.forEach((button) => {
++            const buttonScale = (button.getAttribute('data-renstra-scale') || '').trim().toLowerCase();
++            const isActive = buttonScale === activeScale;
++            button.classList.toggle('is-active', isActive);
++            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
++        });
++    };
++
++    const chartFallback = (message) => {
++        const fallback = document.createElement('div');
++        fallback.className = 'empty-state apip-recap-empty';
++        fallback.textContent = message;
++        chartRoot.innerHTML = '';
++        chartRoot.appendChild(fallback);
++    };
++
++    ensureDashboardChartJs()
++        .then(() => {
++            if (!window.Chart) {
++                chartFallback('Library Chart.js tidak tersedia.');
++                return;
++            }
++
++            const ctx = canvas.getContext('2d');
++            if (!ctx) {
++                chartFallback('Canvas chart tidak dapat diinisialisasi.');
++                return;
++            }
++
++            const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
++            let chartInstance = null;
++            let activeScale = 'renstra';
++
++            const buildDatasets = (visibleSeries) => {
++                const hasilData = visibleSeries.map((item) => item.hasilScore);
++                const targetData = visibleSeries.map((item) => item.targetScore);
++
++                return [
++                    {
++                        type: 'bar',
++                        label: 'Hasil Penilaian',
++                        data: hasilData,
++                        backgroundColor: 'rgba(52, 71, 240, 0.9)',
++                        borderColor: 'rgba(38, 54, 210, 1)',
++                        borderWidth: 1,
++                        borderRadius: 9,
++                        barThickness: 14,
++                        maxBarThickness: 16,
++                        categoryPercentage: 0.68,
++                        barPercentage: 0.92,
++                        order: 2,
++                    },
++                    {
++                        type: 'bar',
++                        label: 'Target Renstra',
++                        data: targetData,
++                        backgroundColor: 'rgba(43, 201, 191, 0.88)',
++                        borderColor: 'rgba(28, 171, 162, 1)',
++                        borderWidth: 1,
++                        borderRadius: 9,
++                        barThickness: 14,
++                        maxBarThickness: 16,
++                        categoryPercentage: 0.68,
++                        barPercentage: 0.92,
++                        order: 2,
++                    },
++                    {
++                        type: 'line',
++                        label: 'Trend Hasil',
++                        data: hasilData,
++                        borderColor: '#f28a22',
++                        backgroundColor: 'rgba(242, 138, 34, 0.2)',
++                        borderWidth: 2.5,
++                        pointRadius: 4,
++                        pointHoverRadius: 5,
++                        pointBorderWidth: 2,
++                        pointBackgroundColor: '#fff6eb',
++                        pointBorderColor: '#f28a22',
++                        tension: 0.28,
++                        spanGaps: true,
++                        fill: false,
++                        order: 1,
++                    },
++                ];
++            };
++
++            const renderChart = (scaleKey, animated = true) => {
++                const visibleSeries = getVisibleSeries(scaleKey);
++                const labels = visibleSeries.map((item) => String(item.year));
++                const datasets = buildDatasets(visibleSeries);
++
++                chartRoot.classList.toggle('is-ranges-hidden', scaleKey !== 'renstra');
++                if (rangeWrap) {
++                    rangeWrap.hidden = scaleKey !== 'renstra';
++                }
++
++                if (!chartInstance) {
++                    chartInstance = new window.Chart(ctx, {
++                        type: 'bar',
++                        data: {
++                            labels,
++                            datasets,
++                        },
++                        options: {
++                            responsive: true,
++                            maintainAspectRatio: false,
++                            animation: prefersReducedMotion || !animated
++                                ? false
++                                : {
++                                    duration: 640,
++                                    easing: 'easeOutQuart',
++                                },
++                            interaction: {
++                                mode: 'index',
++                                axis: 'x',
++                                intersect: false,
++                            },
++                            plugins: {
++                                legend: {
++                                    display: false,
++                                },
++                                tooltip: {
++                                    mode: 'index',
++                                    intersect: false,
++                                    position: 'nearest',
++                                    backgroundColor: 'rgba(15, 23, 42, 0.92)',
++                                    borderColor: 'rgba(148, 163, 184, 0.45)',
++                                    borderWidth: 1,
++                                    padding: 10,
++                                    titleColor: '#e2e8f0',
++                                    bodyColor: '#f8fafc',
++                                    displayColors: true,
++                                    callbacks: {
++                                        title(items) {
++                                            return items?.[0]?.label ?? '';
++                                        },
++                                        label(context) {
++                                            const value = Number.parseFloat(context?.parsed?.y);
++                                            if (!Number.isFinite(value)) {
++                                                return `${context.dataset.label}: -`;
++                                            }
++                                            return `${context.dataset.label}: ${value.toFixed(2)}`;
++                                        },
++                                    },
++                                },
++                            },
++                            scales: {
++                                x: {
++                                    offset: true,
++                                    grid: {
++                                        display: false,
++                                    },
++                                    ticks: {
++                                        autoSkip: false,
++                                        maxRotation: 0,
++                                        minRotation: 0,
++                                        color: '#294a76',
++                                        font: {
++                                            size: 12,
++                                            weight: '700',
++                                        },
++                                    },
++                                },
++                                y: {
++                                    min: 0,
++                                    max: 5,
++                                    ticks: {
++                                        stepSize: 1,
++                                        color: '#5a7092',
++                                        font: {
++                                            size: 12,
++                                            weight: '700',
++                                        },
++                                    },
++                                    grid: {
++                                        color: '#d8e5f7',
++                                        drawBorder: false,
++                                    },
++                                },
++                            },
++                        },
++                    });
++                    return;
++                }
++
++                chartInstance.options.animation = prefersReducedMotion || !animated
++                    ? false
++                    : {
++                        duration: 520,
++                        easing: 'easeOutQuart',
++                    };
++                chartInstance.data.labels = labels;
++                chartInstance.data.datasets = datasets;
++                chartInstance.update();
++            };
++
++            scaleButtons.forEach((button) => {
++                if (button.dataset.renstraScaleBound === '1') return;
++                button.dataset.renstraScaleBound = '1';
++                button.addEventListener('click', () => {
++                    const nextScale = (button.getAttribute('data-renstra-scale') || '').trim().toLowerCase();
++                    if (nextScale === '' || nextScale === activeScale) return;
++                    activeScale = nextScale;
++                    updateScaleButtonState(activeScale);
++                    renderChart(activeScale, true);
++                });
++            });
++
++            updateScaleButtonState(activeScale);
++            renderChart(activeScale, false);
++
++            if (chartRoot.dataset.renstraChartResizeBound !== '1') {
++                chartRoot.dataset.renstraChartResizeBound = '1';
++                window.addEventListener('resize', () => {
++                    if (chartInstance) {
++                        chartInstance.resize();
++                    }
++                });
++            }
++
++            chartRoot.dataset.renstraChartReady = '1';
++        })
++        .catch(() => {
++            chartFallback('Chart.js gagal dimuat. Silakan periksa koneksi internet dan refresh halaman.');
++        });
++
++    chartRoot.dataset.renstraScaleBound = '1';
+ };
+ 
+ const initDashboardSpeedometer = () => {
+@@ -588,8 +1458,10 @@ class="apip-qa-toggle apip-qa-toggle-fab"
+ };
+ 
+ const initDashboardHomePage = () => {
++    initDashboardLevelRecapModal();
++    initDashboardRenstraInputModal();
++    initDashboardRenstraScaleSwitch();
+     initDashboardQaToggle();
+-    initDashboardElementAccordion();
+     initDashboardSpeedometer();
+ };
+ 
+@@ -597,4 +1469,3 @@ class="apip-qa-toggle apip-qa-toggle-fab"
+ document.addEventListener('livewire:navigated', initDashboardHomePage);
+ </script>
+ @endpush
+-
+diff --git a/routes/web.php b/routes/web.php
+index bcf3b25a..abf21d08 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -93,5 +93,6 @@
+         Route::post('/element-preferences/archive-progress', [ElementPreferenceController::class, 'archiveProgress'])->name('element-preferences.archive-progress');
+         Route::post('/element-preferences/load-archive', [ElementPreferenceController::class, 'loadArchive'])->name('element-preferences.load-archive');
+         Route::post('/informasi-umum', [GeneralInformationController::class, 'update'])->name('informasi-umum.update');
++        Route::post('/dashboard/renstra-trend', [DashboardController::class, 'updateRenstraTrend'])->name('dashboard.renstra-trend.update');
+     });
+ });

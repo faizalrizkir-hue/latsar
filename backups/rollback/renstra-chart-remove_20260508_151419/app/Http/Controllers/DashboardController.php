@@ -178,7 +178,6 @@ class DashboardController extends Controller
 
     public function updateRenstraTrend(Request $request)
     {
-        $forcedNoAssessmentYears = [2019, 2020];
         $overrideTable = (new RenstraTrendOverride())->getTable();
         if (!Schema::hasTable($overrideTable)) {
             return redirect()
@@ -208,19 +207,11 @@ class DashboardController extends Controller
         ]);
 
         $entries = collect((array) ($validated['entries'] ?? []))
-            ->map(function (array $entry) use ($forcedNoAssessmentYears): array {
-                $year = (int) ($entry['year'] ?? 0);
-                $hasilScore = $this->normalizeScoreRange($entry['hasil_score'] ?? null);
-                if (in_array($year, $forcedNoAssessmentYears, true)) {
-                    $hasilScore = 0.0;
-                }
-
-                return [
-                    'year' => $year,
-                    'hasil_score' => $hasilScore,
-                    'target_score' => $this->normalizeScoreRange($entry['target_score'] ?? null),
-                ];
-            })
+            ->map(fn (array $entry): array => [
+                'year' => (int) ($entry['year'] ?? 0),
+                'hasil_score' => $this->normalizeScoreRange($entry['hasil_score'] ?? null),
+                'target_score' => $this->normalizeScoreRange($entry['target_score'] ?? null),
+            ])
             ->filter(fn (array $entry): bool => $entry['year'] >= 2018 && $entry['year'] <= 2029)
             ->unique('year')
             ->values();
@@ -396,7 +387,6 @@ class DashboardController extends Controller
      */
     private function buildRenstraTrendSeries(array $summaryModules, float $currentOverallWeightedScore): array
     {
-        $forcedNoAssessmentYears = [2019, 2020];
         $periodTargets = [
             [
                 'key' => 'renstra_2018_2022',
@@ -455,7 +445,7 @@ class DashboardController extends Controller
                 ->keyBy(fn (RenstraTrendOverride $item): int => (int) $item->year);
         }
 
-        return collect($years)->map(function (int $year) use ($archiveScoresByYear, $currentYear, $currentOverallWeightedScore, $periodTargets, $targetScoresByYear, $overridesByYear, $forcedNoAssessmentYears): array {
+        return collect($years)->map(function (int $year) use ($archiveScoresByYear, $currentYear, $currentOverallWeightedScore, $periodTargets, $targetScoresByYear, $overridesByYear): array {
             /** @var RenstraTrendOverride|null $override */
             $override = $overridesByYear->get($year);
             $hasManualResult = is_numeric($override?->hasil_score);
@@ -481,14 +471,6 @@ class DashboardController extends Controller
             } elseif ($year === $currentYear) {
                 $resultScore = (float) $currentOverallWeightedScore;
                 $sourceLabel = 'Data aktif TA '.$currentYear;
-            }
-
-            // Business rule: tahun 2019 dan 2020 ditetapkan sebagai tidak dilakukan penilaian (nilai hasil = 0).
-            if (in_array($year, $forcedNoAssessmentYears, true)) {
-                $resultScore = 0.0;
-                $sourceLabel = 'Tidak dilakukan penilaian (nilai khusus 0)';
-                $hasManualResult = false;
-                $manualResultScore = null;
             }
 
             $targetPeriod = $periodTargets->first(function (array $item) use ($year): bool {

@@ -1,0 +1,4 @@
+﻿Rollback steps:
+1) Copy sidenav-theme.css.bak -> public/css/sidenav-theme.css
+2) Copy dashboard-shell.blade.php.bak -> resources/views/layouts/dashboard-shell.blade.php
+3) Hard refresh browser (Ctrl+F5)

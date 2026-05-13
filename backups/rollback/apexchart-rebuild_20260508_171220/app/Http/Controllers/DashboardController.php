@@ -5,19 +5,15 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\Element1KegiatanAsurans;
 use App\Models\ElementAssessment;
-use App\Models\ElementProgressArchive;
 use App\Models\ElementTeamAssignment;
 use App\Models\Notification;
-use App\Models\RenstraTrendOverride;
 use App\Services\AssessmentSummaryCache;
 use App\Services\DashboardShellDataBuilder;
 use App\Services\ElementPreferenceService;
 use App\Services\SchemaMetadataCache;
 use App\Support\DashboardHomeViewNormalizer;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Str;
 
@@ -51,7 +47,6 @@ class DashboardController extends Controller
         }
 
         $sessionUser = (array) Session::get('user', []);
-        $canManageRenstraTrend = $this->isAdminRole((string) ($sessionUser['role'] ?? ''));
         $summaryPayload = $this->assessmentSummaryCache->remember(
             'dashboard-index',
             $sessionUser,
@@ -104,8 +99,6 @@ class DashboardController extends Controller
                     ? $this->meterPercentFromScore($overallWeightedScoreQa)
                     : 0;
                 $meterNeedleDegQa = (float) number_format(-90 + (180 * ($meterPercentQa / 100)), 2, '.', '');
-                $renstraTrendSeries = $this->buildRenstraTrendSeries($summaryModules, $overallWeightedScore);
-
                 return [
                     'elementWeights' => $elementWeights,
                     'elements' => $elements,
@@ -118,7 +111,6 @@ class DashboardController extends Controller
                     'meterNeedleDeg' => $meterNeedleDeg,
                     'meterPercentQa' => $meterPercentQa,
                     'meterNeedleDegQa' => $meterNeedleDegQa,
-                    'renstraTrendSeries' => $renstraTrendSeries,
                 ];
             }
         );
@@ -136,10 +128,6 @@ class DashboardController extends Controller
         $meterNeedleDeg = (float) ($summaryPayload['meterNeedleDeg'] ?? 0);
         $meterPercentQa = (float) ($summaryPayload['meterPercentQa'] ?? 0);
         $meterNeedleDegQa = (float) ($summaryPayload['meterNeedleDegQa'] ?? 0);
-        $renstraTrendSeries = is_array($summaryPayload['renstraTrendSeries'] ?? null)
-            ? $summaryPayload['renstraTrendSeries']
-            : [];
-
         $elements = DashboardHomeViewNormalizer::enrichElements($elements, $accessibleElementSlugs);
         $dashboardUi = DashboardHomeViewNormalizer::buildUiMeta(
             $elementWeights,
@@ -163,8 +151,6 @@ class DashboardController extends Controller
             'meterNeedleDeg' => $meterNeedleDeg,
             'meterPercentQa' => (float) number_format($meterPercentQa, 2, '.', ''),
             'meterNeedleDegQa' => $meterNeedleDegQa,
-            'renstraTrendSeries' => $renstraTrendSeries,
-            'canManageRenstraTrend' => $canManageRenstraTrend,
             'dashboardUi' => $dashboardUi,
             'notifications' => $notifications,
             'user' => Session::get('user'),
@@ -174,119 +160,6 @@ class DashboardController extends Controller
         $shellData = app(DashboardShellDataBuilder::class)->build($viewData);
 
         return view('dashboard', array_merge($viewData, $shellData));
-    }
-
-    public function updateRenstraTrend(Request $request)
-    {
-        $forcedNoAssessmentYears = [2019, 2020];
-        $overrideTable = (new RenstraTrendOverride())->getTable();
-        if (!Schema::hasTable($overrideTable)) {
-            return redirect()
-                ->route('dashboard')
-                ->with('status', 'Tabel pengaturan Renstra belum tersedia. Jalankan migrasi terlebih dahulu.');
-        }
-
-        $entriesInput = collect((array) $request->input('entries', []))
-            ->map(function ($item): array {
-                $entry = is_array($item) ? $item : [];
-
-                return [
-                    'year' => $entry['year'] ?? null,
-                    'hasil_score' => $this->normalizeNullableDecimalInput($entry['hasil_score'] ?? null),
-                    'target_score' => $this->normalizeNullableDecimalInput($entry['target_score'] ?? null),
-                ];
-            })
-            ->values()
-            ->all();
-        $request->merge(['entries' => $entriesInput]);
-
-        $validated = $request->validate([
-            'entries' => ['required', 'array', 'min:1'],
-            'entries.*.year' => ['required', 'integer', 'between:2018,2029'],
-            'entries.*.hasil_score' => ['nullable', 'numeric', 'between:0,5'],
-            'entries.*.target_score' => ['nullable', 'numeric', 'between:0,5'],
-        ]);
-
-        $entries = collect((array) ($validated['entries'] ?? []))
-            ->map(function (array $entry) use ($forcedNoAssessmentYears): array {
-                $year = (int) ($entry['year'] ?? 0);
-                $hasilScore = $this->normalizeScoreRange($entry['hasil_score'] ?? null);
-                if (in_array($year, $forcedNoAssessmentYears, true)) {
-                    $hasilScore = 0.0;
-                }
-
-                return [
-                    'year' => $year,
-                    'hasil_score' => $hasilScore,
-                    'target_score' => $this->normalizeScoreRange($entry['target_score'] ?? null),
-                ];
-            })
-            ->filter(fn (array $entry): bool => $entry['year'] >= 2018 && $entry['year'] <= 2029)
-            ->unique('year')
-            ->values();
-
-        $sessionUser = (array) Session::get('user', []);
-        $updatedBy = trim((string) ($sessionUser['username'] ?? ''));
-        foreach ($entries as $entry) {
-            $year = (int) ($entry['year'] ?? 0);
-            $hasilScore = $entry['hasil_score'] ?? null;
-            $targetScore = $entry['target_score'] ?? null;
-
-            if ($hasilScore === null && $targetScore === null) {
-                RenstraTrendOverride::query()->where('year', $year)->delete();
-                continue;
-            }
-
-            RenstraTrendOverride::query()->updateOrCreate(
-                ['year' => $year],
-                [
-                    'hasil_score' => $hasilScore,
-                    'target_score' => $targetScore,
-                    'updated_by' => $updatedBy !== '' ? $updatedBy : null,
-                ]
-            );
-        }
-
-        $this->assessmentSummaryCache->bumpVersion();
-
-        return redirect()
-            ->route('dashboard')
-            ->with('status', 'Pengaturan grafik hasil dan target Renstra berhasil diperbarui.');
-    }
-
-    private function isAdminRole(string $role): bool
-    {
-        $normalizedRole = Str::lower(trim($role));
-        return in_array($normalizedRole, ['administrator', 'admin', 'superadmin'], true);
-    }
-
-    private function normalizeNullableDecimalInput(mixed $value): mixed
-    {
-        if ($value === null) {
-            return null;
-        }
-
-        if (is_string($value)) {
-            $normalized = trim(str_replace(',', '.', $value));
-            return $normalized === '' ? null : $normalized;
-        }
-
-        return $value;
-    }
-
-    private function normalizeScoreRange(mixed $value): ?float
-    {
-        if ($value === null || $value === '') {
-            return null;
-        }
-
-        if (!is_numeric($value)) {
-            return null;
-        }
-
-        $normalized = max(0, min(5, (float) $value));
-
-        return (float) number_format($normalized, 2, '.', '');
     }
 
     private function buildPhotoUrl(?string $path): string
@@ -388,330 +261,6 @@ class DashboardController extends Controller
         }
 
         return $elements;
-    }
-
-    /**
-     * @param array<string, array<string, mixed>> $summaryModules
-     * @return array<int, array<string, mixed>>
-     */
-    private function buildRenstraTrendSeries(array $summaryModules, float $currentOverallWeightedScore): array
-    {
-        $forcedNoAssessmentYears = [2019, 2020];
-        $periodTargets = [
-            [
-                'key' => 'renstra_2018_2022',
-                'label' => 'Renstra 2018 - 2022',
-                'start' => 2018,
-                'end' => 2022,
-            ],
-            [
-                'key' => 'renstra_2023_2026',
-                'label' => 'Renstra 2023 - 2026',
-                'start' => 2023,
-                'end' => 2024,
-            ],
-            [
-                'key' => 'renstra_2025_2029',
-                'label' => 'Renstra 2025 - 2029',
-                'start' => 2025,
-                'end' => 2029,
-            ],
-        ];
-        $targetScoresByYear = [
-            2018 => 3.00,
-            2019 => 4.00,
-            2020 => 4.00,
-            2021 => 4.00,
-            2022 => 5.00,
-            2023 => 3.25,
-            2024 => 3.50,
-            2025 => 3.00,
-            2026 => 3.00,
-            2027 => 3.00,
-            2028 => 3.00,
-            2029 => 3.00,
-        ];
-
-        $archiveScoresByYear = $this->archiveOverallScoresByBudgetYear($summaryModules);
-        $currentYear = (int) now()->format('Y');
-        $periodTargets = collect($periodTargets)
-            ->sortByDesc(fn (array $item): int => (int) ($item['start'] ?? 0))
-            ->values();
-
-        $startYear = (int) collect($periodTargets)->min(fn (array $item): int => (int) ($item['start'] ?? 0));
-        $endYear = (int) collect($periodTargets)->max(fn (array $item): int => (int) ($item['end'] ?? 0));
-
-        if ($startYear <= 0 || $endYear < $startYear) {
-            return [];
-        }
-
-        $years = range($startYear, $endYear);
-        $overrideTable = (new RenstraTrendOverride())->getTable();
-        $overridesByYear = collect();
-        if (Schema::hasTable($overrideTable)) {
-            $overridesByYear = RenstraTrendOverride::query()
-                ->whereBetween('year', [$startYear, $endYear])
-                ->get()
-                ->keyBy(fn (RenstraTrendOverride $item): int => (int) $item->year);
-        }
-
-        return collect($years)->map(function (int $year) use ($archiveScoresByYear, $currentYear, $currentOverallWeightedScore, $periodTargets, $targetScoresByYear, $overridesByYear, $forcedNoAssessmentYears): array {
-            /** @var RenstraTrendOverride|null $override */
-            $override = $overridesByYear->get($year);
-            $hasManualResult = is_numeric($override?->hasil_score);
-            $manualResultScore = $hasManualResult
-                ? (float) number_format(max(0, min(5, (float) $override->hasil_score)), 2, '.', '')
-                : null;
-            $hasManualTarget = is_numeric($override?->target_score);
-            $manualTargetScore = $hasManualTarget
-                ? (float) number_format(max(0, min(5, (float) $override->target_score)), 2, '.', '')
-                : null;
-
-            $resultScore = null;
-            $sourceLabel = 'Belum ada data arsip';
-            if ($hasManualResult) {
-                $resultScore = $manualResultScore;
-                $updatedByLabel = trim((string) ($override?->updated_by ?? ''));
-                $sourceLabel = $updatedByLabel !== ''
-                    ? 'Input manual admin ('.$updatedByLabel.')'
-                    : 'Input manual admin';
-            } elseif (array_key_exists($year, $archiveScoresByYear)) {
-                $resultScore = (float) $archiveScoresByYear[$year];
-                $sourceLabel = 'Arsip TA '.$year;
-            } elseif ($year === $currentYear) {
-                $resultScore = (float) $currentOverallWeightedScore;
-                $sourceLabel = 'Data aktif TA '.$currentYear;
-            }
-
-            // Business rule: tahun 2019 dan 2020 ditetapkan sebagai tidak dilakukan penilaian (nilai hasil = 0).
-            if (in_array($year, $forcedNoAssessmentYears, true)) {
-                $resultScore = 0.0;
-                $sourceLabel = 'Tidak dilakukan penilaian (nilai khusus 0)';
-                $hasManualResult = false;
-                $manualResultScore = null;
-            }
-
-            $targetPeriod = $periodTargets->first(function (array $item) use ($year): bool {
-                $periodStart = (int) ($item['start'] ?? 0);
-                $periodEnd = (int) ($item['end'] ?? 0);
-                return $year >= $periodStart && $year <= $periodEnd;
-            });
-            $targetScore = $hasManualTarget
-                ? $manualTargetScore
-                : (array_key_exists($year, $targetScoresByYear) && is_numeric($targetScoresByYear[$year] ?? null)
-                    ? (float) $targetScoresByYear[$year]
-                    : null);
-
-            $hasResultData = is_numeric($resultScore);
-            $normalizedResultScore = $hasResultData
-                ? (float) number_format(max(0, min(5, (float) $resultScore)), 2, '.', '')
-                : null;
-            $resultLevelData = $hasResultData
-                ? $this->getLevelData((float) $normalizedResultScore)
-                : ['level' => null, 'predikat' => 'Belum Dinilai', 'description' => 'Belum ada data penilaian pada tahun ini.'];
-            $resultLevel = is_numeric($resultLevelData['level'] ?? null) ? (int) $resultLevelData['level'] : null;
-
-            $hasTargetData = is_numeric($targetScore);
-            $normalizedTargetScore = $hasTargetData
-                ? (float) number_format(max(0, min(5, (float) $targetScore)), 2, '.', '')
-                : null;
-
-            return [
-                'year' => $year,
-                'year_label' => (string) $year,
-                'renstra_label' => is_array($targetPeriod) ? (string) ($targetPeriod['label'] ?? '-') : '-',
-                'hasil_has_data' => $hasResultData,
-                'hasil_score' => $normalizedResultScore,
-                'hasil_score_label' => $hasResultData ? number_format((float) $normalizedResultScore, 2) : '-',
-                'hasil_percent' => $hasResultData ? (float) number_format(((float) $normalizedResultScore / 5) * 100, 2, '.', '') : 0.0,
-                'hasil_level' => $resultLevel,
-                'hasil_level_class' => $resultLevel !== null ? 'is-level-'.$resultLevel : 'pending',
-                'hasil_predikat' => (string) ($resultLevelData['predikat'] ?? 'Belum Dinilai'),
-                'hasil_source_label' => $sourceLabel,
-                'hasil_manual' => $hasManualResult,
-                'hasil_input_value' => $hasManualResult ? number_format((float) $manualResultScore, 2, '.', '') : null,
-                'target_has_data' => $hasTargetData,
-                'target_score' => $normalizedTargetScore,
-                'target_score_label' => $hasTargetData ? number_format((float) $normalizedTargetScore, 2) : '-',
-                'target_percent' => $hasTargetData ? (float) number_format(((float) $normalizedTargetScore / 5) * 100, 2, '.', '') : 0.0,
-                'target_level_label' => $hasTargetData ? ('L'.((int) ($this->getLevelData((float) $normalizedTargetScore)['level'] ?? 0))) : '-',
-                'target_manual' => $hasManualTarget,
-                'target_input_value' => $hasManualTarget ? number_format((float) $manualTargetScore, 2, '.', '') : null,
-            ];
-        })->all();
-    }
-
-    /**
-     * @param array<string, array<string, mixed>> $summaryModules
-     * @return array<int, float>
-     */
-    private function archiveOverallScoresByBudgetYear(array $summaryModules): array
-    {
-        if (!$this->elementPreferenceService->hasProgressArchiveTable()) {
-            return [];
-        }
-
-        $archives = ElementProgressArchive::query()
-            ->select(['id', 'budget_year', 'snapshot', 'updated_at'])
-            ->orderBy('budget_year')
-            ->orderBy('updated_at')
-            ->orderBy('id')
-            ->get();
-
-        if ($archives->isEmpty()) {
-            return [];
-        }
-
-        $scoresByYear = [];
-        foreach ($archives as $archive) {
-            $year = is_numeric($archive->budget_year ?? null) ? (int) $archive->budget_year : 0;
-            if ($year <= 0) {
-                continue;
-            }
-
-            $snapshot = is_array($archive->snapshot) ? $archive->snapshot : [];
-            $score = $this->calculateOverallScoreFromArchiveSnapshot($snapshot, $summaryModules);
-            if (!is_numeric($score)) {
-                continue;
-            }
-
-            $scoresByYear[$year] = (float) $score;
-        }
-
-        return $scoresByYear;
-    }
-
-    /**
-     * @param array<string, mixed> $snapshot
-     * @param array<string, array<string, mixed>> $summaryModules
-     */
-    private function calculateOverallScoreFromArchiveSnapshot(array $snapshot, array $summaryModules): ?float
-    {
-        $snapshotTables = is_array($snapshot['tables'] ?? null)
-            ? (array) $snapshot['tables']
-            : [];
-        $assessmentTable = $snapshotTables['element_assessments'] ?? null;
-        if (!is_array($assessmentTable)) {
-            return null;
-        }
-
-        $assessmentRows = is_array($assessmentTable['rows'] ?? null)
-            ? (array) ($assessmentTable['rows'] ?? [])
-            : [];
-        if (count($assessmentRows) === 0) {
-            return null;
-        }
-
-        $latestScoreBySubtopic = [];
-        foreach ($assessmentRows as $row) {
-            if (!is_array($row)) {
-                continue;
-            }
-
-            $subtopicSlug = trim((string) ($row['subtopic_slug'] ?? ''));
-            $weightedTotal = is_numeric($row['weighted_total'] ?? null)
-                ? (float) $row['weighted_total']
-                : null;
-            if ($subtopicSlug === '' || $weightedTotal === null) {
-                continue;
-            }
-
-            $createdAtRaw = trim((string) ($row['created_at'] ?? ''));
-            $createdAtTs = $createdAtRaw !== '' ? (int) strtotime($createdAtRaw) : 0;
-            $rowId = is_numeric($row['id'] ?? null) ? (int) $row['id'] : 0;
-
-            $existing = $latestScoreBySubtopic[$subtopicSlug] ?? null;
-            if (!is_array($existing)) {
-                $latestScoreBySubtopic[$subtopicSlug] = [
-                    'score' => (float) number_format($weightedTotal, 2, '.', ''),
-                    'created_at_ts' => $createdAtTs,
-                    'id' => $rowId,
-                ];
-                continue;
-            }
-
-            $isNewer = $createdAtTs > (int) ($existing['created_at_ts'] ?? 0)
-                || ($createdAtTs === (int) ($existing['created_at_ts'] ?? 0) && $rowId > (int) ($existing['id'] ?? 0));
-            if ($isNewer) {
-                $latestScoreBySubtopic[$subtopicSlug] = [
-                    'score' => (float) number_format($weightedTotal, 2, '.', ''),
-                    'created_at_ts' => $createdAtTs,
-                    'id' => $rowId,
-                ];
-            }
-        }
-
-        if (count($latestScoreBySubtopic) === 0) {
-            return null;
-        }
-
-        $overallScore = 0.0;
-        $hasAnyElementData = false;
-
-        foreach ($summaryModules as $elementSlug => $summaryConfig) {
-            if (!is_array($summaryConfig)) {
-                continue;
-            }
-
-            $elementWeight = (float) ($summaryConfig['element_weight'] ?? 0);
-            $subtopicSlugs = collect((array) ($summaryConfig['subtopic_slugs'] ?? []))
-                ->map(fn ($slug) => trim((string) $slug))
-                ->filter(fn (string $slug): bool => $slug !== '')
-                ->values();
-            if ($subtopicSlugs->isEmpty()) {
-                continue;
-            }
-
-            $configuredWeightsRaw = collect((array) ($summaryConfig['subtopic_weights'] ?? []))
-                ->mapWithKeys(function ($weight, $slug): array {
-                    return [(string) $slug => (float) $weight];
-                });
-            $configuredWeightTotal = (float) $configuredWeightsRaw->sum();
-            $weightDivider = $configuredWeightTotal > 1.5 ? 100 : 1;
-            $configuredWeights = $configuredWeightsRaw
-                ->map(fn ($weight) => (float) $weight / $weightDivider);
-
-            $defaultWeight = 0.0;
-            if ($configuredWeights->isEmpty()) {
-                $defaultWeight = 1 / max(1, $subtopicSlugs->count());
-            } else {
-                $missingCount = (int) $subtopicSlugs
-                    ->filter(fn (string $slug): bool => !$configuredWeights->has($slug))
-                    ->count();
-                $configuredTotal = (float) $configuredWeights->sum();
-                if ($missingCount > 0 && $configuredTotal < 1) {
-                    $defaultWeight = (1 - $configuredTotal) / $missingCount;
-                }
-            }
-
-            $elementRawScore = 0.0;
-            $elementHasData = false;
-            foreach ($subtopicSlugs as $subtopicSlug) {
-                $subtopicSnapshot = $latestScoreBySubtopic[(string) $subtopicSlug] ?? null;
-                if (!is_array($subtopicSnapshot) || !is_numeric($subtopicSnapshot['score'] ?? null)) {
-                    continue;
-                }
-
-                $subtopicScore = (float) ($subtopicSnapshot['score'] ?? 0);
-                $subtopicWeight = (float) ($configuredWeights->get((string) $subtopicSlug, $defaultWeight));
-                $elementRawScore += ($subtopicScore * $subtopicWeight);
-                $elementHasData = true;
-            }
-
-            if (!$elementHasData) {
-                continue;
-            }
-
-            $elementScore = (float) number_format($elementRawScore, 2, '.', '');
-            $overallScore += ($elementScore * $elementWeight);
-            $hasAnyElementData = true;
-        }
-
-        if (!$hasAnyElementData) {
-            return null;
-        }
-
-        return (float) number_format($overallScore, 2, '.', '');
     }
 
     private function buildSubtopicSummaries(string $elementSlug, array $summaryConfig, array $subtopicModules): array

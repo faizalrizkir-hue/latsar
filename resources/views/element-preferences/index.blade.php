@@ -12,9 +12,6 @@
         $progressArchives = collect((array) ($progressArchives ?? []))
             ->filter(fn ($item) => is_array($item))
             ->values();
-        $progressArchiveLoadLogs = collect((array) ($progressArchiveLoadLogs ?? []))
-            ->filter(fn ($item) => is_array($item))
-            ->values();
         $activeBudgetYear = (int) old('budget_year', now('Asia/Jakarta')->year);
         $formatPercent = static function (float $weight): string {
             $value = rtrim(rtrim(number_format($weight * 100, 2, '.', ''), '0'), '.');
@@ -89,28 +86,6 @@
             $stripped = is_string($stripped) ? trim($stripped) : $normalized;
 
             return $stripped !== '' ? $stripped : $normalized;
-        };
-        $formatRestoredByTable = static function (array $restoredByTable): string {
-            $parts = [];
-            foreach ($restoredByTable as $table => $count) {
-                $tableName = trim((string) $table);
-                if ($tableName === '') {
-                    continue;
-                }
-
-                $rowCount = (int) $count;
-                if ($rowCount <= 0) {
-                    continue;
-                }
-
-                $parts[] = $tableName.' ('.$rowCount.')';
-            }
-
-            if (count($parts) === 0) {
-                return '';
-            }
-
-            return implode(' - ', array_slice($parts, 0, 4));
         };
     @endphp
 
@@ -225,46 +200,6 @@
                             </div>
                         </div>
 
-                        @if($hasProgressArchiveLoadLogTable)
-                            <div class="pref-archive-log">
-                                <div class="pref-archive-log-head">
-                                    <h6 class="mb-0">Riwayat Pemulihan Arsip</h6>
-                                    <span class="pref-archive-log-badge">{{ $progressArchiveLoadLogs->count() }} terbaru</span>
-                                </div>
-
-                                @if($progressArchiveLoadLogs->isEmpty())
-                                    <div class="pref-archive-log-empty">Belum ada aktivitas pemulihan arsip.</div>
-                                @else
-                                    <ul class="pref-archive-log-list">
-                                        @foreach($progressArchiveLoadLogs as $loadLog)
-                                            @php
-                                                $logYear = (int) ($loadLog['budget_year'] ?? 0);
-                                                $logRows = (int) ($loadLog['restored_total'] ?? 0);
-                                                $logTables = (int) ($loadLog['restored_tables'] ?? 0);
-                                                $logBy = trim((string) ($loadLog['loaded_by'] ?? ''));
-                                                $logDate = $formatArchiveDate($loadLog['created_at'] ?? null);
-                                                $logSummary = $formatRestoredByTable((array) ($loadLog['restored_by_table'] ?? []));
-                                            @endphp
-                                            <li class="pref-archive-log-item">
-                                                <div class="pref-archive-log-main">
-                                                    <strong>TA {{ $logYear > 0 ? $logYear : '-' }}</strong>
-                                                    <span class="pref-archive-log-meta">
-                                                        {{ $logDate !== '-' ? $logDate : 'Waktu tidak tersedia' }}
-                                                        @if($logBy !== '')
-                                                            - {{ $logBy }}
-                                                        @endif
-                                                    </span>
-                                                </div>
-                                                <div class="pref-archive-log-detail">{{ $logRows }} baris - {{ $logTables }} tabel dipulihkan</div>
-                                                @if($logSummary !== '')
-                                                    <div class="pref-archive-log-summary">{{ $logSummary }}</div>
-                                                @endif
-                                            </li>
-                                        @endforeach
-                                    </ul>
-                                @endif
-                            </div>
-                        @endif
                     </div>
 
                     <div class="pref-element-stack" data-elements-container>

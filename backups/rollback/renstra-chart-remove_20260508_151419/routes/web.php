@@ -96,4 +96,3 @@ Route::middleware(['auth.session', 'db.lock'])->group(function () {
         Route::post('/dashboard/renstra-trend', [DashboardController::class, 'updateRenstraTrend'])->name('dashboard.renstra-trend.update');
     });
 });
-

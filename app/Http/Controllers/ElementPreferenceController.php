@@ -29,9 +29,7 @@ class ElementPreferenceController extends Controller
             'structure' => $structure,
             'hasPreferencesTable' => $this->elementPreferenceService->hasPreferencesTable(),
             'hasProgressArchiveTable' => $this->elementPreferenceService->hasProgressArchiveTable(),
-            'hasProgressArchiveLoadLogTable' => $this->elementPreferenceService->hasProgressArchiveLoadLogTable(),
             'progressArchives' => $this->elementPreferenceService->progressArchives(),
-            'progressArchiveLoadLogs' => $this->elementPreferenceService->progressArchiveLoadLogs(12),
             'user' => Session::get('user', []),
             'notifications' => Notification::feedForUser((array) Session::get('user', []), null, 50),
         ]);

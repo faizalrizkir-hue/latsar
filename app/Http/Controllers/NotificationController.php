@@ -230,12 +230,15 @@ class NotificationController extends Controller
                 'pembersihan data' => 'Hapus Isian',
                 'pengisian/perubahan data' => 'Isi Data',
                 'isi/ubah data' => 'Isi Data',
+                'isi data' => 'Isi Data',
+                'hapus isian' => 'Hapus Isian',
+                'bersihkan' => 'Bersihkan',
             ];
 
             foreach ($legacyActionMap as $legacyAction => $compactAction) {
                 if (Str::startsWith(Str::lower($normalized), $legacyAction)) {
                     $rest = trim((string) Str::substr($normalized, Str::length($legacyAction)));
-                    $normalized = $compactAction.($rest !== '' ? ' · '.$rest : '');
+                    $normalized = $compactAction.' · '.($rest !== '' ? $rest : '');
                     break;
                 }
             }
@@ -253,7 +256,7 @@ class NotificationController extends Controller
         }
 
         $notifyActionClass = match (Str::lower($notifyActionText)) {
-            'isi data', 'isi/ubah data' => 'is-save',
+            'isi data', 'isi/ubah data' => 'is-fill',
             'hapus isian', 'bersihkan' => 'is-clear',
             'verifikasi', 'verifikasi qa', 'verifikasi final qa' => 'is-verify',
             'reset verifikasi', 'reset qa', 'reset final qa', 'reset verifikasi qa' => 'is-verify-reset',
