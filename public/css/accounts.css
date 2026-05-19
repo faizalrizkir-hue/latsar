@@ -91,6 +91,85 @@
     transform:translateY(0);
     box-shadow:none;
 }
+.accounts-page .account-action-btn-icon{
+    width:34px;
+    min-width:34px;
+    min-height:34px;
+    padding:0;
+    border-radius:10px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+}
+.accounts-page .account-action-btn-icon .action-icon{
+    width:16px;
+    height:16px;
+    fill:none;
+    stroke:currentColor;
+    stroke-width:2.2;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+    pointer-events:none;
+}
+.accounts-page .account-action-btn-icon[disabled]{
+    opacity:.72;
+    cursor:not-allowed;
+    box-shadow:none;
+}
+.accounts-page .account-action-btn-icon[disabled]:hover{
+    transform:none;
+    box-shadow:none;
+}
+.accounts-page .account-action-role{
+    color:#1d4ed8;
+    border:1px solid rgba(59,130,246,0.52);
+    background:linear-gradient(180deg,rgba(96,165,250,0.2),rgba(59,130,246,0.12));
+}
+.accounts-page .account-action-role:hover{
+    color:#1e40af;
+    border-color:rgba(59,130,246,0.82);
+    box-shadow:0 12px 22px rgba(37,99,235,0.2);
+}
+.accounts-page .account-action-deactivate{
+    color:#b45309;
+    border:1px solid rgba(245,158,11,0.56);
+    background:linear-gradient(180deg,rgba(253,230,138,0.28),rgba(251,191,36,0.14));
+}
+.accounts-page .account-action-deactivate:hover{
+    color:#92400e;
+    border-color:rgba(245,158,11,0.86);
+    box-shadow:0 12px 22px rgba(217,119,6,0.22);
+}
+.accounts-page .account-action-activate{
+    color:#15803d;
+    border:1px solid rgba(34,197,94,0.54);
+    background:linear-gradient(180deg,rgba(134,239,172,0.24),rgba(74,222,128,0.12));
+}
+.accounts-page .account-action-activate:hover{
+    color:#166534;
+    border-color:rgba(34,197,94,0.84);
+    box-shadow:0 12px 22px rgba(22,163,74,0.2);
+}
+.accounts-page .account-action-reset{
+    color:#475569;
+    border:1px solid rgba(148,163,184,0.55);
+    background:linear-gradient(180deg,rgba(226,232,240,0.42),rgba(203,213,225,0.24));
+}
+.accounts-page .account-action-reset:hover{
+    color:#334155;
+    border-color:rgba(100,116,139,0.82);
+    box-shadow:0 12px 22px rgba(51,65,85,0.2);
+}
+.accounts-page .account-action-delete{
+    color:#dc2626;
+    border:1px solid rgba(248,113,113,0.58);
+    background:linear-gradient(180deg,rgba(254,202,202,0.28),rgba(252,165,165,0.14));
+}
+.accounts-page .account-action-delete:hover{
+    color:#b91c1c;
+    border-color:rgba(248,113,113,0.88);
+    box-shadow:0 12px 22px rgba(220,38,38,0.22);
+}
 .accounts-page .account-action-btn.btn-outline-primary,
 .accounts-page .account-action-btn.btn-outline-success,
 .accounts-page .account-action-btn.btn-outline-warning,

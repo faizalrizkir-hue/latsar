@@ -6,7 +6,7 @@
 @section('content')
     <div class="card shadow-sm">
         <div class="card-body">
-            <h5 class="card-title mb-3">Daftar Elemen & Subtopik</h5>
+            <h5 class="card-title mb-3">Daftar Elemen & Topik</h5>
             <div class="list-group">
                 @foreach($pages as $slug => $title)
                     <a href="{{ route('elements.show', $slug) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
@@ -18,3 +18,4 @@
         </div>
     </div>
 @endsection
+

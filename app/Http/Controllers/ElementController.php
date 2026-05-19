@@ -31,8 +31,8 @@ class ElementController extends Controller
         'element3' => 'Element 3 : Manajemen Pengawasan',
         'element4' => 'Element 4 : Pengelolaan Kinerja dan Sumber Daya Pengawasan',
         'element5' => 'Element 5 : Budaya dan Hubungan Organisasi',
-        'element1_kegiatan_asurans' => 'Sub Topik 1 - Kegiatan Asurans',
-        'element1_jasa_konsultansi' => 'Sub Topik 2 - Kegiatan Konsultansi',
+        'element1_kegiatan_asurans' => 'Topik 1 - Kegiatan Asurans',
+        'element1_jasa_konsultansi' => 'Topik 2 - Kegiatan Konsultansi',
         'element2_komunikasi_hasil' => 'Element 2 - Komunikasi Hasil Penugasan',
         'element2_pelaksanaan_penugasan' => 'Element 2 - Pelaksanaan Penugasan',
         'element2_pemantauan_tindak_lanjut' => 'Element 2 - Pemantauan Tindak Lanjut',
@@ -298,7 +298,7 @@ class ElementController extends Controller
             'css/element1-summary.css',
         ])));
         $summaryHeaderCode = (string) ($summaryConfig['header_code'] ?? strtoupper((string) Str::of($slug)->replace('element', 'E')));
-        $summaryHeaderSubtitle = (string) ($summaryConfig['header_subtitle'] ?? ('Rekap skor dan level dari sub topik '.Str::title(str_replace('_', ' ', $slug))));
+        $summaryHeaderSubtitle = (string) ($summaryConfig['header_subtitle'] ?? ('Ringkasan skor tertimbang, level element, dan progres topik '.Str::title(str_replace('_', ' ', $slug))));
         $summaryLevelLabel = (string) ($summaryConfig['level_label'] ?? ('Level '.Str::headline($slug)));
         $summaryInfoModalTitle = (string) ($summaryConfig['info_modal_title'] ?? ('Informasi Level '.Str::headline($slug)));
         $summaryInfoLevels = collect((array) ($summaryConfig['info_levels'] ?? []))
@@ -592,7 +592,7 @@ class ElementController extends Controller
         $moduleWeights = (array) ($moduleConfig['weights'] ?? $this->kegiatanWeights);
         $modulePageTitle = (string) ($moduleConfig['page_title'] ?? $this->pageTitle(Str::before($slug, '_')));
         $moduleSubtopicCode = (string) ($moduleConfig['subtopic_code'] ?? 'S1');
-        $moduleSubtopicTitle = (string) ($moduleConfig['subtopic_title'] ?? $this->pageTitle($slug, 'Sub Topik'));
+        $moduleSubtopicTitle = (string) ($moduleConfig['subtopic_title'] ?? $this->pageTitle($slug, 'Topik'));
         $moduleInfoModalTitle = (string) ($moduleConfig['info_modal_title'] ?? ('Informasi Level '.$moduleSubtopicTitle));
         $moduleInfoLevels = collect($moduleConfig['info_levels'] ?? [])->values();
         $moduleView = (string) ($moduleConfig['view'] ?? 'elements.element1-kegiatan-asurans');
@@ -1315,9 +1315,9 @@ class ElementController extends Controller
         $actorName = trim((string) ($user['display_name'] ?? $user['username'] ?? 'Pengguna'));
         $actionLabel = $this->notificationActionLabel($actionType);
         $statementLabel = trim($statementTitle) !== '' ? trim($statementTitle) : 'Pernyataan';
-        $statementShort = Str::limit($statementLabel, 42, '…');
+        $statementShort = Str::limit($statementLabel, 42, 'â€¦');
         $notifyTitle = $this->compactNotificationTitle($moduleSubtopicTitle, $moduleNotificationTitle);
-        $body = trim($actionLabel.' · '.$statementShort);
+        $body = trim($actionLabel.' Â· '.$statementShort);
 
         Notification::createScoped([
             'element_slug' => $elementSlug,
@@ -1362,7 +1362,7 @@ class ElementController extends Controller
             $value = is_string($value) ? trim($value) : $candidate;
             $value = trim((string) $value);
             if ($value !== '') {
-                return Str::limit($value, 36, '…');
+                return Str::limit($value, 36, 'â€¦');
             }
         }
 
@@ -1829,4 +1829,5 @@ class ElementController extends Controller
         ]);
     }
 }
+
 

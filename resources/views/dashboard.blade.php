@@ -150,8 +150,18 @@
                     <div class="meter-score-qa qa-only {{ $overallLevelQaClass }}">
                         QA: <span class="meter-score-qa-value">{{ $overallLevelQa !== null ? number_format((float) ($overallWeightedScoreQa ?? 0), 2) : '-' }}</span>
                     </div>
-                    <div class="meter-level {{ $overallLevelClass }}"><span class="qa-mandiri-prefix">Mandiri: </span>{{ $overallLevelLabel }} - <span class="meter-predikat">{{ $overallPredikat }}</span></div>
-                    <div class="meter-level meter-level-qa qa-only qa-level-font {{ $overallLevelQaClass }}">QA: {{ $overallLevelLabelQa }} - <span class="meter-predikat">{{ $overallPredikatQa }}</span></div>
+                    <div class="meter-level {{ $overallLevelClass }}">
+                        <span class="qa-mandiri-prefix">Mandiri:</span>
+                        <span class="meter-level-label">{{ $overallLevelLabel }}</span>
+                        <span class="meter-level-separator">-</span>
+                        <span class="meter-predikat">{{ $overallPredikat }}</span>
+                    </div>
+                    <div class="meter-level meter-level-qa qa-only qa-level-font {{ $overallLevelQaClass }}">
+                        <span class="qa-mandiri-prefix">QA:</span>
+                        <span class="meter-level-label">{{ $overallLevelLabelQa }}</span>
+                        <span class="meter-level-separator">-</span>
+                        <span class="meter-predikat">{{ $overallPredikatQa }}</span>
+                    </div>
                     @if ($overallDescription !== '')
                         <p class="meter-note">{{ $overallDescription }}</p>
                     @endif
@@ -448,12 +458,12 @@
                             ->map(function (array $subtopic): array {
                                 $title = trim((string) ($subtopic['title'] ?? ''));
                                 if ($title === '') {
-                                    $title = trim((string) ($subtopic['slug'] ?? 'Sub Topik'));
+                                    $title = trim((string) ($subtopic['slug'] ?? 'Topik'));
                                 }
                                 $levelLabel = trim((string) ($subtopic['level_label'] ?? '-'));
                                 $levelNote = trim((string) ($subtopic['level_note'] ?? $subtopic['description'] ?? ''));
                                 if ($levelNote === '') {
-                                    $levelNote = 'Belum ada informasi level sub topik.';
+                                    $levelNote = 'Belum ada informasi level topik.';
                                 }
 
                                 return [
@@ -492,7 +502,7 @@
                                                 return [
                                                     'title' => trim((string) ($subtopic['title'] ?? '')),
                                                     'level_label' => trim((string) ($subtopic['level_label'] ?? '-')),
-                                                    'level_note' => trim((string) ($subtopic['level_note'] ?? 'Belum ada informasi level sub topik.')),
+                                                    'level_note' => trim((string) ($subtopic['level_note'] ?? 'Belum ada informasi level topik.')),
                                                 ];
                                             })
                                             ->filter(fn (array $subtopic): bool => ($subtopic['title'] ?? '') !== '')
@@ -790,7 +800,7 @@ const initDashboardLevelRecapModal = () => {
             const metaFields = [
                 ['Skor', item.score ?? '-'],
                 ['Tertimbang', item.weighted_score ?? '0.00'],
-                ['Sub Topik', subtopicProgress],
+                ['Topik', subtopicProgress],
             ];
 
             metaFields.forEach(([label, value]) => {
@@ -816,7 +826,7 @@ const initDashboardLevelRecapModal = () => {
             if (subtopics.length === 0) {
                 const emptySubtopic = document.createElement('p');
                 emptySubtopic.className = 'apip-level-modal__subtopics';
-                emptySubtopic.textContent = 'Belum ada daftar sub topik untuk element ini.';
+                emptySubtopic.textContent = 'Belum ada daftar topik untuk element ini.';
                 article.appendChild(emptySubtopic);
             } else {
                 const subtopicList = document.createElement('div');
@@ -834,7 +844,7 @@ const initDashboardLevelRecapModal = () => {
 
                     const subtopicLevelInfo = document.createElement('p');
                     subtopicLevelInfo.className = 'apip-level-modal__subtopic-note';
-                    subtopicLevelInfo.textContent = String(subtopic.level_note ?? 'Belum ada informasi level sub topik.');
+                    subtopicLevelInfo.textContent = String(subtopic.level_note ?? 'Belum ada informasi level topik.');
 
                     subtopicRow.appendChild(subtopicHead);
                     subtopicRow.appendChild(subtopicLevelInfo);
@@ -1614,4 +1624,5 @@ document.addEventListener('DOMContentLoaded', initDashboardHomePage);
 document.addEventListener('livewire:navigated', initDashboardHomePage);
 </script>
 @endpush
+
 

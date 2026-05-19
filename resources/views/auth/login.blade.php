@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Masuk - Dashboard Monitoring</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ \App\Support\VersionedAsset::url('static/logo-sikap-dark.png') }}" media="(prefers-color-scheme: light)">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ \App\Support\VersionedAsset::url('static/logo-sikap-light.png') }}" media="(prefers-color-scheme: dark)">
+    <link rel="shortcut icon" href="{{ \App\Support\VersionedAsset::url('static/logo-sikap-dark.png') }}">
     <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/login.css') }}">
     @php
         $recaptchaSiteKey = config('services.recaptcha.site_key');

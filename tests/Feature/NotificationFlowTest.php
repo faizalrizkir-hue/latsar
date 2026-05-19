@@ -51,8 +51,8 @@ class NotificationFlowTest extends TestCase
         Notification::query()->create([
             'element_slug' => 'element1',
             'subtopic_slug' => 'element1_kegiatan_asurans',
-            'subtopic_title' => 'Sub Topik 1 - Kegiatan Asurans',
-            'statement' => 'Isi Data Â· Pernyataan A',
+            'subtopic_title' => 'Topik 1 - Kegiatan Asurans',
+            'statement' => 'Isi Data Ã‚Â· Pernyataan A',
             'row_id' => 1,
             'coordinator_name' => 'Koordinator 1',
             'coordinator_username' => 'koor1',
@@ -61,8 +61,8 @@ class NotificationFlowTest extends TestCase
         Notification::query()->create([
             'element_slug' => 'element1',
             'subtopic_slug' => 'element1_kegiatan_asurans',
-            'subtopic_title' => 'Sub Topik 1 - Kegiatan Asurans',
-            'statement' => 'Verifikasi Â· Pernyataan B',
+            'subtopic_title' => 'Topik 1 - Kegiatan Asurans',
+            'statement' => 'Verifikasi Ã‚Â· Pernyataan B',
             'row_id' => 2,
             'coordinator_name' => 'Koordinator 1',
             'coordinator_username' => 'koor1',
@@ -102,7 +102,7 @@ class NotificationFlowTest extends TestCase
         Notification::query()->create([
             'element_slug' => 'element1',
             'subtopic_slug' => 'element1_kegiatan_asurans',
-            'subtopic_title' => 'Sub Topik 1 - Kegiatan Asurans',
+            'subtopic_title' => 'Topik 1 - Kegiatan Asurans',
             'statement' => 'Koordinator melakukan verifikasi final QA pada element 1: Pernyataan C',
             'row_id' => 3,
             'coordinator_name' => 'Koordinator 1',
@@ -127,3 +127,4 @@ class NotificationFlowTest extends TestCase
             ->assertStatus(422);
     }
 }
+

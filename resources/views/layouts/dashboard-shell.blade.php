@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $pageTitle ?? 'LATSAR' }}</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ \App\Support\VersionedAsset::url('static/logo-sikap-dark.png') }}" media="(prefers-color-scheme: light)">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ \App\Support\VersionedAsset::url('static/logo-sikap-light.png') }}" media="(prefers-color-scheme: dark)">
+    <link rel="shortcut icon" href="{{ \App\Support\VersionedAsset::url('static/logo-sikap-dark.png') }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/dashboard.css') }}">
     <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/sidenav-theme.css') }}">

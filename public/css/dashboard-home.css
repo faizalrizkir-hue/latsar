@@ -1,4 +1,4 @@
-﻿.apip-home-page {
+.apip-home-page {
     display: grid;
     gap: 16px;
     --apip-card-border: #bfd0ea;
@@ -418,49 +418,102 @@
 .meter-score-qa.pending { color: #64748b; }
 
 .meter-level {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.34rem;
     font-weight: 800;
     font-size: 0.92rem;
+    line-height: 1.35;
 }
 
 .meter-level-qa {
     color: #0f766e;
 }
 
+.meter-level-label {
+    font-weight: 950;
+    letter-spacing: 0.01em;
+    transition: color 220ms ease, text-shadow 240ms ease, filter 240ms ease;
+}
+
+.meter-level-separator {
+    color: #64748b;
+    font-weight: 800;
+}
+
 .meter-predikat {
     font-weight: 900;
+    color: #1d4f8d;
+    padding: 0.09rem 0.48rem;
+    border-radius: 999px;
+    border: 1px solid #b7cdea;
+    background: linear-gradient(180deg, #f7fbff 0%, #e8f1fc 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88), 0 8px 20px -16px rgba(37, 99, 235, 0.56);
+    transition: color 180ms ease, border-color 180ms ease, background 220ms ease, box-shadow 220ms ease, transform 180ms ease;
 }
 
-.meter-level.is-level-1 .meter-predikat {
+.meter-level.is-level-1 .meter-predikat:hover,
+.meter-level.is-level-1 .meter-predikat:focus-visible {
+    color: #fff6f6;
+    border-color: rgba(220, 38, 38, 0.48);
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 55%, #b91c1c 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        0 0 0 2px rgba(220, 38, 38, 0.18),
+        0 12px 24px -14px rgba(127, 29, 29, 0.8);
+    transform: translateY(-1px);
+}
+
+.meter-level.is-level-1 .meter-level-label {
     color: #dc2626;
+    text-shadow: 0 0 10px rgba(220, 38, 38, 0.18);
 }
 
-.meter-level.is-level-2 .meter-predikat {
+.meter-level.is-level-2 .meter-level-label {
     color: #d97706;
+    text-shadow: 0 0 10px rgba(217, 119, 6, 0.2);
 }
 
-.meter-level.is-level-3 .meter-predikat {
+.meter-level.is-level-3 .meter-level-label {
     color: #16a34a;
+    text-shadow: 0 0 10px rgba(22, 163, 74, 0.2);
 }
 
-.meter-level.is-level-4 .meter-predikat {
+.meter-level.is-level-4 .meter-level-label {
     color: #2563eb;
+    text-shadow: 0 0 11px rgba(37, 99, 235, 0.21);
 }
 
-.meter-level.is-level-5 .meter-predikat {
+.meter-level.is-level-5 .meter-level-label {
     color: #7c3aed;
+    text-shadow: 0 0 11px rgba(124, 58, 237, 0.22);
 }
 
-.meter-level.pending .meter-predikat {
+.meter-level.pending .meter-level-label {
     color: #64748b;
+    text-shadow: none;
 }
 
 .meter-note {
     margin: 0;
-    color: var(--text-muted);
-    font-size: 0.8rem;
-    line-height: 1.45;
-    text-align: justify;
-    text-justify: inter-word;
+    color: #2f4968;
+    font-size: 0.82rem;
+    font-weight: 650;
+    line-height: 1.52;
+    text-align: left;
+    letter-spacing: 0.01em;
+    padding: 0.52rem 0.68rem;
+    border-radius: 10px;
+    border: 1px solid rgba(148, 163, 184, 0.34);
+    border-left: 4px solid var(--meter-tone);
+    background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92), 0 8px 20px -18px rgba(51, 65, 85, 0.45);
+}
+
+.meter-note.qa-only {
+    border-left-color: #0f766e;
+    background: linear-gradient(180deg, #f5fffd 0%, #e6fbf6 100%);
 }
 
 .apip-home-page .qa-level-font {
@@ -2220,6 +2273,28 @@ body.apip-modal-open {
     color: #5eead4;
 }
 
+:root[data-theme="dark"] .meter-level-separator {
+    color: #b4c6df;
+}
+
+:root[data-theme="dark"] .meter-predikat {
+    color: #e4eefc;
+    border-color: rgba(147, 197, 253, 0.44);
+    background: linear-gradient(180deg, rgba(59, 130, 246, 0.22) 0%, rgba(30, 64, 175, 0.28) 100%);
+    box-shadow: inset 0 1px 0 rgba(147, 197, 253, 0.24), 0 8px 20px -16px rgba(59, 130, 246, 0.72);
+}
+
+:root[data-theme="dark"] .meter-level.is-level-1 .meter-predikat:hover,
+:root[data-theme="dark"] .meter-level.is-level-1 .meter-predikat:focus-visible {
+    color: #fff5f5;
+    border-color: rgba(254, 202, 202, 0.64);
+    background: linear-gradient(135deg, rgba(248, 113, 113, 0.95) 0%, rgba(220, 38, 38, 0.98) 60%, rgba(153, 27, 27, 0.98) 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        0 0 0 2px rgba(248, 113, 113, 0.26),
+        0 14px 24px -14px rgba(185, 28, 28, 0.82);
+}
+
 :root[data-theme="dark"] .meter-score-qa.is-level-1 { color: #fca5a5; }
 :root[data-theme="dark"] .meter-score-qa.is-level-2 { color: #fcd34d; }
 :root[data-theme="dark"] .meter-score-qa.is-level-3 { color: #86efac; }
@@ -2227,28 +2302,47 @@ body.apip-modal-open {
 :root[data-theme="dark"] .meter-score-qa.is-level-5 { color: #c4b5fd; }
 :root[data-theme="dark"] .meter-score-qa.pending { color: #cbd5e1; }
 
-:root[data-theme="dark"] .meter-level.is-level-1 .meter-predikat {
+:root[data-theme="dark"] .meter-level.is-level-1 .meter-level-label {
     color: #fca5a5;
+    text-shadow: 0 0 11px rgba(252, 165, 165, 0.36);
 }
 
-:root[data-theme="dark"] .meter-level.is-level-2 .meter-predikat {
+:root[data-theme="dark"] .meter-level.is-level-2 .meter-level-label {
     color: #fcd34d;
+    text-shadow: 0 0 11px rgba(252, 211, 77, 0.35);
 }
 
-:root[data-theme="dark"] .meter-level.is-level-3 .meter-predikat {
+:root[data-theme="dark"] .meter-level.is-level-3 .meter-level-label {
     color: #86efac;
+    text-shadow: 0 0 11px rgba(134, 239, 172, 0.34);
 }
 
-:root[data-theme="dark"] .meter-level.is-level-4 .meter-predikat {
+:root[data-theme="dark"] .meter-level.is-level-4 .meter-level-label {
     color: #93c5fd;
+    text-shadow: 0 0 11px rgba(147, 197, 253, 0.34);
 }
 
-:root[data-theme="dark"] .meter-level.is-level-5 .meter-predikat {
+:root[data-theme="dark"] .meter-level.is-level-5 .meter-level-label {
     color: #c4b5fd;
+    text-shadow: 0 0 11px rgba(196, 181, 253, 0.34);
 }
 
-:root[data-theme="dark"] .meter-level.pending .meter-predikat {
+:root[data-theme="dark"] .meter-level.pending .meter-level-label {
     color: #cbd5e1;
+    text-shadow: none;
+}
+
+:root[data-theme="dark"] .apip-meter-card .meter-note {
+    color: #d8e7fb;
+    border-color: rgba(100, 131, 176, 0.45);
+    border-left-color: var(--meter-tone);
+    background: linear-gradient(180deg, rgba(26, 41, 64, 0.92) 0%, rgba(18, 30, 49, 0.92) 100%);
+    box-shadow: inset 0 1px 0 rgba(147, 197, 253, 0.16), 0 10px 22px -16px rgba(2, 8, 23, 0.88);
+}
+
+:root[data-theme="dark"] .apip-meter-card .meter-note.qa-only {
+    border-left-color: #34d399;
+    background: linear-gradient(180deg, rgba(18, 56, 54, 0.88) 0%, rgba(13, 43, 42, 0.9) 100%);
 }
 
 :root[data-theme="dark"] .qa-note-separator {

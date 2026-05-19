@@ -86,14 +86,14 @@ class DashboardController extends Controller
                     : [
                         'level' => null,
                         'predikat' => 'Belum Dinilai',
-                        'description' => 'Data penilaian belum tersedia pada sub topik.',
+                        'description' => 'Data penilaian belum tersedia pada topik.',
                     ];
                 $overallLevelDataQa = $hasAnyQaElementData
                     ? $this->getLevelData($overallWeightedScoreQa)
                     : [
                         'level' => null,
                         'predikat' => 'Belum Dinilai',
-                        'description' => 'Data verifikasi final QA belum tersedia pada sub topik.',
+                        'description' => 'Data verifikasi final QA belum tersedia pada topik.',
                     ];
 
                 $meterPercent = $hasAnyElementData
@@ -882,7 +882,7 @@ class DashboardController extends Controller
             : [
                 'level' => null,
                 'predikat' => 'Belum Dinilai',
-                'description' => 'Belum ada data penilaian pada sub topik ini.',
+                'description' => 'Belum ada data penilaian pada topik ini.',
             ];
         $resolvedLevel = is_numeric($levelData['level'] ?? null)
             ? (int) $levelData['level']
@@ -894,7 +894,7 @@ class DashboardController extends Controller
                 $score,
                 (string) ($levelData['description'] ?? '')
             )
-            : 'Belum ada data penilaian pada sub topik ini.';
+            : 'Belum ada data penilaian pada topik ini.';
 
         $rowsTotal = $rows->count();
         $rowsVerified = (int) $rows
@@ -903,11 +903,11 @@ class DashboardController extends Controller
         $qaRowsVerified = 0;
         $qaHasData = false;
         $qaScore = null;
-        $qaDescription = 'Belum ada data verifikasi final QA pada sub topik ini.';
+        $qaDescription = 'Belum ada data verifikasi final QA pada topik ini.';
         $qaLevelData = [
             'level' => null,
             'predikat' => 'Belum Dinilai',
-            'description' => 'Belum ada data verifikasi final QA pada sub topik ini.',
+            'description' => 'Belum ada data verifikasi final QA pada topik ini.',
         ];
 
         if ($supportsQaVerification) {
@@ -1007,8 +1007,8 @@ class DashboardController extends Controller
             'qa_score' => null,
             'qa_level' => null,
             'qa_predikat' => 'Belum Dinilai',
-            'qa_description' => 'Belum ada data verifikasi final QA pada sub topik ini.',
-            'qa_level_note' => 'Belum ada data verifikasi final QA pada sub topik ini.',
+            'qa_description' => 'Belum ada data verifikasi final QA pada topik ini.',
+            'qa_level_note' => 'Belum ada data verifikasi final QA pada topik ini.',
             'has_qa_data' => false,
             'is_qa_verified' => false,
             'rows_total' => 0,
@@ -1143,7 +1143,7 @@ class DashboardController extends Controller
             return $fallbackDescription;
         }
 
-        return 'Belum ada deskripsi level sub topik.';
+        return 'Belum ada deskripsi level topik.';
     }
 
     private function resolveElementLevelDescription(array $summaryConfig, ?int $level, string $fallback = ''): string
@@ -1174,7 +1174,7 @@ class DashboardController extends Controller
     {
         $normalized = trim((string) preg_replace('/\s+/u', ' ', $description));
         if ($normalized === '') {
-            return 'Belum ada deskripsi level sub topik.';
+            return 'Belum ada deskripsi level topik.';
         }
         return $normalized;
     }
@@ -1277,3 +1277,4 @@ class DashboardController extends Controller
         return $exists;
     }
 }
+

@@ -127,11 +127,11 @@ final class DashboardHomeViewNormalizer
                 $subtopicItem['qa_level_label'] = $subtopicQaLevel !== null ? 'L'.$subtopicQaLevel : '-';
                 $subtopicItem['level_note'] = self::normalizeDescription(
                     (string) ($subtopicItem['level_note'] ?? $subtopicItem['description'] ?? ''),
-                    'Belum ada deskripsi level sub topik.'
+                    'Belum ada deskripsi level topik.'
                 );
                 $subtopicItem['qa_level_note'] = self::normalizeDescription(
                     (string) ($subtopicItem['qa_level_note'] ?? $subtopicItem['qa_description'] ?? ''),
-                    'Belum ada deskripsi level QA sub topik.'
+                    'Belum ada deskripsi level QA topik.'
                 );
 
                 $subtopics[] = $subtopicItem;
@@ -179,3 +179,4 @@ final class DashboardHomeViewNormalizer
         return rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.');
     }
 }
+

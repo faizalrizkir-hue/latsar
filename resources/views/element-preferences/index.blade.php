@@ -95,7 +95,7 @@
                 <h3 class="mb-2">Preferensi Element</h3>
                 <p class="mb-0 text-muted">
                     Pengaturan ini dipakai untuk penyesuaian total struktur penilaian: tambah/hapus element,
-                    tambah/hapus sub topik, jumlah pernyataan, serta bobot masing-masing.
+                    tambah/hapus topik, jumlah pernyataan, serta bobot masing-masing.
                 </p>
             </div>
         </div>
@@ -242,7 +242,7 @@
                                 <div>
                                     <div class="pref-element-title">{{ $elementDisplayTitle }}</div>
                                     <div class="pref-element-meta" data-element-meta>
-                                        {{ $subtopics->count() }} sub topik, {{ $statementCount }} pernyataan
+                                        {{ $subtopics->count() }} topik, {{ $statementCount }} pernyataan
                                     </div>
                                 </div>
                                 <span class="pref-element-arrow">&#9662;</span>
@@ -281,7 +281,7 @@
 
                                     <div class="pref-card-actions ms-auto">
                                         <button type="button" class="btn btn-outline-primary btn-sm" data-add-subtopic>
-                                            Tambah Sub Topik
+                                            Tambah Topik
                                         </button>
                                         <button type="button" class="btn btn-outline-danger btn-sm" data-remove-element>
                                             Hapus Element
@@ -317,7 +317,7 @@
 
                                             $subtopicTitle = (string) ($subtopic['title'] ?? $subtopicSlug);
                                             $subtopicInputTitle = $stripSubtopicPrefix((string) old('elements.'.$elementSlug.'.subtopics.'.$subtopicSlug.'.title', $subtopicTitle));
-                                            $subtopicDisplayTitle = 'Sub Topik '.$loop->iteration.($subtopicInputTitle !== '' ? ' - '.$subtopicInputTitle : '');
+                                            $subtopicDisplayTitle = 'Topik '.$loop->iteration.($subtopicInputTitle !== '' ? ' - '.$subtopicInputTitle : '');
                                             $subtopicWeight = (float) ($subtopic['weight'] ?? 0);
                                             $rows = collect((array) ($subtopic['rows'] ?? []))
                                                 ->filter(fn ($item) => is_array($item))
@@ -338,7 +338,7 @@
 
                                             <div class="pref-subtopic-head">
                                                 <div class="pref-subtopic-title-wrap">
-                                                    <label class="form-label mb-1">Nama Sub Topik</label>
+                                                    <label class="form-label mb-1">Nama Topik</label>
                                                     <input
                                                         type="text"
                                                         class="form-control"
@@ -349,7 +349,7 @@
                                                 </div>
 
                                                 <div class="pref-weight-field pref-subtopic-weight">
-                                                    <label class="form-label mb-1">Bobot Sub Topik (%)</label>
+                                                    <label class="form-label mb-1">Bobot Topik (%)</label>
                                                     <input
                                                         type="number"
                                                         name="elements[{{ $elementSlug }}][subtopics][{{ $subtopicSlug }}][weight]"
@@ -364,13 +364,13 @@
 
                                                 <div class="pref-card-actions ms-auto">
                                                     <button type="button" class="btn btn-outline-danger btn-sm" data-remove-subtopic>
-                                                        Hapus Sub Topik
+                                                        Hapus Topik
                                                     </button>
                                                 </div>
                                             </div>
 
                                             <details class="pref-level-card pref-level-card-subtopic" data-pref-slide>
-                                                <summary>Informasi Level Sub Topik (1-5)</summary>
+                                                <summary>Informasi Level Topik (1-5)</summary>
                                                 <div class="pref-level-body">
                                                     <div class="pref-level-grid">
                                                         @for($level = 1; $level <= 5; $level++)
@@ -659,7 +659,7 @@
         const cleanName = stripSubtopicPrefix(nameValue);
         const index = Number.isFinite(fallbackIndex) && fallbackIndex > 0 ? fallbackIndex : 1;
 
-        return cleanName !== '' ? `Sub Topik ${index} - ${cleanName}` : `Sub Topik ${index}`;
+        return cleanName !== '' ? `Topik ${index} - ${cleanName}` : `Topik ${index}`;
     };
 
     const getElementCardBody = (elementCard) => {
@@ -1204,7 +1204,7 @@
 
         const subtopicCount = elementCard.querySelectorAll('[data-subtopic-card]').length;
         const statementCount = elementCard.querySelectorAll('[data-row-item]').length;
-        meta.textContent = `${subtopicCount} sub topik, ${statementCount} pernyataan`;
+        meta.textContent = `${subtopicCount} topik, ${statementCount} pernyataan`;
 
         const titleInput = elementCard.querySelector('[data-element-title-input]');
         const titleNode = elementCard.querySelector('.pref-element-title');
@@ -1327,7 +1327,7 @@
         elementCards.forEach((elementCard) => {
             const subtopicInputs = Array.from(elementCard.querySelectorAll('.pref-weight-input[data-weight-type="subtopic"]'));
             const subtopicTotal = subtopicInputs.reduce((total, input) => total + parseWeightValue(input), 0);
-            const subtopicWarning = buildWeightWarningMessage('sub topik', subtopicTotal);
+            const subtopicWarning = buildWeightWarningMessage('topik', subtopicTotal);
 
             if (subtopicInputs.length > 0 && subtopicWarning !== '') {
                 applyGroupWeightWarning(
@@ -1341,7 +1341,7 @@
             subtopicCards.forEach((subtopicCard) => {
                 const subtopicName = subtopicCard.querySelector('input[name*="[title]"]')?.value?.trim()
                     || subtopicCard.querySelector('[data-subtopic-heading]')?.textContent?.trim()
-                    || 'sub topik ini';
+                    || 'topik ini';
                 const rowInputs = Array.from(subtopicCard.querySelectorAll('.pref-weight-input[data-weight-type="row"]'));
                 const rowTotal = rowInputs.reduce((total, input) => total + parseWeightValue(input), 0);
                 const rowWarning = buildWeightWarningMessage(`pernyataan pada ${subtopicName}`, rowTotal);
@@ -1460,7 +1460,7 @@
 
         section.innerHTML = `
             <summary>
-                <div class="pref-subtopic-title" data-subtopic-heading>Sub Topik</div>
+                <div class="pref-subtopic-title" data-subtopic-heading>Topik</div>
                 <span class="pref-subtopic-arrow">&#9662;</span>
             </summary>
 
@@ -1470,7 +1470,7 @@
 
             <div class="pref-subtopic-head">
                 <div class="pref-subtopic-title-wrap">
-                    <label class="form-label mb-1">Nama Sub Topik</label>
+                    <label class="form-label mb-1">Nama Topik</label>
                     <input
                         type="text"
                         class="form-control"
@@ -1481,7 +1481,7 @@
                 </div>
 
                 <div class="pref-weight-field pref-subtopic-weight">
-                    <label class="form-label mb-1">Bobot Sub Topik (%)</label>
+                    <label class="form-label mb-1">Bobot Topik (%)</label>
                     <input
                         type="number"
                         name="elements[${elementSlug}][subtopics][${subtopicSlug}][weight]"
@@ -1496,13 +1496,13 @@
 
                 <div class="pref-card-actions ms-auto">
                     <button type="button" class="btn btn-outline-danger btn-sm" data-remove-subtopic>
-                        Hapus Sub Topik
+                        Hapus Topik
                     </button>
                 </div>
             </div>
 
             <details class="pref-level-card pref-level-card-subtopic" data-pref-slide>
-                <summary>Informasi Level Sub Topik (1-5)</summary>
+                <summary>Informasi Level Topik (1-5)</summary>
                 <div class="pref-level-body">
                     <div class="pref-level-grid">
                         ${subtopicLevelFields}
@@ -1565,7 +1565,7 @@
             <summary>
                 <div>
                     <div class="pref-element-title">${displayTitle}</div>
-                    <div class="pref-element-meta" data-element-meta>0 sub topik, 0 pernyataan</div>
+                    <div class="pref-element-meta" data-element-meta>0 topik, 0 pernyataan</div>
                 </div>
                 <span class="pref-element-arrow">&#9662;</span>
             </summary>
@@ -1603,7 +1603,7 @@
 
                     <div class="pref-card-actions ms-auto">
                         <button type="button" class="btn btn-outline-primary btn-sm" data-add-subtopic>
-                            Tambah Sub Topik
+                            Tambah Topik
                         </button>
                         <button type="button" class="btn btn-outline-danger btn-sm" data-remove-element>
                             Hapus Element
@@ -1838,17 +1838,17 @@
 
             const subtopicCount = elementCard.querySelectorAll('[data-subtopic-card]').length;
             if (subtopicCount <= 1) {
-                window.alert('Minimal harus ada 1 sub topik pada setiap element.');
+                window.alert('Minimal harus ada 1 topik pada setiap element.');
                 return;
             }
 
             const subtopicTitle = stripSubtopicPrefix(subtopicCard.querySelector('[data-subtopic-title-input], input[name*="[title]"]')?.value || '')
                 || subtopicCard.querySelector('[data-subtopic-heading]')?.textContent?.trim()
-                || 'Sub Topik';
+                || 'Topik';
             openConfirmModal({
-                title: 'Hapus Sub Topik',
+                title: 'Hapus Topik',
                 message: `Sub topik "${subtopicTitle}" akan dihapus. Lanjutkan?`,
-                label: 'Hapus Sub Topik',
+                label: 'Hapus Topik',
                 kind: 'danger',
                 trigger: removeSubtopicButton,
                 onConfirm: () => {
@@ -2003,4 +2003,5 @@
 })();
 </script>
 @endpush
+
 

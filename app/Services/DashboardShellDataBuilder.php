@@ -162,13 +162,13 @@ class DashboardShellDataBuilder
         $normalizeSubtopicNavTitle = static function (string $title, int $position): string {
             $resolvedTitle = trim($title);
             if ($resolvedTitle === '') {
-                return 'Sub Topik '.$position;
+                return 'Topik';
             }
 
-            $cleanedTitle = preg_replace('/^\s*sub\s*topik\s*\d+\s*[-:]?\s*/i', '', $resolvedTitle);
+            $cleanedTitle = preg_replace('/^\s*(?:sub\s*topik|topik)\s*\d+\s*[-:]?\s*/i', '', $resolvedTitle);
             $cleanedTitle = is_string($cleanedTitle) ? trim($cleanedTitle) : $resolvedTitle;
 
-            return $cleanedTitle !== '' ? $cleanedTitle : $resolvedTitle;
+            return $cleanedTitle !== '' ? $cleanedTitle : 'Topik';
         };
 
         $structureElements = collect((array) ($elementPreferenceService->structure()['elements'] ?? []))
@@ -320,16 +320,16 @@ class DashboardShellDataBuilder
         $formatSubtopicDirectoryTitle = static function (string $subtopicTitle, int $position): string {
             $resolvedTitle = trim($subtopicTitle);
             if ($resolvedTitle === '') {
-                return 'Sub Topik '.$position;
+                return 'Topik '.$position;
             }
 
             $cleanedTitle = preg_replace('/^\s*sub\s*topik\s*\d+\s*[-:]?\s*/i', '', $resolvedTitle);
             $cleanedTitle = is_string($cleanedTitle) ? trim($cleanedTitle) : $resolvedTitle;
             if ($cleanedTitle === '') {
-                return 'Sub Topik '.$position;
+                return 'Topik '.$position;
             }
 
-            return 'Sub Topik '.$position.' - '.$cleanedTitle;
+            return 'Topik '.$position.' - '.$cleanedTitle;
         };
 
         $elementDirectoryBySlug = [];
@@ -537,3 +537,4 @@ class DashboardShellDataBuilder
         ];
     }
 }
+

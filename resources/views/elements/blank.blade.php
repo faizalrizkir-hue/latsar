@@ -8,7 +8,8 @@
         <div class="card-body">
             <p class="text-uppercase text-muted small mb-2">Halaman dikosongkan</p>
             <h5 class="card-title mb-1">{{ $title }}</h5>
-            <p class="text-muted mb-0">Konten untuk sub-topik ini telah dikosongkan sesuai permintaan.</p>
+            <p class="text-muted mb-0">Konten untuk topik ini telah dikosongkan sesuai permintaan.</p>
         </div>
     </div>
 @endsection
+

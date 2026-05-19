@@ -13,7 +13,7 @@
         <section class="aoi-hero-card">
             <div class="aoi-hero-main">
                 <h3 class="aoi-title">Area Of Improvement (AoI)</h3>
-                <p class="aoi-subtitle">Daftar hasil verifikasi final QA dan rekomendasi tindak lanjut dari seluruh sub topik.</p>
+                <p class="aoi-subtitle">Daftar hasil verifikasi final QA dan rekomendasi tindak lanjut dari seluruh topik.</p>
             </div>
             <div class="aoi-hero-actions">
                 <button type="button" class="aoi-print-btn" data-aoi-print-btn aria-label="Print Rekap AoI" title="Print Rekap AoI">
@@ -49,7 +49,7 @@
                         <thead>
                             <tr>
                                 <th style="width:64px;">No</th>
-                                <th style="min-width:380px;">Element / Sub Topik / Pernyataan</th>
+                                <th style="min-width:380px;">Element / Topik / Pernyataan</th>
                                 <th style="min-width:280px;">Hasil Verifikasi QA</th>
                                 <th style="min-width:280px;">Rekomendasi Tindak Lanjut</th>
                                 <th style="width:150px;">Verifikator QA</th>
@@ -67,7 +67,7 @@
                                                 <div class="aoi-context-value aoi-col-element">{{ $item['element_title'] ?: '-' }}</div>
                                             </div>
                                             <div class="aoi-context-item">
-                                                <span class="aoi-context-label">Sub Topik</span>
+                                                <span class="aoi-context-label">Topik</span>
                                                 <div class="aoi-context-value aoi-col-subtopic">{{ $item['subtopic_title'] ?: '-' }}</div>
                                             </div>
                                             <div class="aoi-context-item">
@@ -159,4 +159,5 @@
         })();
     </script>
 @endpush
+
 

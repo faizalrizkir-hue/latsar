@@ -6,7 +6,7 @@ return [
             'view' => 'elements.element1-summary',
             'title' => 'Element 1 : Kualitas Peran dan Layanan',
             'header_code' => 'E1',
-            'header_subtitle' => 'Rekap Skor Tertimbang dan Level dari Sub Topik Element 1',
+            'header_subtitle' => 'Ringkasan skor tertimbang, level element, dan capaian topik Element 1',
             'level_label' => 'Level Element 1',
             'info_modal_title' => 'Informasi Level Element',
             'styles' => [
@@ -33,7 +33,7 @@ return [
                 ],
                 [
                     'level' => 3,
-                    'description' => 'Kualitas peran dan layanan mencakup pengawasan kepatuhan, kinerja, dan konsultansi strategis atas manajemen risiko organisasi, dengan pengawasan intern berbasis risiko mendukung perbaikan operasional, TKMRPI, serta pengendalian kecurangan pada organisasi K/L/D dan prioritas pembangunan nasional.',
+                    'description' => 'Kualitas peran dan layanan mencakup pengawasan kepatuhan, kinerja, dan konsultansi strategis atas manajemen risiko organisasi, dengan pengawasan intern berbasis risiko mendukung perbaikan operasional, TKMRPI, serta pengendalian kecurangan pada organisasi kementerian/lembaga/pemerintah daerah dan prioritas pembangunan nasional.',
                 ],
                 [
                     'level' => 4,
@@ -41,15 +41,14 @@ return [
                 ],
                 [
                     'level' => 5,
-                    'description' => 'Kualitas peran dan layanan pengawasan intern menghasilkan insight dan foresight atas keseluruhan manajemen risiko serta peluang perbaikan masa depan melalui inovasi, teknologi, dan praktik terbaik pengawasan intern.',
+                    'description' => 'Kualitas peran dan layanan Pengawasan Intern menghasilkan insight dan foresight atas keseluruhan manajemen risiko serta peluang perbaikan masa depan melalui inovasi, teknologi, dan praktik terbaik pengawasan intern.',
                 ],
-            ],
-        ],
+            ],        ],
         'element2' => [
             'view' => 'elements.element1-summary',
             'title' => 'Element 2 : Profesionalisme Penugasan',
             'header_code' => 'E2',
-            'header_subtitle' => 'Rekap Skor Tertimbang dan Level dari 6 Sub Topik Element 2',
+            'header_subtitle' => 'Ringkasan skor tertimbang, level element, dan capaian 6 topik Element 2',
             'level_label' => 'Level Element 2',
             'info_modal_title' => 'Informasi Level Element 2',
             'styles' => [
@@ -76,31 +75,30 @@ return [
             'info_levels' => [
                 [
                     'level' => 1,
-                    'description' => 'Profesionalisme penugasan masih berada pada tahap rintisan dan belum konsisten antar sub topik.',
+                    'description' => 'Penugasan dilaksanakan belum mengikuti standar dan prosedur. Aktivitas pengawasan bersifat reaktif terhadap perintah pimpinan. Hasil penugasan belum mampu menghasilkan rekomendasi yang bernilai tambah.',
                 ],
                 [
                     'level' => 2,
-                    'description' => 'Profesionalisme penugasan mulai terstruktur, namun penerapan antar sub topik masih belum merata.',
+                    'description' => 'Penugasan mulai mengikuti prosedur dan format dasar namun berorientasi pada kepatuhan administratif. Analisis dan reviu terbatas, serta hasil belum memberikan nilai tambah signifikan.',
                 ],
                 [
                     'level' => 3,
-                    'description' => 'Profesionalisme penugasan telah memadai, dijalankan sistematis, dan mendukung pengawasan berbasis risiko.',
+                    'description' => 'Penugasan dilaksanakan dengan metodologi dan terdokumentasi, berbasis bukti dan risiko, serta melalui reviu berjenjang. Hasil pengawasan menghasilkan rekomendasi yang valid dan dibahas dengan mitra.',
                 ],
                 [
                     'level' => 4,
-                    'description' => 'Profesionalisme penugasan telah terintegrasi lintas sub topik, dengan mutu dan tindak lanjut yang lebih konsisten.',
+                    'description' => 'Penugasan dilaksanakan sesuai dengan standar dengan mekanisme mutu dan pembelajaran organisasi. Evaluasi temuan dilakukan kolaboratif dan mendorong perbaikan sistemik serta peningkatan TKMRPI.',
                 ],
                 [
                     'level' => 5,
-                    'description' => 'Profesionalisme penugasan telah optimal, terdigitalisasi, adaptif, dan mendukung pengambilan keputusan strategis.',
+                    'description' => 'Profesionalisme mencerminkan peran strategis APIP sebagai mitra perubahan. Penugasan berbasis data dan proyeksi ke depan, menghasilkan rekomendasi antisipatif, dan menjadi dasar perbaikan kebijakan.',
                 ],
-            ],
-        ],
+            ],        ],
         'element3' => [
             'view' => 'elements.element1-summary',
             'title' => 'Element 3 : Manajemen Pengawasan',
             'header_code' => 'E3',
-            'header_subtitle' => 'Rekap Skor Tertimbang dan Level dari 2 Sub Topik Element 3',
+            'header_subtitle' => 'Ringkasan skor tertimbang, level element, dan capaian 2 topik Element 3',
             'level_label' => 'Level Element 3',
             'info_modal_title' => 'Informasi Level Element 3',
             'styles' => [
@@ -123,27 +121,26 @@ return [
                 ],
                 [
                     'level' => 2,
-                    'description' => 'Perencanaan pengawasan sudah memiliki fokus dan sasaran, meski belum sesuai dengan prioritas K/L/D. Laporan hanya berisi deskripsi kepatuhan administratif dengan rekomendasi yang bersifat teknis/operasional.',
+                    'description' => 'Perencanaan pengawasan sudah memiliki fokus dan sasaran, meski belum sesuai dengan prioritas kementerian/lembaga/pemerintah daerah. Laporan hanya berisi deskripsi kepatuhan administratif dengan rekomendasi yang bersifat teknis/operasional.',
                 ],
                 [
                     'level' => 3,
-                    'description' => 'Perencanaan pengawasan fokus dan menyasar prioritas K/L/D. Laporan telah mengungkap permasalahan hingga ke akar penyebab dengan rekomendasi yang menyasar pada aspek krusial untuk perbaikan pelaksanaan program prioritas K/L/D.',
+                    'description' => 'Perencanaan pengawasan fokus dan menyasar prioritas kementerian/lembaga/pemerintah daerah. Laporan telah mengungkap permasalahan hingga ke akar penyebab dengan rekomendasi yang menyasar pada aspek krusial untuk perbaikan pelaksanaan program prioritas kementerian/lembaga/pemerintah daerah.',
                 ],
                 [
                     'level' => 4,
-                    'description' => 'Perencanaan pengawasan fokus dan menyasar prioritas jangka menengah/panjang K/L/D, terintegrasi dengan manajemen risiko. Laporan telah mengungkap permasalahan hingga ke akar penyebab dengan rumusan rekomendasi yang menyasar pada aspek krusial (overall opinion) dan memberikan nilai tambah bagi K/L/D dan lintas instansi.',
+                    'description' => 'Perencanaan pengawasan fokus dan menyasar prioritas jangka menengah/panjang kementerian/lembaga/pemerintah daerah, terintegrasi dengan manajemen risiko. Laporan telah mengungkap permasalahan hingga ke akar penyebab dengan rumusan rekomendasi yang menyasar pada aspek krusial (overall opinion) dan memberikan nilai tambah bagi kementerian/lembaga/pemerintah daerah dan lintas instansi.',
                 ],
                 [
                     'level' => 5,
-                    'description' => 'Perencanaan pengawasan fokus dan menyasar prioritas K/L/D serta mempertimbangkan target lintas sektor/organisasi yang mendukung prioritas nasional. Laporan telah mengungkap permasalahan hingga ke akar penyebab dengan rumusan rekomendasi yang menyasar pada aspek krusial (termasuk proyeksi atas TKMRPI) dan memberikan nilai tambah strategis bagi K/L/D, lintas instansi, dan nasional.',
+                    'description' => 'Perencanaan pengawasan fokus dan menyasar prioritas kementerian/lembaga/pemerintah daerah serta mempertimbangkan target lintas sektor/organisasi yang mendukung prioritas nasional. Laporan telah mengungkap permasalahan hingga ke akar penyebab dengan rumusan rekomendasi yang menyasar pada aspek krusial (termasuk proyeksi atas TKMRPI) dan memberikan nilai tambah strategis bagi kementerian/lembaga/pemerintah daerah, lintas instansi, dan nasional.',
                 ],
-            ],
-        ],
+            ],        ],
         'element4' => [
             'view' => 'elements.element1-summary',
             'title' => 'Element 4 : Pengelolaan Kinerja dan Sumber Daya Pengawasan',
             'header_code' => 'E4',
-            'header_subtitle' => 'Rekap Skor Tertimbang dan Level dari 5 Sub Topik Element 4',
+            'header_subtitle' => 'Ringkasan skor tertimbang, level element, dan capaian 5 topik Element 4',
             'level_label' => 'Level Element 4',
             'info_modal_title' => 'Informasi Level Element 4 - Pengelolaan Kinerja dan Sumber Daya Pengawasan',
             'styles' => [
@@ -168,31 +165,30 @@ return [
             'info_levels' => [
                 [
                     'level' => 1,
-                    'description' => 'Pengelolaan kinerja dan sumber daya pengawasan masih ad-hoc; proses kinerja, keuangan, SDM, dan dukungan teknologi belum berjalan terstruktur.',
+                    'description' => 'Pengelolaan kinerja belum terdefinisi dan tidak terkelola. Pengelolaan sumber daya bersifat ad-hoc, belum terstruktur, dan tanpa dukungan teknologi.',
                 ],
                 [
                     'level' => 2,
-                    'description' => 'Pengelolaan mulai terstruktur secara administratif, tetapi pemenuhan dan pemanfaatan sumber daya pada fungsi pengawasan belum merata.',
+                    'description' => 'Pengelolaan kinerja berorientasi keluaran (output). Pengelolaan sumber daya mulai teratur namun masih terbatas dalam memenuhi kebutuhan strategis pengawasan.',
                 ],
                 [
                     'level' => 3,
-                    'description' => 'Pengelolaan kinerja dan sumber daya sudah memadai, terencana, serta mendukung pelaksanaan pengawasan berbasis kebutuhan prioritas.',
+                    'description' => 'Pengelolaan kinerja telah sistematis dan berorientasi hasil (outcome). Pengelolaan sumber daya efektif, sesuai standar, mendukung profesionalisme SDM serta pelaksanaan rencana dan strategi pengawasan.',
                 ],
                 [
                     'level' => 4,
-                    'description' => 'Pengelolaan kinerja dan sumber daya telah terintegrasi lintas proses, adaptif terhadap risiko strategis, dan mendukung efektivitas pengawasan.',
+                    'description' => 'Pengelolaan kinerja adaptif dan terintegrasi dengan mekanisme perbaikan berkelanjutan. Pengelolaan sumber daya terpadu, efisien, profesional, berorientasi perbaikan berkelanjutan, dan didukung teknologi informasi terintegrasi.',
                 ],
                 [
                     'level' => 5,
-                    'description' => 'Pengelolaan kinerja dan sumber daya telah optimal, antisipatif, berbasis data, dan berorientasi nilai tambah strategis bagi organisasi.',
+                    'description' => 'Pengelolaan kinerja strategis, responsif, dan prediktif. Pengelolaan sumber daya responsif dengan kebutuhan masa depan, berorientasi kompetensi global, inovatif, efisien, dan dukungan teknologi terotomasi bersifat prediktif.',
                 ],
-            ],
-        ],
+            ],        ],
         'element5' => [
             'view' => 'elements.element1-summary',
             'title' => 'Element 5 : Budaya dan Hubungan Organisasi',
             'header_code' => 'E5',
-            'header_subtitle' => 'Rekap Skor Tertimbang dan Level dari 4 Sub Topik Element 5',
+            'header_subtitle' => 'Ringkasan skor tertimbang, level element, dan capaian 4 topik Element 5',
             'level_label' => 'Level Element 5',
             'info_modal_title' => 'Informasi Level Element 5 - Budaya dan Hubungan Organisasi',
             'styles' => [
@@ -215,25 +211,26 @@ return [
             'info_levels' => [
                 [
                     'level' => 1,
-                    'description' => 'Budaya dan hubungan organisasi belum terkelola secara sistematis; internalisasi integritas serta kolaborasi dengan pemangku kepentingan masih terbatas.',
+                    'description' => 'APIP belum menegakkan nilai-nilai integritas dan etika organisasi. APIP belum difungsikan dalam organisasi. Akses informasi pengawasan tertutup.',
                 ],
                 [
                     'level' => 2,
-                    'description' => 'Budaya dan hubungan organisasi mulai dibangun melalui kebijakan dan sosialisasi awal, namun implementasi dan pemanfaatannya belum konsisten.',
+                    'description' => 'APIP telah memahami nilai-nilai integritas dan etika organisasi, serta terdapat saluran pengaduan. Hubungan organisasi bersifat formal dan fungsional terbatas. Akses informasi pengawasan terbuka secara terbatas.',
                 ],
                 [
                     'level' => 3,
-                    'description' => 'Budaya integritas, hubungan manajemen, koordinasi pengawasan, dan akses informasi telah berjalan memadai dan mendukung proses pengawasan.',
+                    'description' => 'APIP sudah mengimplementasikan nilai integritas dan etika organisasi dalam pelaksanaan tugas. Hubungan organisasi strategis sesuai mandat pimpinan kementerian/lembaga/pemerintah daerah. Koordinasi internal dan eksternal memberikan manfaat terhadap peningkatan kualitas pengawasan untuk perbaikan organisasi. Akses informasi pengawasan terbuka sepenuhnya.',
                 ],
                 [
                     'level' => 4,
-                    'description' => 'Budaya dan hubungan organisasi telah terintegrasi lintas proses, konsisten, terdokumentasi, dan memberi nilai tambah bagi penguatan pengawasan.',
+                    'description' => 'Integritas APIP dikelola proaktif dan telah mendapat pengakuan organisasi. Hubungan organisasi adaptif terhadap perubahan mandat pimpinan kementerian/lembaga/pemerintah daerah. Akses informasi pengawasan terbuka berkelanjutan untuk kolaborasi.',
                 ],
                 [
                     'level' => 5,
-                    'description' => 'Budaya dan hubungan organisasi mencapai kematangan tinggi, adaptif terhadap perubahan, didukung teknologi, dan menjadi rujukan praktik baik.',
+                    'description' => 'Budaya integritas APIP menjadi role model nasional. Hubungan organisasi terintegrasi lintas sektor pembangunan. APIP selalu dilibatkan dalam pengambilan keputusan kebijakan strategis organisasi. Akses informasi pengawasan dikelola secara strategis dan terintegrasi yang berpengaruh terhadap kebijakan publik.',
                 ],
-            ],
-        ],
+            ],        ],
     ],
 ];
+
+

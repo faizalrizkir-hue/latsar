@@ -43,7 +43,7 @@
                             <div>
                                 <label class="form-label" for="newRole">Role</label>
                                 @php
-                                    $roles = [
+                                    $roles = $roleOptions ?? [
                                         'administrator' => 'Administrator',
                                         'koordinator' => 'Koordinator',
                                         'qa' => 'QA BPKP',
@@ -124,13 +124,68 @@
                                             @endif
                                         </td>
                                         <td class="text-center account-action-cell">
+                                            @php
+                                                $sessionUsername = trim((string) ($user['username'] ?? ''));
+                                                $isCurrentUserAccount = $sessionUsername !== '' && $sessionUsername === $account->username;
+                                                $roleEditId = 'role-'.preg_replace('/[^a-zA-Z0-9_-]/', '-', $account->username);
+                                            @endphp
                                             <div class="account-action-bar d-flex flex-wrap gap-2 justify-content-center">
+                                                <div class="reset-wrap account-action-form d-flex align-items-center justify-content-center gap-2">
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-sm reset-toggle account-action-btn account-action-btn-icon account-action-role"
+                                                        data-target="{{ $roleEditId }}"
+                                                        @disabled($isCurrentUserAccount)
+                                                        aria-label="Ganti role akun {{ $account->display_name ?: $account->username }}"
+                                                        title="{{ $isCurrentUserAccount ? 'Role akun yang sedang digunakan tidak bisa diubah.' : 'Ganti role' }}"
+                                                    >
+                                                        <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                                            <path d="M15.5 19.5a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11Z"></path>
+                                                            <path d="M15.5 6.5v2m0 8v2m-3.5-6h-2m13 0h-2m-7.3-3.3-1.4-1.4m8.4 8.4 1.4 1.4m0-9.8-1.4 1.4m-8.4 8.4-1.4 1.4"></path>
+                                                            <path d="M3 19.5c0-2.6 2.1-4.7 4.7-4.7h1.8"></path>
+                                                            <circle cx="8.6" cy="8.1" r="3.1"></circle>
+                                                        </svg>
+                                                        <span class="visually-hidden">Ganti Role</span>
+                                                    </button>
+                                                    <div class="reset-slide" id="{{ $roleEditId }}" aria-hidden="true">
+                                                        @php
+                                                            $currentRoleValue = strtolower((string) $account->role);
+                                                            $currentRoleDisplay = ($roleOptions ?? $roles)[$currentRoleValue] ?? $roleLabel;
+                                                        @endphp
+                                                        <form
+                                                            method="POST"
+                                                            action="{{ route('accounts.store') }}"
+                                                            class="account-reset-form d-flex align-items-center gap-2"
+                                                            data-role-change-form
+                                                            data-account-display-name="{{ $account->display_name ?: $account->username }}"
+                                                            data-account-username="{{ $account->username }}"
+                                                        >
+                                                            @csrf
+                                                            <input type="hidden" name="action" value="change_role">
+                                                            <input type="hidden" name="change_username" value="{{ $account->username }}">
+                                                            <select
+                                                                name="change_role"
+                                                                class="form-select form-select-sm account-reset-input"
+                                                                data-current-role-label="{{ $currentRoleDisplay }}"
+                                                                required
+                                                            >
+                                                                @foreach(($roleOptions ?? $roles) as $roleValue => $roleName)
+                                                                    <option value="{{ $roleValue }}" @selected(strtolower((string) $account->role) === strtolower((string) $roleValue))>{{ $roleName }}</option>
+                                                                @endforeach
+                                                            </select>
+                                                            <button type="submit" class="btn btn-primary btn-sm account-action-btn account-action-btn-solid">Simpan</button>
+                                                            <button type="button" class="btn btn-light btn-sm reset-cancel account-action-btn">Batal</button>
+                                                        </form>
+                                                    </div>
+                                                </div>
                                                 @if(!in_array($roleKey, ['administrator','admin','superadmin']))
                                                     <form method="POST" action="{{ route('accounts.toggle', $account) }}" class="account-action-form">
                                                         @csrf
                                                         <button
                                                             type="{{ $account->active ? 'button' : 'submit' }}"
-                                                            class="btn btn-sm account-action-btn {{ $account->active ? 'btn-outline-warning' : 'btn-outline-success' }}"
+                                                            class="btn btn-sm account-action-btn account-action-btn-icon {{ $account->active ? 'account-action-deactivate' : 'account-action-activate' }}"
+                                                            aria-label="{{ $account->active ? 'Nonaktifkan akun '.$account->username : 'Aktifkan akun '.$account->username }}"
+                                                            title="{{ $account->active ? 'Nonaktifkan' : 'Aktifkan' }}"
                                                             @if($account->active)
                                                                 data-account-modal-trigger
                                                                 data-account-modal-kind="deactivate"
@@ -139,7 +194,19 @@
                                                                 data-account-modal-confirm-label="Ya, Nonaktifkan"
                                                             @endif
                                                         >
-                                                            {{ $account->active ? 'Nonaktifkan' : 'Aktifkan' }}
+                                                            @if($account->active)
+                                                                <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                                                    <path d="M12 3v9"></path>
+                                                                    <path d="M7.1 5.6a8 8 0 1 0 9.8 0"></path>
+                                                                </svg>
+                                                                <span class="visually-hidden">Nonaktifkan</span>
+                                                            @else
+                                                                <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                                                    <path d="m9 12 2 2 4-4"></path>
+                                                                    <circle cx="12" cy="12" r="9"></circle>
+                                                                </svg>
+                                                                <span class="visually-hidden">Aktifkan</span>
+                                                            @endif
                                                         </button>
                                                     </form>
                                                 @endif
@@ -147,8 +214,19 @@
                                                     $resetId = 'reset-'.preg_replace('/[^a-zA-Z0-9_-]/', '-', $account->username);
                                                 @endphp
                                                 <div class="reset-wrap account-action-form d-flex align-items-center justify-content-center gap-2">
-                                                    <button type="button" class="btn btn-sm btn-outline-primary reset-toggle account-action-btn" data-target="{{ $resetId }}">
-                                                        Reset
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-sm reset-toggle account-action-btn account-action-btn-icon account-action-reset"
+                                                        data-target="{{ $resetId }}"
+                                                        aria-label="Reset password akun {{ $account->username }}"
+                                                        title="Reset password"
+                                                    >
+                                                        <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                                            <circle cx="8.5" cy="12" r="3.5"></circle>
+                                                            <path d="M12 12h9m-5 0v3m3-3v2"></path>
+                                                            <path d="M2.5 12a6 6 0 0 1 6-6"></path>
+                                                        </svg>
+                                                        <span class="visually-hidden">Reset Password</span>
                                                     </button>
                                                     <div class="reset-slide" id="{{ $resetId }}" aria-hidden="true">
                                                         <form method="POST" action="{{ route('accounts.reset', $account) }}" class="account-reset-form d-flex align-items-center gap-2">
@@ -166,14 +244,22 @@
                                                         <input type="hidden" name="delete_username" value="{{ $account->username }}">
                                                         <button
                                                             type="button"
-                                                            class="btn btn-sm btn-outline-danger account-action-btn"
+                                                            class="btn btn-sm account-action-btn account-action-btn-icon account-action-delete"
+                                                            aria-label="Hapus akun {{ $account->username }}"
+                                                            title="Hapus akun"
                                                             data-account-modal-trigger
                                                             data-account-modal-kind="delete"
                                                             data-account-modal-title="Hapus Akun?"
                                                             data-account-modal-message="Akun {{ $account->display_name ?: $account->username }} akan dihapus permanen dari sistem."
                                                             data-account-modal-confirm-label="Ya, Hapus"
                                                         >
-                                                            Hapus
+                                                            <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                                                <path d="M3 6h18"></path>
+                                                                <path d="M8 6V4h8v2"></path>
+                                                                <path d="M19 6 18 20H6L5 6"></path>
+                                                                <path d="M10 10v7m4-7v7"></path>
+                                                            </svg>
+                                                            <span class="visually-hidden">Hapus</span>
                                                         </button>
                                                     </form>
                                                 @endif
@@ -453,21 +539,21 @@
             lastTrigger = null;
         };
 
-        const openModal = (trigger) => {
-            pendingForm = trigger.closest('form');
+        const openModal = (trigger, options = {}) => {
+            pendingForm = options.form || trigger?.closest('form');
             if (!pendingForm) return;
             if (closeTimer) {
                 clearTimeout(closeTimer);
                 closeTimer = null;
             }
-            lastTrigger = trigger;
+            lastTrigger = options.returnFocusEl || trigger;
 
-            const kind = (trigger.getAttribute('data-account-modal-kind') || '').trim();
-            titleEl.textContent = trigger.getAttribute('data-account-modal-title') || 'Konfirmasi';
-            messageEl.textContent = trigger.getAttribute('data-account-modal-message') || 'Lanjutkan tindakan ini?';
-            confirmBtn.textContent = trigger.getAttribute('data-account-modal-confirm-label') || 'Lanjutkan';
+            const kind = (options.kind ?? trigger?.getAttribute('data-account-modal-kind') ?? '').trim();
+            titleEl.textContent = options.title || trigger?.getAttribute('data-account-modal-title') || 'Konfirmasi';
+            messageEl.textContent = options.message || trigger?.getAttribute('data-account-modal-message') || 'Lanjutkan tindakan ini?';
+            confirmBtn.textContent = options.confirmLabel || trigger?.getAttribute('data-account-modal-confirm-label') || 'Lanjutkan';
             confirmBtn.classList.toggle('is-danger', kind === 'delete');
-            confirmBtn.classList.toggle('is-warning', kind !== 'delete');
+            confirmBtn.classList.toggle('is-warning', kind === 'deactivate');
 
             modal.setAttribute('data-kind', kind || 'default');
             modal.removeAttribute('hidden');
@@ -500,6 +586,9 @@
             }
 
             const formToSubmit = pendingForm;
+            if (formToSubmit.matches('[data-role-change-form]')) {
+                formToSubmit.dataset.roleChangeConfirmed = '1';
+            }
             closeModal();
             formToSubmit.submit();
         });
@@ -513,6 +602,36 @@
         window.addEventListener('scroll', syncModalToViewport, { passive: true });
         window.addEventListener('resize', syncModalToViewport);
         window.addEventListener('pageshow', syncModalToViewport);
+
+        // Confirm role change before submit
+        document.querySelectorAll('[data-role-change-form]').forEach((form) => {
+            form.addEventListener('submit', (event) => {
+                if (form.dataset.roleChangeConfirmed === '1') {
+                    delete form.dataset.roleChangeConfirmed;
+                    return;
+                }
+
+                event.preventDefault();
+                const roleSelect = form.querySelector('select[name="change_role"]');
+                const selectedOption = roleSelect?.options?.[roleSelect.selectedIndex];
+                const selectedRoleLabel = (selectedOption?.textContent || roleSelect?.value || 'role baru').trim();
+                const currentRoleLabel = (roleSelect?.getAttribute('data-current-role-label') || '').trim();
+                const accountLabel = (form.getAttribute('data-account-display-name') || form.getAttribute('data-account-username') || 'akun ini').trim();
+                const roleMessage = currentRoleLabel && currentRoleLabel !== selectedRoleLabel
+                    ? `Role ${accountLabel} akan diubah dari ${currentRoleLabel} menjadi ${selectedRoleLabel}.`
+                    : `Role ${accountLabel} akan diubah menjadi ${selectedRoleLabel}.`;
+                const submitBtn = form.querySelector('button[type="submit"]');
+
+                openModal(submitBtn || form, {
+                    form,
+                    kind: 'role',
+                    title: 'Ubah Role Akun?',
+                    message: `${roleMessage} Lanjutkan?`,
+                    confirmLabel: 'Ya, Ubah Role',
+                    returnFocusEl: submitBtn || form,
+                });
+            });
+        });
     })();
 
     // Toggle reset password slide

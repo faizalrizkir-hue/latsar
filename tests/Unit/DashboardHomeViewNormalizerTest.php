@@ -40,7 +40,7 @@ class DashboardHomeViewNormalizerTest extends TestCase
                 'subtopics' => [
                     [
                         'slug' => 'element1_kegiatan_asurans',
-                        'title' => 'Sub Topik 1',
+                        'title' => 'Topik 1',
                         'rows_total' => 2,
                         'has_data' => true,
                         'weight' => 0.80,
@@ -53,7 +53,7 @@ class DashboardHomeViewNormalizerTest extends TestCase
                     ],
                     [
                         'slug' => 'element1_jasa_konsultansi',
-                        'title' => 'Sub Topik 2',
+                        'title' => 'Topik 2',
                         'rows_total' => 0,
                         'has_data' => true,
                         'weight' => 0.20,
@@ -84,7 +84,7 @@ class DashboardHomeViewNormalizerTest extends TestCase
         $this->assertSame('100', (string) $element1['subtopic_weight_total_percent']);
         $this->assertSame(0.50, (float) $element1['subtopic_contribution_total']);
         $this->assertSame(0.40, (float) $element1['subtopic_qa_contribution_total']);
-        $this->assertSame('Belum ada deskripsi level sub topik.', (string) $element1['subtopics'][0]['level_note']);
+        $this->assertSame('Belum ada deskripsi level topik.', (string) $element1['subtopics'][0]['level_note']);
         $this->assertSame('L2', (string) $element1['subtopics'][0]['qa_level_label']);
 
         $element2 = $normalized[1];
@@ -92,4 +92,5 @@ class DashboardHomeViewNormalizerTest extends TestCase
         $this->assertSame(0, (int) $element2['statement_count']);
     }
 }
+
 

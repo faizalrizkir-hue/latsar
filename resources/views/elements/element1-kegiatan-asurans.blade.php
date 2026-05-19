@@ -65,7 +65,7 @@
     <div class="keg-page qa-display-off" id="kegPage" data-disable-field-pop="1" data-summary-level="{{ $summaryLevelInt ?? '' }}">
         <div class="keg-head">
             <div class="keg-title">
-                <button type="button" class="keg-title-icon keg-info-trigger" data-info-modal-open aria-label="Lihat informasi level {{ $moduleSubtopicTitle ?? 'Sub Topik' }}">
+                <button type="button" class="keg-title-icon keg-info-trigger" data-info-modal-open aria-label="Lihat informasi level {{ $moduleSubtopicTitle ?? 'Topik' }}">
                     @if($moduleHeaderIconSvg !== null)
                         <span class="keg-title-icon-glyph" aria-hidden="true">{!! $moduleHeaderIconSvg !!}</span>
                     @else
@@ -73,7 +73,7 @@
                     @endif
                 </button>
                 <div>
-                    <h4>{{ $moduleSubtopicTitle ?? 'Sub Topik 1 - Kegiatan Asurans' }}</h4>
+                    <h4>{{ $moduleSubtopicTitle ?? 'Topik 1 - Kegiatan Asurans' }}</h4>
                 </div>
             </div>
             <div class="keg-score-wrap">
@@ -973,7 +973,7 @@
         <div class="keg-doc-backdrop" data-info-modal-close></div>
         <div class="keg-doc-dialog keg-info-dialog" role="dialog" aria-modal="true" aria-labelledby="kegInfoModalTitle">
             <div class="keg-doc-header keg-info-header">
-                <h5 id="kegInfoModalTitle">{{ $moduleInfoModalTitle ?? 'Informasi Level Sub Topik' }}</h5>
+                <h5 id="kegInfoModalTitle">{{ $moduleInfoModalTitle ?? 'Informasi Level Topik' }}</h5>
                 <button type="button" class="keg-doc-close" aria-label="Tutup modal informasi" data-info-modal-close>&times;</button>
             </div>
             <div class="keg-doc-body keg-info-body">
@@ -2912,5 +2912,6 @@
         })();
     </script>
 @endpush
+
 
 

@@ -14,6 +14,15 @@ use Illuminate\Validation\Rule;
 
 class AccountController extends Controller
 {
+    private const ADMIN_ROLES = ['administrator', 'admin', 'superadmin'];
+
+    private const ROLE_OPTIONS = [
+        'administrator' => 'Administrator',
+        'koordinator' => 'Koordinator',
+        'qa' => 'QA BPKP',
+        'auditor' => 'Anggota Tim',
+    ];
+
     private const ELEMENT_OPTIONS = [
         'element1' => 'Element 1 : Kualitas Peran dan Layanan',
         'element2' => 'Element 2 : Profesionalisme Penugasan',
@@ -64,6 +73,7 @@ class AccountController extends Controller
             'pageTitle' => 'Manajemen Akun',
             'user' => $user,
             'accounts' => $accounts,
+            'roleOptions' => self::ROLE_OPTIONS,
             'coordinators' => $coordinators,
             'teamMembers' => $teamMembers,
             'elementOptions' => self::ELEMENT_OPTIONS,
@@ -81,7 +91,7 @@ class AccountController extends Controller
                 $data = $request->validate([
                     'new_username' => 'required|string|min:3|max:100|unique:accounts,username',
                     'new_display_name' => 'nullable|string|max:150',
-                    'new_role' => 'required|string|in:administrator,koordinator,qa,auditor',
+                    'new_role' => ['required', 'string', Rule::in(array_keys(self::ROLE_OPTIONS))],
                     'new_password' => 'required|string|min:6',
                 ]);
                 Account::create([
@@ -184,6 +194,50 @@ class AccountController extends Controller
                 }
                 $account->delete();
                 return back()->with('status', 'Akun berhasil dihapus.');
+
+            case 'change_role':
+                $data = $request->validate([
+                    'change_username' => 'required|string|exists:accounts,username',
+                    'change_role' => ['required', 'string', Rule::in(array_keys(self::ROLE_OPTIONS))],
+                ]);
+
+                $account = Account::query()
+                    ->where('username', $data['change_username'])
+                    ->firstOrFail();
+
+                $sessionUser = Session::get('user', []);
+                if (($sessionUser['username'] ?? '') === $account->username) {
+                    return back()->withErrors(['status' => 'Tidak dapat mengubah role akun yang sedang digunakan.']);
+                }
+
+                $oldRole = strtolower(trim((string) $account->role));
+                $newRole = strtolower(trim((string) $data['change_role']));
+
+                if ($oldRole === $newRole) {
+                    return back()->with('status', 'Role akun tidak berubah.');
+                }
+
+                $isOldAdmin = in_array($oldRole, self::ADMIN_ROLES, true);
+                $isNewAdmin = in_array($newRole, self::ADMIN_ROLES, true);
+                if ($isOldAdmin && !$isNewAdmin && $account->active) {
+                    $otherActiveAdminsCount = Account::query()
+                        ->where('active', true)
+                        ->where('username', '!=', $account->username)
+                        ->whereRaw('LOWER(role) IN (?, ?, ?)', self::ADMIN_ROLES)
+                        ->count();
+
+                    if ($otherActiveAdminsCount < 1) {
+                        return back()->withErrors(['status' => 'Minimal harus ada 1 akun admin aktif. Ubah akun admin lain terlebih dahulu.']);
+                    }
+                }
+
+                DB::transaction(function () use ($account, $newRole): void {
+                    $account->role = $newRole;
+                    $account->save();
+                    $this->cleanupElementAssignmentsForRoleChange($account->username, $newRole);
+                });
+
+                return back()->with('status', 'Role akun berhasil diperbarui.');
 
             default:
                 return back()->withErrors(['status' => 'Aksi tidak dikenali.']);
@@ -373,6 +427,46 @@ class AccountController extends Controller
         }
 
         return self::ELEMENT_OPTIONS[$elementSlug] ?? $elementSlug;
+    }
+
+    private function cleanupElementAssignmentsForRoleChange(string $username, string $newRole): void
+    {
+        if (!Schema::hasTable('element_team_assignments')) {
+            return;
+        }
+
+        $username = trim((string) $username);
+        if ($username === '') {
+            return;
+        }
+
+        $newRole = strtolower(trim((string) $newRole));
+
+        // Role selain koordinator tidak boleh tetap menempati kolom koordinator.
+        if ($newRole !== 'koordinator') {
+            ElementTeamAssignment::query()
+                ->where('coordinator_username', $username)
+                ->update(['coordinator_username' => null]);
+        }
+
+        // Role selain auditor tidak boleh tetap terdaftar sebagai anggota tim.
+        if ($newRole !== 'auditor') {
+            $assignments = ElementTeamAssignment::query()
+                ->whereJsonContains('member_usernames', $username)
+                ->get();
+
+            foreach ($assignments as $assignment) {
+                $memberUsernames = collect((array) ($assignment->member_usernames ?? []))
+                    ->map(fn ($memberUsername) => trim((string) $memberUsername))
+                    ->reject(fn ($memberUsername) => $memberUsername === '' || $memberUsername === $username)
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                $assignment->member_usernames = $memberUsernames;
+                $assignment->save();
+            }
+        }
     }
 
 }

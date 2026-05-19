@@ -165,7 +165,7 @@ class ElementPreferenceService
                 );
                 $element['subtopics'][] = [
                     'slug' => $fallbackSubtopicSlug,
-                    'title' => 'Sub Topik 1',
+                    'title' => 'Topik 1',
                     'active' => true,
                     'weight' => 1.0,
                     'rows' => [
@@ -1054,7 +1054,7 @@ class ElementPreferenceService
                 );
                 $element['subtopics'][] = [
                     'slug' => $fallbackSubtopicSlug,
-                    'title' => 'Sub Topik 1',
+                    'title' => 'Topik 1',
                     'active' => true,
                     'weight' => 1.0,
                     'rows' => [
@@ -1250,7 +1250,7 @@ class ElementPreferenceService
                 'subtopics' => [
                     [
                         'slug' => 'element1_subtopik_1',
-                        'title' => 'Sub Topik 1',
+                        'title' => 'Topik 1',
                         'active' => true,
                         'weight' => 1.0,
                         'info_levels' => $this->normalizeLevelDescriptions(null),
@@ -1336,7 +1336,7 @@ class ElementPreferenceService
             if (count($finalSubtopics) === 0) {
                 $finalSubtopics[] = [
                     'slug' => $elementSlug.'_subtopik_1',
-                    'title' => 'Sub Topik 1',
+                    'title' => 'Topik 1',
                     'active' => true,
                     'weight' => 1.0,
                     'info_levels' => $this->normalizeLevelDescriptions(null),
@@ -1578,7 +1578,7 @@ class ElementPreferenceService
             'view' => 'elements.element1-summary',
             'title' => $elementTitle,
             'header_code' => $headerCode,
-            'header_subtitle' => 'Rekap skor tertimbang dan level dari sub topik '.$elementTitle,
+            'header_subtitle' => 'Rekap skor tertimbang dan level dari topik '.$elementTitle,
             'level_label' => 'Level '.$elementTitle,
             'info_modal_title' => 'Informasi Level '.$elementTitle,
             'styles' => [
@@ -2057,4 +2057,5 @@ class ElementPreferenceService
         $this->cachedSubtopicModules = null;
     }
 }
+
 
