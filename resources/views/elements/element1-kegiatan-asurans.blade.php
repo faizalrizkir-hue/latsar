@@ -9,6 +9,7 @@
 
 @section('content')
     @php
+        $qaFeatureEnabled = (bool) config('app.features.qa_enabled', false);
         $summaryLevelInt = is_numeric($summaryLevel ?? null) ? (int) $summaryLevel : null;
         $summaryLevelClass = ($summaryLevelInt !== null && $summaryLevelInt >= 1 && $summaryLevelInt <= 5)
             ? 'is-level-'.$summaryLevelInt
@@ -37,23 +38,6 @@
             $moduleElementNumber = (int) ($modulePageTitleMatch[1] ?? 0);
         }
         $moduleHeaderIconSvg = $elementInfoIconMap[$moduleElementNumber] ?? null;
-        $totalStatementRows = is_countable($rows ?? null) ? count($rows) : 0;
-        $filledStatementRows = collect($rows ?? [])
-            ->filter(function ($row) {
-                $pickedDocCount = collect($row->doc_file_ids ?? [])
-                    ->map(fn ($id) => (int) $id)
-                    ->filter(fn ($id) => $id > 0)
-                    ->count();
-                if ($pickedDocCount <= 0 && trim((string) ($row->dokumen_path ?? '')) !== '') {
-                    $pickedDocCount = 1;
-                }
-                $hasAnyAnalysis = trim((string) ($row->analisis_bukti ?? '')) !== ''
-                    || trim((string) ($row->analisis_nilai ?? '')) !== '';
-                $hasAnyLevelNote = collect(range(1, 5))
-                    ->contains(fn ($i) => trim((string) data_get($row, 'grad_l'.$i.'_catatan', '')) !== '');
-                return ((int) ($row->verified ?? 0) === 1) || ($pickedDocCount > 0 && $hasAnyAnalysis && $hasAnyLevelNote);
-            })
-            ->count();
         $levelPredikatMap = [
             1 => 'Rintisan',
             2 => 'Terstruktur',
@@ -100,7 +84,6 @@
             <section class="keg-flow-guide" aria-label="Panduan langkah pengisian pernyataan">
                 <div class="keg-flow-guide-head">
                     <strong>Panduan Pengisian (3 Langkah)</strong>
-                    <span class="keg-flow-guide-progress">{{ $filledStatementRows }}/{{ $totalStatementRows }} pernyataan sudah terisi</span>
                 </div>
                 <ol class="keg-flow-guide-list">
                     <li><span class="step-no">1</span><span class="step-copy">Klik ikon pensil pada baris pernyataan yang ingin diisi.</span></li>
@@ -109,24 +92,19 @@
                 </ol>
                 <div class="keg-flow-guide-note">Status baris: <strong>Belum Diisi</strong> (kosong), <strong>Draft</strong> (sebagian), <strong>Lengkap</strong> (siap/verifikasi).</div>
             </section>
-            <div class="keg-table-toolbar">
-                <div class="keg-entry-progress" data-entry-progress>
-                    <span class="keg-entry-progress-label">Ringkasan Isian</span>
-                    <span class="keg-entry-progress-chip is-empty" data-entry-progress-empty>0 Belum Diisi</span>
-                    <span class="keg-entry-progress-chip is-draft" data-entry-progress-draft>0 Draft</span>
-                    <span class="keg-entry-progress-chip is-complete" data-entry-progress-complete>0 Lengkap</span>
-                    <span class="keg-entry-progress-total" data-entry-progress-total>0/{{ $totalStatementRows }}</span>
+            @if($qaFeatureEnabled)
+                <div class="keg-table-toolbar">
+                    <button
+                        type="button"
+                        class="qa-toggle-btn"
+                        data-qa-toggle
+                        data-label-on="Sembunyikan QA"
+                        data-label-off="Tampilkan QA"
+                        aria-pressed="false">
+                        Tampilkan QA
+                    </button>
                 </div>
-                <button
-                    type="button"
-                    class="qa-toggle-btn"
-                    data-qa-toggle
-                    data-label-on="Sembunyikan QA"
-                    data-label-off="Tampilkan QA"
-                    aria-pressed="false">
-                    Tampilkan QA
-                </button>
-            </div>
+            @endif
             <div class="table-responsive">
                 <table class="table keg-table align-middle">
                     <thead>
@@ -340,7 +318,7 @@
                                 <td class="text-center">
                                     <div class="keg-dual-metric">
                                         <div class="keg-dual-metric-row">
-                                            <span class="keg-dual-metric-label">Mandiri</span>
+                                            <span class="keg-dual-metric-label">{{ $qaFeatureEnabled ? 'Mandiri' : 'Level' }}</span>
                                             <span class="pill-level {{ $rowLevelClass }}">{{ $levelDisplay }}</span>
                                         </div>
                                         <div class="keg-dual-metric-row qa-only">
@@ -352,7 +330,7 @@
                                 <td class="text-center">
                                     <div class="keg-dual-metric">
                                         <div class="keg-dual-metric-row">
-                                            <span class="keg-dual-metric-label">Mandiri</span>
+                                            <span class="keg-dual-metric-label">{{ $qaFeatureEnabled ? 'Mandiri' : 'Skor' }}</span>
                                             <span class="pill-skor">{{ $scoreDisplay }}</span>
                                         </div>
                                         <div class="keg-dual-metric-row qa-only">

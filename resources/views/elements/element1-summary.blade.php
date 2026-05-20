@@ -18,6 +18,7 @@
 
 @section('content')
     @php
+        $qaFeatureEnabled = (bool) config('app.features.qa_enabled', false);
         $overallLevel = is_numeric($levelData['level'] ?? null) ? (int) $levelData['level'] : null;
         $overallLevelClass = $overallLevel !== null && $overallLevel >= 1 && $overallLevel <= 5 ? 'is-level-'.$overallLevel : 'pending';
         $overallLevelQa = is_numeric($levelDataQa['level'] ?? null) ? (int) $levelDataQa['level'] : null;
@@ -27,6 +28,8 @@
         $summaryLevelLabel = (string) ($summaryLevelLabel ?? 'Level Element');
         $summaryInfoModalTitle = (string) ($summaryInfoModalTitle ?? 'Informasi Level Element');
         $summaryInfoLevels = collect($summaryInfoLevels ?? [])->values();
+        $mandiriPrefix = $qaFeatureEnabled ? 'Mandiri: ' : '';
+        $mandiriLevelTitle = $qaFeatureEnabled ? 'Informasi Level Element (Mandiri):' : 'Informasi Level Element:';
         $levelInfoMap = $summaryInfoLevels
             ->filter(fn ($item) => is_array($item))
             ->keyBy(fn ($item) => (int) ($item['level'] ?? 0));
@@ -34,11 +37,19 @@
         $scoreComponentsQa = collect($scoreComponentsQa ?? [])->values();
         $hasQaData = is_numeric($elementScoreQa ?? null) && is_numeric($weightedTotalQa ?? null) && $overallLevelQa !== null;
         $overallLevelInfo = is_int($overallLevel) ? (array) ($levelInfoMap->get($overallLevel, [])) : [];
-        $overallLevelRange = trim((string) ($overallLevelInfo['score_range'] ?? ''));
         $overallLevelDescription = trim((string) ($overallLevelInfo['description'] ?? ''));
+        $overallPredikat = trim((string) ($levelData['predikat'] ?? ''));
+        if ($overallPredikat === '') {
+            $overallPredikat = 'Belum Dinilai';
+        }
         $overallLevelInfoQa = is_int($overallLevelQa) ? (array) ($levelInfoMap->get($overallLevelQa, [])) : [];
-        $overallLevelRangeQa = trim((string) ($overallLevelInfoQa['score_range'] ?? ''));
         $overallLevelDescriptionQa = trim((string) ($overallLevelInfoQa['description'] ?? ''));
+        $completionPercent = max(0, min(100, (int) $completion));
+        $levelNarrativeFull = $overallLevelDescription !== ''
+            ? $overallLevelDescription
+            : 'Belum ada narasi level element.';
+        $completionToneClass = $completionPercent >= 80 ? 'is-good' : ($completionPercent >= 50 ? 'is-mid' : 'is-low');
+        $predikatToneClass = $overallLevel !== null && $overallLevel >= 3 ? 'is-good' : ($overallLevel === 2 ? 'is-mid' : 'is-low');
         $elementInfoIconMap = [
             1 => '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M15.5 12.6 17 21l-5-2.7L7 21l1.5-8.4"/><path d="m10.4 8 1.1 1.1 2.2-2.2"/></svg>',
             2 => '<svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2.5"/><path d="M9 7V5.8A1.8 1.8 0 0 1 10.8 4h2.4A1.8 1.8 0 0 1 15 5.8V7"/><path d="m9.5 13 1.6 1.6 3-3"/></svg>',
@@ -81,72 +92,66 @@
 
         <div class="summary-grid element1-summary-grid mb-3">
             <article class="keg-card element1-stat-card element1-overview-card">
-                <div class="element1-overview-head">
-                    <div class="element1-stat-label">Ringkasan Rekap Element</div>
-                </div>
                 <div class="element1-overview-grid">
                     <div class="element1-overview-item">
+                        <span class="element1-overview-icon is-score" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M4 18h16"/><path d="M7 18V9"/><path d="M12 18V6"/><path d="M17 18v-4"/></svg>
+                        </span>
                         <span class="element1-stat-split-label">Skor Element</span>
                         <div class="element1-overview-values">
-                            <span class="element1-overview-value">Mandiri: <strong>{{ number_format((float) ($elementScore ?? 0), 2) }}</strong></span>
+                            <span class="element1-overview-value">{{ $mandiriPrefix }}<strong>{{ number_format((float) ($elementScore ?? 0), 2) }}</strong></span>
                             <span class="element1-overview-value qa-only">QA: <strong>{{ $hasQaData ? number_format((float) ($elementScoreQa ?? 0), 2) : '-' }}</strong></span>
                         </div>
                     </div>
                     <div class="element1-overview-item">
+                        <span class="element1-overview-icon is-weighted" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M12 4v16"/><path d="M5 9h14"/><path d="m7 9 5-5 5 5"/><path d="m7 15 5 5 5-5"/></svg>
+                        </span>
                         <span class="element1-stat-split-label">Skor Tertimbang</span>
                         <div class="element1-overview-values">
-                            <span class="element1-overview-value">Mandiri: <strong>{{ number_format((float) $weightedTotal, 2) }}</strong></span>
+                            <span class="element1-overview-value">{{ $mandiriPrefix }}<strong>{{ number_format((float) $weightedTotal, 2) }}</strong></span>
                             <span class="element1-overview-value qa-only">QA: <strong>{{ $hasQaData ? number_format((float) ($weightedTotalQa ?? 0), 2) : '-' }}</strong></span>
                         </div>
                     </div>
                     <div class="element1-overview-item">
+                        <span class="element1-overview-icon is-progress" aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M4 12h16"/><path d="M4 7h8"/><path d="M4 17h12"/><circle cx="18" cy="7" r="2"/><circle cx="14" cy="17" r="2"/></svg>
+                        </span>
                         <span class="element1-stat-split-label">Topik & Verifikasi</span>
                         <div class="element1-overview-values">
                             <span class="element1-overview-value">{{ (int) $subtopicCount }} topik</span>
-                            <span class="element1-overview-value">Mandiri: <strong>{{ (int) $totalVerifiedRows }}/{{ (int) $totalRows }}</strong> ({{ (int) $completion }}%)</span>
+                            <span class="element1-overview-value">{{ $mandiriPrefix }}<strong>{{ (int) $totalVerifiedRows }}/{{ (int) $totalRows }}</strong> ({{ (int) $completion }}%)</span>
                             <span class="element1-overview-value qa-only">QA: <strong>{{ (int) ($totalQaVerifiedRows ?? 0) }}/{{ (int) $totalRows }}</strong> ({{ (int) ($completionQa ?? 0) }}%)</span>
                         </div>
                     </div>
                 </div>
-                <div class="element1-overview-level-info">
-                    <div class="element1-stat-note">
-                        <span class="element1-overview-level-info-title">Informasi Level Element (Mandiri):</span>
-                        @if ($overallLevelDescription !== '')
-                            {{ $overallLevelDescription }}
-                            @if ($overallLevelRange !== '')
-                                (Rentang skor {{ $overallLevelRange }})
-                            @endif
-                        @else
-                            Belum ada narasi level element.
-                        @endif
-                    </div>
-                    <div class="element1-stat-note qa-only">
-                        <span class="element1-overview-level-info-title">Informasi Level Element (QA):</span>
-                        @if ($overallLevelDescriptionQa !== '')
-                            {{ $overallLevelDescriptionQa }}
-                            @if ($overallLevelRangeQa !== '')
-                                (Rentang skor {{ $overallLevelRangeQa }})
-                            @endif
-                        @else
-                            Belum ada narasi level element QA.
-                        @endif
+                <div class="element1-overview-highlights">
+                    <div class="element1-overview-highlight is-level">
+                        <div class="element1-overview-highlight-title">{{ $mandiriLevelTitle }}</div>
+                        <p class="element1-overview-highlight-text is-main">{{ $levelNarrativeFull }}</p>
+                        <p class="element1-overview-highlight-text is-qa qa-only">
+                            <strong>QA:</strong>
+                            {{ $overallLevelDescriptionQa !== '' ? $overallLevelDescriptionQa : 'Belum ada narasi level element QA.' }}
+                        </p>
                     </div>
                 </div>
             </article>
         </div>
 
         <div class="keg-card">
-            <div class="keg-table-toolbar">
-                <button
-                    type="button"
-                    class="qa-toggle-btn"
-                    data-qa-toggle
-                    data-label-on="Sembunyikan QA"
-                    data-label-off="Tampilkan QA"
-                    aria-pressed="false">
-                    Tampilkan QA
-                </button>
-            </div>
+            @if($qaFeatureEnabled)
+                <div class="keg-table-toolbar">
+                    <button
+                        type="button"
+                        class="qa-toggle-btn"
+                        data-qa-toggle
+                        data-label-on="Sembunyikan QA"
+                        data-label-off="Tampilkan QA"
+                        aria-pressed="false">
+                        Tampilkan QA
+                    </button>
+                </div>
+            @endif
             <div class="table-responsive">
                 <table class="table keg-table align-middle element1-summary-table">
                     <thead>
@@ -172,13 +177,13 @@
                                 <td>
                                     <div class="pernyataan">{{ $item['title'] }}</div>
                                     <div class="bobot subtopic-predikat {{ $rowLevelClass !== 'pending' ? 'predikat-'.$rowLevelClass : 'predikat-pending' }}">
-                                        <span class="qa-mandiri-prefix">Mandiri: </span>{{ $item['predikat'] ?? '-' }}
+                                        @if($qaFeatureEnabled)<span class="qa-mandiri-prefix">Mandiri: </span>@endif{{ $item['predikat'] ?? '-' }}
                                     </div>
                                     <div class="bobot subtopic-predikat qa-only qa-level-font {{ $rowLevelQaClass !== 'pending' ? 'predikat-'.$rowLevelQaClass : 'predikat-pending' }}">
                                         QA: {{ $item['qa_predikat'] ?? '-' }}
                                     </div>
                                     @if(!empty($item['level_description']))
-                                        <div class="subtopic-level-desc"><span class="qa-mandiri-prefix">Mandiri: </span>{{ $item['level_description'] }}</div>
+                                        <div class="subtopic-level-desc">@if($qaFeatureEnabled)<span class="qa-mandiri-prefix">Mandiri: </span>@endif{{ $item['level_description'] }}</div>
                                     @endif
                                     @if(!empty($item['qa_level_description'] ?? null))
                                         @if(!empty($item['level_description']))
@@ -190,7 +195,7 @@
                                 <td class="text-center">
                                     <div class="keg-dual-metric">
                                         <div class="keg-dual-metric-row">
-                                            <span class="keg-dual-metric-label">Mandiri</span>
+                                            <span class="keg-dual-metric-label">{{ $qaFeatureEnabled ? 'Mandiri' : 'Skor' }}</span>
                                             <span class="pill-skor">{{ is_numeric($item['score'] ?? null) ? number_format((float) ($item['score'] ?? 0), 2) : '-' }}</span>
                                         </div>
                                         <div class="keg-dual-metric-row qa-only">
@@ -202,7 +207,7 @@
                                 <td class="text-center">
                                     <div class="keg-dual-metric">
                                         <div class="keg-dual-metric-row">
-                                            <span class="keg-dual-metric-label">Mandiri</span>
+                                            <span class="keg-dual-metric-label">{{ $qaFeatureEnabled ? 'Mandiri' : 'Level' }}</span>
                                             <span class="pill-level {{ $rowLevelClass }}">
                                                 {{ $rowLevel > 0 ? $rowLevel : '-' }}
                                             </span>
@@ -217,7 +222,7 @@
                                 </td>
                                 <td>
                                     <div class="d-flex justify-content-between small text-muted mb-1">
-                                        <span><span class="qa-mandiri-prefix">Mandiri: </span>{{ (int) ($item['rows_verified'] ?? 0) }}/{{ (int) ($item['rows_total'] ?? 0) }} data</span>
+                                        <span>@if($qaFeatureEnabled)<span class="qa-mandiri-prefix">Mandiri: </span>@endif{{ (int) ($item['rows_verified'] ?? 0) }}/{{ (int) ($item['rows_total'] ?? 0) }} data</span>
                                         <span>{{ (int) ($item['progress'] ?? 0) }}%</span>
                                     </div>
                                     <div class="progress-bar element1-summary-progress">

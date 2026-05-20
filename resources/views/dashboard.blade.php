@@ -22,6 +22,7 @@
         : [0, -$segmentLength, -$segmentLength * 2, -$segmentLength * 3, -$segmentLength * 4];
     $renstraTrendSeries = is_array($renstraTrendSeries ?? null) ? $renstraTrendSeries : [];
     $canManageRenstraTrend = (bool) ($canManageRenstraTrend ?? false);
+    $qaFeatureEnabled = (bool) config('app.features.qa_enabled', false);
     $buildPublicUploadUrl = static function (string $relativePath): string {
         $segments = array_values(array_filter(explode('/', str_replace('\\', '/', $relativePath)), static fn ($segment): bool => $segment !== ''));
         $encodedPath = implode('/', array_map(static fn (string $segment): string => rawurlencode($segment), $segments));
@@ -648,17 +649,19 @@
                 </div>
             </div>
         </section>
-        <button
-            type="button"
-            id="dashboardQaToggleFab"
-            class="apip-qa-toggle apip-qa-toggle-fab"
-            data-qa-toggle
-            data-label-on="Sembunyikan QA"
-            data-label-off="Tampilkan QA"
-            aria-pressed="false"
-            aria-label="Toggle tampilan level dan skor QA">
-            Tampilkan QA
-        </button>
+        @if($qaFeatureEnabled)
+            <button
+                type="button"
+                id="dashboardQaToggleFab"
+                class="apip-qa-toggle apip-qa-toggle-fab"
+                data-qa-toggle
+                data-label-on="Sembunyikan QA"
+                data-label-off="Tampilkan QA"
+                aria-pressed="false"
+                aria-label="Toggle tampilan level dan skor QA">
+                Tampilkan QA
+            </button>
+        @endif
     </div>
 @endsection
 

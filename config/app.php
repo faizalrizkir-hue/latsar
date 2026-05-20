@@ -156,4 +156,17 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Feature Flags
+    |--------------------------------------------------------------------------
+    |
+    | QA can be disabled temporarily without removing existing QA data.
+    | Set FEATURE_QA_ENABLED=true to re-enable QA features.
+    |
+    */
+    'features' => [
+        'qa_enabled' => (bool) env('FEATURE_QA_ENABLED', false),
+    ],
+
 ];

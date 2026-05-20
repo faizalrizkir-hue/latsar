@@ -794,11 +794,16 @@ class ElementController extends Controller
         $supportsQaFollowUpRecommendation = $supportsQaVerification
             && $this->hasColumnCached($moduleTable, 'qa_follow_up_recommendation');
         $canQaVerify = $supportsQaVerification && $this->canUserQaVerifySlug($user, $slug);
+        $qaFeatureEnabled = (bool) config('app.features.qa_enabled', false);
         $userRole = strtolower(trim((string) ($user['role'] ?? '')));
         $isQaRole = $userRole === 'qa';
 
         if ($isQaRole && in_array($action, ['save', 'clear', 'verify'], true)) {
             return back()->withErrors('Akun QA BPKP hanya dapat melakukan verifikasi final.');
+        }
+
+        if (!$qaFeatureEnabled && $action === 'qa_verify') {
+            return back()->withErrors('Fitur QA sedang dinonaktifkan sementara.');
         }
 
         if ($action === 'save') {

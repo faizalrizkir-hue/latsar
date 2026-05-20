@@ -68,8 +68,9 @@
     if ($appVersionTag === '') {
         $appVersionTag = 'local';
     }
+    $qaFeatureEnabled = (bool) config('app.features.qa_enabled', false);
 @endphp
-<body class="legacy-page">
+<body class="legacy-page{{ $qaFeatureEnabled ? '' : ' qa-feature-disabled' }}">
 <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="true"></div>
 <div class="app">
     <aside class="sidenav" id="sidenav">

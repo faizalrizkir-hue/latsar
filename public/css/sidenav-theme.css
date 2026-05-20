@@ -35,15 +35,57 @@
     width: 100% !important;
     padding: 8px 2px 10px !important;
     border-radius: 0 !important;
+    position: relative;
+    overflow: visible;
+}
+
+.brand::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: min(240px, 92%);
+    height: 68px;
+    transform: translate(-50%, -50%);
+    border-radius: 999px;
+    background: radial-gradient(
+        ellipse at center,
+        rgba(99, 179, 255, 0.36) 0%,
+        rgba(75, 141, 255, 0.2) 42%,
+        rgba(75, 141, 255, 0.02) 72%,
+        transparent 100%
+    );
+    filter: blur(12px);
+    opacity: 0.78;
+    z-index: 0;
+    animation: brand-aura-pulse 4.8s ease-in-out infinite;
+    pointer-events: none;
 }
 
 .brand img {
     width: 100% !important;
     max-width: 252px !important;
+    position: relative;
+    z-index: 1;
+    transform-origin: center;
+    animation: brand-logo-float 5.4s ease-in-out infinite;
+    transition: transform 0.24s ease, filter 0.24s ease;
     filter:
         drop-shadow(0 0 8px rgba(99, 179, 255, 0.3))
         drop-shadow(0 0 16px rgba(75, 141, 255, 0.22))
         drop-shadow(0 5px 14px rgba(0, 0, 0, 0.35));
+}
+
+.brand:hover::before {
+    opacity: 0.95;
+}
+
+.brand:hover img {
+    transform: translateY(-2px) scale(1.02);
+    filter:
+        drop-shadow(0 0 10px rgba(99, 179, 255, 0.38))
+        drop-shadow(0 0 20px rgba(75, 141, 255, 0.28))
+        drop-shadow(0 7px 18px rgba(0, 0, 0, 0.38));
 }
 
 .sidenav .brand img.logo-light {
@@ -422,6 +464,13 @@
 
 .app.sidenav-collapsed .brand img {
     width: 38px !important;
+    animation-duration: 6.2s;
+}
+
+.app.sidenav-collapsed .brand::before {
+    width: 64px;
+    height: 52px;
+    filter: blur(8px);
 }
 
 .app.sidenav-collapsed .user-card {
@@ -517,6 +566,35 @@
         drop-shadow(0 0 8px rgba(99, 179, 255, 0.3))
         drop-shadow(0 0 16px rgba(75, 141, 255, 0.22))
         drop-shadow(0 5px 14px rgba(0, 0, 0, 0.35));
+}
+
+@keyframes brand-aura-pulse {
+    0%,
+    100% {
+        opacity: 0.7;
+        transform: translate(-50%, -50%) scale(0.95);
+    }
+    50% {
+        opacity: 0.95;
+        transform: translate(-50%, -50%) scale(1.06);
+    }
+}
+
+@keyframes brand-logo-float {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-2px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .brand::before,
+    .brand img {
+        animation: none !important;
+    }
 }
 
 :root[data-theme="dark"] .user-card {
