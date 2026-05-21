@@ -434,21 +434,51 @@ body.keg-modal-open {
 
 .keg-save-hint {
     align-self: center;
-    color: #5c7292;
-    font-size: 0.77rem;
-    font-weight: 700;
-    line-height: 1.3;
+    color: #496489;
+    border: 1px dashed #b8cdec;
+    border-radius: 11px;
+    background: linear-gradient(180deg, #f6faff, #edf4ff);
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    font-weight: 750;
+    line-height: 1.35;
+    padding: 0.52rem 0.62rem;
+}
+
+.keg-save-hint::before {
+    content: "i";
+    width: 1.12rem;
+    min-width: 1.12rem;
+    height: 1.12rem;
+    border-radius: 999px;
+    border: 1px solid #84a9e6;
+    background: linear-gradient(180deg, #e5efff, #d2e2ff);
+    color: #214673;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.68rem;
+    font-weight: 900;
+    line-height: 1;
+    margin-top: 0.02rem;
 }
 
 .keg-edit-submit {
+    border: 1px solid #c2d5f1;
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(247, 251, 255, 0.95), rgba(238, 245, 255, 0.95));
     display: grid;
-    gap: 0.46rem;
+    gap: 0.54rem;
+    padding: 0.64rem 0.68rem;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
 }
 
 .keg-edit-checklist {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.42rem;
+    gap: 0.48rem;
 }
 
 .keg-edit-check-item {
@@ -574,8 +604,9 @@ body.keg-modal-open {
 .keg-edit-submit-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.46rem;
+    gap: 0.5rem;
     justify-content: flex-end;
+    padding-top: 0.08rem;
 }
 
 @media (max-width: 768px) {

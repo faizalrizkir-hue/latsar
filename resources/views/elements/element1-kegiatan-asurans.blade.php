@@ -654,7 +654,7 @@
                                                         $isChecklistComplete = $statusPickedDocCount > 0 && $analysisChecklistDone && $levelChecklistDone;
                                                     @endphp
                                                     <div class="keg-edit-submit mt-3">
-                                                        <div class="keg-save-hint">Langkah 3: klik tombol simpan. Label tombol akan menyesuaikan (`Simpan Draft` atau `Simpan Lengkap`) sesuai checklist.</div>
+                                                        <div class="keg-save-hint">Langkah 3: klik tombol simpan. Sistem akan menyimpan sebagai Draft, atau menandai Lengkap ketika checklist terpenuhi.</div>
                                                         <div class="keg-edit-checklist" data-edit-checklist>
                                                             <span class="keg-edit-check-item {{ $statusPickedDocCount > 0 ? 'is-done' : '' }}" data-check-docs>
                                                                 <span class="keg-edit-check-dot" aria-hidden="true"></span>
@@ -712,6 +712,9 @@
                                                             <div class="edit-pane-wrap validate-pane-wrap {{ $isVerified ? 'is-verified' : 'is-pending' }} {{ $validateToneClass }}">
                                                                 <section class="edit-pane is-active">
                                                                     <div class="fw-semibold mb-2 edit-pane-title">Form Verifikasi</div>
+                                                                    <div class="keg-verify-headline mb-2">
+                                                                        Langkah verifikasi: cek dokumen pendukung, tinjau analisis, lalu verifikasi tiap level sebelum menyimpan.
+                                                                    </div>
 
                                                                     <div class="keg-level-docs mb-3">
                                                                         <div class="keg-level-docs-head">Daftar Dokumen Terpilih</div>
@@ -804,7 +807,7 @@
                                                                                     </div>
                                                                                 </section>
                                                                             </div>
-                                                                            <div class="d-flex justify-content-end gap-2 mt-3">
+                                                                            <div class="keg-verify-submit-actions d-flex justify-content-end gap-2 mt-3">
                                                                                 <button
                                                                                     type="button"
                                                                                     class="btn keg-form-action-btn is-reset"
@@ -834,6 +837,9 @@
 
                                                                             <div class="edit-pane-wrap validate-pane-wrap {{ $isQaVerified ? 'is-verified' : 'is-pending' }} {{ $qaValidateToneClass }}" data-validate-pane-wrap>
                                                                                 <section class="edit-pane is-active">
+                                                                                    <div class="keg-verify-headline is-qa mb-2">
+                                                                                        Final QA: validasi konsistensi hasil verifikasi per level, lalu simpan final QA.
+                                                                                    </div>
                                                                                     <label class="form-label mb-1">Hasil Pengisian Catatan / Analisis Bukti Per Level (Verifikasi QA)</label>
                                                                                     @if (!$isVerified)
                                                                                         <div class="keg-level-docs-empty">Verifikasi final QA menunggu verifikasi dari Koordinator/Admin.</div>
@@ -894,7 +900,7 @@
                                                                                 </section>
                                                                             </div>
 
-                                                                            <div class="d-flex justify-content-end gap-2 mt-3">
+                                                                            <div class="keg-verify-submit-actions d-flex justify-content-end gap-2 mt-3">
                                                                                 <button
                                                                                     type="submit"
                                                                                     class="btn keg-form-action-btn is-reset"

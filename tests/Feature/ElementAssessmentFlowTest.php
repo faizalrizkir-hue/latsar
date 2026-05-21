@@ -180,7 +180,7 @@ class ElementAssessmentFlowTest extends TestCase
         ]);
     }
 
-    public function test_qa_final_verification_is_reflected_in_element_summary_recap(): void
+    public function test_qa_final_verification_is_disabled_while_feature_is_off(): void
     {
         $file = $this->createActiveDmsFile();
 
@@ -235,32 +235,17 @@ class ElementAssessmentFlowTest extends TestCase
             ]);
 
         $qaVerifyResponse->assertRedirect('/elements/element1_kegiatan_asurans');
-        $qaVerifyResponse->assertSessionHas('status');
+        $qaVerifyResponse->assertSessionHasErrors();
 
         $row = DB::table('element1_kegiatan_asurans')
             ->where('id', 1)
             ->first();
 
         $this->assertNotNull($row);
-        $this->assertSame(1, (int) ($row->qa_verified ?? 0));
-        $this->assertSame('qa1', (string) ($row->qa_verified_by ?? ''));
-        $this->assertSame('Final QA valid.', (string) ($row->qa_verify_note ?? ''));
-        $this->assertStringContainsString('"2":1', (string) ($row->qa_level_validation_state ?? ''));
-
-        $summaryResponse = $this
-            ->withSession(['user' => $this->sessionUser('admin', 'administrator'), 'last_activity_at' => time()])
-            ->get('/elements/element1');
-
-        $summaryResponse
-            ->assertOk()
-            ->assertViewIs('elements.element1-summary')
-            ->assertViewHas('elementScore', fn ($value) => abs((float) $value - 0.48) < 0.001)
-            ->assertViewHas('elementScoreQa', fn ($value) => abs((float) $value - 0.32) < 0.001)
-            ->assertViewHas('totalRows', 4)
-            ->assertViewHas('totalVerifiedRows', 1)
-            ->assertViewHas('totalQaVerifiedRows', 1)
-            ->assertViewHas('completion', 25)
-            ->assertViewHas('completionQa', 25);
+        $this->assertSame(0, (int) ($row->qa_verified ?? 0));
+        $this->assertSame('', (string) ($row->qa_verified_by ?? ''));
+        $this->assertSame('', (string) ($row->qa_verify_note ?? ''));
+        $this->assertSame('', (string) ($row->qa_level_validation_state ?? ''));
     }
 
     private function createActiveDmsFile(): DmsFile

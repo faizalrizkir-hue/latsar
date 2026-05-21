@@ -1594,7 +1594,7 @@ class ElementController extends Controller
     {
         $role = strtolower(trim((string) ($user['role'] ?? '')));
         if (in_array($role, ['administrator', 'admin', 'superadmin'], true)) {
-            return true;
+            return false;
         }
 
         if ($role !== 'qa') {
