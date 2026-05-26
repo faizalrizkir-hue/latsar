@@ -13,7 +13,7 @@ use Illuminate\Support\ViewErrorBag;
 class DashboardShellDataBuilder
 {
     /**
-     * @param array<string, mixed> $viewData
+     * @param  array<string, mixed>  $viewData
      * @return array<string, mixed>
      */
     public function build(array $viewData): array
@@ -178,7 +178,7 @@ class DashboardShellDataBuilder
         $navElements = $structureElements
             ->filter(function (array $element) use ($visibleElementNavSlugs): bool {
                 $elementSlug = (string) ($element['slug'] ?? '');
-                if ($elementSlug === '' || !(bool) ($element['active'] ?? false)) {
+                if ($elementSlug === '' || ! (bool) ($element['active'] ?? false)) {
                     return false;
                 }
 
@@ -458,6 +458,8 @@ class DashboardShellDataBuilder
             $pushHeadnavCrumb($headnavCrumbs, 'Area Of Improvement (AoI)', route('aoi.index'));
         } elseif (is_string($routeName) && Str::startsWith($routeName, 'informasi-umum.')) {
             $pushHeadnavCrumb($headnavCrumbs, 'Informasi Umum', route('informasi-umum.index'));
+        } elseif (is_string($routeName) && Str::startsWith($routeName, 'guides.')) {
+            $pushHeadnavCrumb($headnavCrumbs, 'Panduan', route('guides.index'));
         } elseif ($routeName === 'profile.edit') {
             $pushHeadnavCrumb($headnavCrumbs, 'Edit Profil', route('profile.edit'));
         } elseif ($routeName === 'accounts.index') {
@@ -489,8 +491,8 @@ class DashboardShellDataBuilder
         }
 
         $errors = $viewData['errors'] ?? app('view')->shared('errors');
-        if (!$errors instanceof ViewErrorBag) {
-            $errors = new ViewErrorBag();
+        if (! $errors instanceof ViewErrorBag) {
+            $errors = new ViewErrorBag;
         }
         if ($errors->any()) {
             $toastQueue[] = ['type' => 'error', 'title' => 'Periksa lagi', 'message' => $errors->first()];
@@ -537,4 +539,3 @@ class DashboardShellDataBuilder
         ];
     }
 }
-

@@ -15,7 +15,7 @@ class GeneralInformationController extends Controller
 
     public function index()
     {
-        if (!Session::has('user')) {
+        if (! Session::has('user')) {
             return redirect()->route('login.form');
         }
 
@@ -35,12 +35,12 @@ class GeneralInformationController extends Controller
 
     public function update(Request $request)
     {
-        if (!Session::has('user')) {
+        if (! Session::has('user')) {
             return redirect()->route('login.form');
         }
 
         $sessionUser = (array) Session::get('user', []);
-        if (!$this->canManage($sessionUser)) {
+        if (! $this->canManage($sessionUser)) {
             abort(403, 'Akses khusus administrator.');
         }
 
@@ -69,7 +69,7 @@ class GeneralInformationController extends Controller
         $profile = GeneralInformationProfile::query()->first();
         $defaults = $this->defaultProfileData();
 
-        if (!$profile) {
+        if (! $profile) {
             return GeneralInformationProfile::query()->create($defaults);
         }
 
@@ -92,7 +92,7 @@ class GeneralInformationController extends Controller
     private function defaultProfileData(): array
     {
         return [
-            'dasar_hukum_penilaian' => "Undang-Undang Nomor 23 Tahun 2014 tentang Pemerintah Daerah",
+            'dasar_hukum_penilaian' => 'Undang-Undang Nomor 23 Tahun 2014 tentang Pemerintah Daerah',
             'pemerintah_daerah' => 'Pemerintah Provinsi DKI Jakarta',
             'nama_skpd' => 'Inspektorat Provinsi DKI Jakarta',
             'bidang' => 'Pengawasan Internal Pemerintah Daerah',
@@ -100,10 +100,10 @@ class GeneralInformationController extends Controller
             'undang_undang_pendirian' => 'Undang-Undang Nomor 23 Tahun 2014 tentang Pemerintah Daerah',
             'visi' => 'Menjadi Lembaga Pengawas Internal Terdepan Di Lingkungan Pemerintah Daerah',
             'misi' => "- Meningkatkan Sumber Daya Manusia Yang Unggul dan Terpercaya\n"
-                . "- Mengembangkan Sistem Pengawasan Untuk Menjamin Mutu Tata Kelola Pemerintahan Yang Baik\n"
-                . "- Penguatan Instrumen Pengawasan Terkait Tugas dan Fungsi Inspektorat\n"
-                . "- Mewujudkan Lingkungan Kerja Yang Solid dan Kondusif\n"
-                . "- Meningkatkan Pembinaan Terhadap Instansi dan Koordinasi Dengan Stakeholder",
+                ."- Mengembangkan Sistem Pengawasan Untuk Menjamin Mutu Tata Kelola Pemerintahan Yang Baik\n"
+                ."- Penguatan Instrumen Pengawasan Terkait Tugas dan Fungsi Inspektorat\n"
+                ."- Mewujudkan Lingkungan Kerja Yang Solid dan Kondusif\n"
+                .'- Meningkatkan Pembinaan Terhadap Instansi dan Koordinasi Dengan Stakeholder',
             'inspektur' => 'Dhany Sukma, S.Sos., M.A.P.',
             'alamat_kantor' => "Grha Ali Sadikin Blok G Lt. 17-18\nJl. Medan Merdeka Selatan No. 8-9 Jakarta Pusat\n10110",
             'jumlah_kantor_wilayah' => '5 Inspektorat Pembantu Wilayah Kota Administratif dan 1 Inspektorat Pembantu Wilayah Kabupaten Administratif',
@@ -115,12 +115,20 @@ class GeneralInformationController extends Controller
     private function resolveLegalRegulations(): array
     {
         $directory = public_path('uploads/pedoman');
-        if (!File::isDirectory($directory)) {
+        if (! File::isDirectory($directory)) {
             return [];
         }
 
         $pdfFiles = collect(File::files($directory))
             ->filter(fn ($file) => strtolower((string) $file->getExtension()) === 'pdf')
+            ->reject(function ($file): bool {
+                $fileNameLower = Str::lower((string) $file->getFilename());
+
+                return Str::contains($fileNameLower, [
+                    'rencana strategis inspektorat provinsi dki jakarta 2018 - 2022',
+                    'rencana strategis inspektorat provinsi dki jakarta 2023 - 2026',
+                ]);
+            })
             ->values();
 
         if ($pdfFiles->isEmpty()) {

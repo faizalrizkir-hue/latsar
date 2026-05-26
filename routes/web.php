@@ -1,16 +1,17 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AccountController;
+use App\Http\Controllers\AoiController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DmsController;
-use App\Http\Controllers\AccountController;
-use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ElementController;
 use App\Http\Controllers\ElementPreferenceController;
-use App\Http\Controllers\AoiController;
 use App\Http\Controllers\GeneralInformationController;
+use App\Http\Controllers\GuideController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ProfileController;
+use Illuminate\Support\Facades\Route;
 
 // In Codespaces / PHP built-in server, static files can sometimes be routed into Laravel.
 // These routes ensure public assets are still served correctly.
@@ -22,13 +23,13 @@ $servePublicFile = static function (string $baseDir, string $path) {
 
     $basePath = realpath(public_path($baseDir));
     $resolvedPath = realpath(public_path(trim($baseDir.'/'.$relativePath, '/')));
-    if ($basePath === false || $resolvedPath === false || !is_file($resolvedPath)) {
+    if ($basePath === false || $resolvedPath === false || ! is_file($resolvedPath)) {
         abort(404);
     }
 
     $basePathNormalized = rtrim(str_replace('\\', '/', $basePath), '/').'/';
     $resolvedPathNormalized = str_replace('\\', '/', $resolvedPath);
-    if (!str_starts_with($resolvedPathNormalized, $basePathNormalized)) {
+    if (! str_starts_with($resolvedPathNormalized, $basePathNormalized)) {
         abort(404);
     }
 
@@ -77,6 +78,7 @@ Route::middleware(['auth.session', 'db.lock'])->group(function () {
     Route::post('/elements/{slug}', [ElementController::class, 'store'])->name('elements.store');
     Route::get('/area-of-improvement', [AoiController::class, 'index'])->name('aoi.index');
     Route::get('/informasi-umum', [GeneralInformationController::class, 'index'])->name('informasi-umum.index');
+    Route::get('/panduan', [GuideController::class, 'index'])->name('guides.index');
     Route::get('/notifications/feed', [NotificationController::class, 'feed'])->name('notifications.feed');
     Route::post('/notifications/auth', [NotificationController::class, 'authorizeChannel'])->name('notifications.auth');
     Route::post('/notifications/mark-read', [NotificationController::class, 'markRead'])->name('notifications.mark-read');
@@ -96,4 +98,3 @@ Route::middleware(['auth.session', 'db.lock'])->group(function () {
         Route::post('/dashboard/renstra-trend', [DashboardController::class, 'updateRenstraTrend'])->name('dashboard.renstra-trend.update');
     });
 });
-
