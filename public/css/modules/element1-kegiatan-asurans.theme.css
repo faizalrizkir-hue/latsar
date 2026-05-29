@@ -1377,6 +1377,10 @@
     color: #f1f5ff;
 }
 
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .pernyataan-title {
+    color: #f1f5ff;
+}
+
 :root[data-theme="dark"] .keg-page:not(.element1-summary-page) .row-fill-status {
     border-color: rgba(148, 163, 184, 0.45);
     background: rgba(51, 65, 85, 0.75);
@@ -1399,6 +1403,56 @@
     border-color: rgba(74, 222, 128, 0.56);
     background: rgba(21, 128, 61, 0.34);
     color: #bbf7d0;
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .subtopic-predikat.predikat-is-level-1 {
+    border-color: rgba(248, 113, 113, 0.5);
+    background: rgba(127, 29, 29, 0.26);
+    color: #fecaca;
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .subtopic-predikat.predikat-is-level-2 {
+    border-color: rgba(251, 191, 36, 0.5);
+    background: rgba(146, 64, 14, 0.28);
+    color: #fde68a;
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .subtopic-predikat.predikat-is-level-3 {
+    border-color: rgba(74, 222, 128, 0.5);
+    background: rgba(21, 128, 61, 0.28);
+    color: #bbf7d0;
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .subtopic-predikat.predikat-is-level-4 {
+    border-color: rgba(96, 165, 250, 0.5);
+    background: rgba(30, 64, 175, 0.3);
+    color: #bfdbfe;
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .subtopic-predikat.predikat-is-level-5 {
+    border-color: rgba(192, 132, 252, 0.5);
+    background: rgba(88, 28, 135, 0.3);
+    color: #e9d5ff;
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .subtopic-predikat.predikat-pending {
+    border-color: rgba(148, 163, 184, 0.42);
+    background: rgba(51, 65, 85, 0.62);
+    color: #cbd5e1;
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .row-desc-toggle {
+    border-color: rgba(125, 176, 255, 0.44);
+    background: rgba(30, 64, 175, 0.26);
+    color: #dbeafe;
+}
+
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .row-desc-toggle:hover,
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .row-desc-toggle:focus-visible {
+    border-color: rgba(147, 197, 253, 0.68);
+    background: rgba(37, 99, 235, 0.36);
+    color: #eff6ff;
+    box-shadow: 0 9px 16px rgba(2, 6, 23, 0.38);
 }
 
 :root[data-theme="dark"] .keg-page:not(.element1-summary-page) .pill-skor {

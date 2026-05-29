@@ -729,6 +729,278 @@
     box-shadow: 0 0 14px rgba(86, 179, 255, 0.24), 0 10px 24px rgba(0, 0, 0, 0.4);
 }
 
+/* Sidenav hierarchy refresh */
+.user-card {
+    display: grid !important;
+    grid-template-columns: 46px minmax(0, 1fr);
+    column-gap: 11px;
+    row-gap: 2px;
+    align-items: center;
+    text-align: left !important;
+    padding: 11px 12px !important;
+    border-radius: 14px !important;
+}
+
+.user-card .avatar {
+    grid-row: 1 / span 2;
+    width: 46px !important;
+    height: 46px !important;
+    margin: 0 !important;
+}
+
+.user-card-head {
+    margin-top: 0;
+    justify-content: flex-start;
+    min-width: 0;
+    padding-right: 24px;
+}
+
+.user-card-name {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.98rem;
+}
+
+.user-card-role {
+    margin-top: 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.78rem;
+}
+
+.nav-section-label {
+    margin: 12px 2px 5px !important;
+    letter-spacing: 0 !important;
+}
+
+.nav li a,
+.nav li a.nav-toggle,
+.nav li button.nav-toggle {
+    min-height: 44px;
+    gap: 10px !important;
+    padding: 9px 10px !important;
+    overflow: visible !important;
+}
+
+.nav li a::before,
+.nav li a.nav-toggle::before,
+.nav li button.nav-toggle::before {
+    content: "";
+    display: block !important;
+    position: absolute;
+    left: -1px;
+    top: 9px;
+    bottom: 9px;
+    width: 3px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #74c0ff, #2f80ed);
+    opacity: 0;
+    transform: scaleY(0.5);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.nav li a:hover,
+.nav li button.nav-toggle:hover,
+.nav li a.nav-toggle:hover {
+    background: linear-gradient(180deg, rgba(70, 130, 210, 0.18), rgba(31, 93, 173, 0.12)) !important;
+    border-color: rgba(125, 190, 255, 0.42) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(219, 237, 255, 0.08),
+        0 8px 18px rgba(6, 18, 42, 0.28) !important;
+    transform: translateX(3px) !important;
+}
+
+.nav li a.active,
+.nav li.open > a.nav-toggle,
+.nav li.open > button.nav-toggle {
+    background:
+        linear-gradient(180deg, rgba(64, 136, 232, 0.34), rgba(35, 88, 176, 0.27)),
+        rgba(14, 25, 40, 0.72) !important;
+    border-color: rgba(136, 196, 255, 0.6) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(219, 237, 255, 0.16),
+        inset 0 0 0 1px rgba(122, 185, 255, 0.14),
+        0 10px 22px rgba(12, 39, 83, 0.34) !important;
+}
+
+.nav li a.active::before,
+.nav li.open > a.nav-toggle::before,
+.nav li.open > button.nav-toggle::before {
+    opacity: 1;
+    transform: scaleY(1);
+}
+
+.nav li a .nav-icon,
+.nav li a.nav-toggle .nav-icon {
+    width: 30px !important;
+    height: 30px !important;
+    flex: 0 0 30px;
+    border: 1px solid rgba(120, 170, 240, 0.28) !important;
+    border-radius: 10px !important;
+    background: linear-gradient(180deg, rgba(41, 65, 96, 0.72), rgba(28, 45, 68, 0.76)) !important;
+    box-shadow: inset 0 1px 0 rgba(229, 241, 255, 0.08), 0 8px 16px rgba(0, 0, 0, 0.18) !important;
+    text-shadow: none;
+}
+
+.nav li a:hover .nav-icon,
+.nav li a.nav-toggle:hover .nav-icon,
+.nav li button.nav-toggle:hover .nav-icon,
+.nav li a.active .nav-icon,
+.nav li.open > a.nav-toggle .nav-icon,
+.nav li.open > button.nav-toggle .nav-icon {
+    border-color: rgba(153, 209, 255, 0.64) !important;
+    background: linear-gradient(180deg, rgba(67, 130, 219, 0.78), rgba(36, 91, 176, 0.82)) !important;
+    color: #f5f9ff !important;
+}
+
+.nav-element-icon {
+    font-size: 0.76rem !important;
+    font-weight: 850;
+}
+
+.nav-element-icon span {
+    transform: translateY(0.5px);
+}
+
+.nav-main-copy {
+    display: grid;
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 4px;
+}
+
+.nav li a .nav-main-copy .nav-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.91rem !important;
+    line-height: 1.15;
+}
+
+.nav-caption {
+    color: #90a5c4;
+    font-size: 0.68rem;
+    font-weight: 680;
+    line-height: 1;
+}
+
+.nav li .chevron {
+    width: 18px;
+    justify-content: center;
+    margin-left: 0 !important;
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+.nav li.open > a.nav-toggle .chevron,
+.nav li.open > button.nav-toggle .chevron {
+    transform: rotate(90deg);
+}
+
+.nav-sub {
+    margin: 5px 0 8px 20px !important;
+    padding: 1px 0 1px 13px !important;
+    border-left: 1px solid rgba(112, 169, 240, 0.34) !important;
+    box-shadow: inset 1px 0 0 rgba(112, 169, 240, 0.1) !important;
+}
+
+.nav-sub a {
+    min-height: 38px;
+    gap: 8px !important;
+    padding: 7px 9px !important;
+    border-radius: 10px !important;
+}
+
+.nav-sub li.nav-sub-child {
+    margin-left: 10px;
+}
+
+.nav-sub li.nav-sub-child::before {
+    content: "";
+    display: block !important;
+    position: absolute;
+    left: -9px;
+    top: 18px;
+    width: 9px;
+    height: 1px;
+    border-left: 0 !important;
+    background: rgba(112, 169, 240, 0.34);
+}
+
+.nav-sub a .sub-icon {
+    width: 24px !important;
+    height: 24px !important;
+    flex: 0 0 24px;
+    border: 1px solid rgba(126, 171, 232, 0.3);
+    border-radius: 8px;
+    background: rgba(23, 39, 63, 0.74);
+    color: #a9c6ec !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-sub a .sub-icon svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.nav-sub a .sub-label {
+    min-width: 0;
+    line-height: 1.28;
+}
+
+.nav-sub a:hover .sub-icon,
+.nav-sub a.active .sub-icon {
+    border-color: rgba(153, 209, 255, 0.56);
+    background: rgba(51, 109, 191, 0.54);
+    color: #f1f7ff !important;
+}
+
+.app.sidenav-collapsed .user-card {
+    display: flex !important;
+    justify-content: center;
+    padding: 8px 6px !important;
+}
+
+.app.sidenav-collapsed .user-card .avatar {
+    width: 42px !important;
+    height: 42px !important;
+}
+
+.app.sidenav-collapsed .user-card-head,
+.app.sidenav-collapsed .user-card-role,
+.app.sidenav-collapsed .nav-main-copy {
+    display: none !important;
+}
+
+.app.sidenav-collapsed #navMain > li > a::before,
+.app.sidenav-collapsed #navMain > li > a.nav-toggle::before,
+.app.sidenav-collapsed #navMain > li > button.nav-toggle::before {
+    left: 4px;
+    top: 10px;
+    bottom: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nav li a,
+    .nav li a.nav-toggle,
+    .nav li button.nav-toggle,
+    .nav-sub a {
+        transition: none !important;
+    }
+}
+
 /* Topbar polish (visual only) */
 .headnav.topbar {
     position: sticky;

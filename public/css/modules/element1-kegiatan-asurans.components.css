@@ -146,6 +146,7 @@
 }
 
 .keg-doc-dd {
+    position: relative;
     width: 100%;
 }
 
@@ -155,36 +156,98 @@
     display: inline-flex;
     align-items: center;
     justify-content: space-between;
+    gap: 0.8rem;
     font-weight: 600;
+}
+
+.keg-doc-dd-toggle-copy {
+    min-width: 0;
+    display: grid;
+    gap: 0.12rem;
+}
+
+.keg-doc-dd-toggle-label {
+    color: #253d5f;
+    font-size: 0.9rem;
+    font-weight: 850;
+    line-height: 1.25;
+}
+
+.keg-doc-dd-toggle-hint {
+    color: #6b819f;
+    font-size: 0.74rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.keg-doc-dd-toggle-icon {
+    flex: 0 0 auto;
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 1px solid #c6d8f1;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #f8fbff, #e8f1ff);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.keg-doc-dd-toggle-icon::before {
+    content: "";
+    width: 0.46rem;
+    height: 0.46rem;
+    border-right: 2px solid #3a5c88;
+    border-bottom: 2px solid #3a5c88;
+    transform: translateY(-1px) rotate(45deg);
+}
+
+.keg-doc-dd.is-open .keg-doc-dd-toggle {
+    border-color: #8eb0e3;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.keg-doc-dd.is-open .keg-doc-dd-toggle-icon {
+    border-color: #9cbceb;
+    background: #deebff;
+    transform: rotate(180deg);
 }
 
 .keg-doc-dd-panel {
     --doc-dd-sticky-top: 44px;
+    position: absolute;
+    top: calc(100% + 0.42rem);
+    left: 0;
+    right: 0;
+    z-index: 30;
     margin-top: 0;
     border: 1px solid #d0def2;
     border-radius: 12px;
     background: linear-gradient(180deg, #ffffff, #f8fbff);
-    padding: 0 0.62rem;
-    max-height: 0;
-    overflow: hidden;
-    opacity: 0;
-    transform: translateY(-8px) scale(0.995);
-    will-change: max-height, opacity, transform, padding, margin-top;
-    transition:
-        max-height 0.32s cubic-bezier(0.22, 1, 0.36, 1),
-        opacity 0.26s ease,
-        transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
-        padding 0.28s ease,
-        margin-top 0.28s ease;
-}
-
-.keg-doc-dd.is-open .keg-doc-dd-panel {
-    margin-top: 0.45rem;
     padding: 0.62rem;
     max-height: 330px;
     overflow: auto;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-6px) scale(0.99);
+    transform-origin: top center;
+    will-change: opacity, transform;
+    transition:
+        opacity 0.16s ease,
+        transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+    box-shadow: 0 18px 34px rgba(15, 23, 42, 0.16);
+}
+
+.keg-doc-dd.is-open .keg-doc-dd-panel {
     opacity: 1;
+    pointer-events: auto;
     transform: translateY(0) scale(1);
+}
+
+.keg-doc-dd.is-open,
+.keg-doc-dd.is-closing {
+    z-index: 45;
 }
 
 .keg-doc-dd.is-closing .keg-doc-dd-panel {
@@ -288,28 +351,54 @@
 
 .keg-doc-dd-options {
     display: grid;
-    gap: 0.24rem;
+    gap: 0.34rem;
 }
 
 .keg-doc-dd-option {
     width: 100%;
-    border: 1px solid #d8e3f5;
-    border-radius: 9px;
-    background: #f8fbff;
+    border: 1px solid #d5e2f3;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #ffffff, #f7fbff);
     color: #243854;
     text-align: left;
     font-size: 0.84rem;
     font-weight: 600;
     line-height: 1.35;
-    padding: 0.44rem 0.56rem;
+    padding: 0.52rem;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    gap: 0.6rem;
+    gap: 0.5rem;
+    position: relative;
+    overflow: hidden;
     transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.2s ease, transform 0.16s ease;
 }
 
+.keg-doc-dd-option::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.12), rgba(34, 197, 94, 0.08));
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease;
+}
+
+.keg-doc-dd-option::after {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: linear-gradient(180deg, #3b82f6, #22c55e);
+    opacity: 0;
+    transform: scaleY(0.3);
+    transform-origin: center;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
 .keg-doc-dd-option-main {
+    z-index: 1;
+    position: relative;
     min-width: 0;
     flex: 1 1 auto;
     display: flex;
@@ -319,20 +408,97 @@
 }
 
 .keg-doc-dd-check {
-    flex: 0 0 auto;
+    position: absolute;
     width: 16px;
     height: 16px;
-    margin-top: 0.1rem;
+    opacity: 0;
+    pointer-events: none;
     accent-color: #2a56c8;
+}
+
+.keg-doc-dd-file-icon {
+    flex: 0 0 auto;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid #bdd1ed;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #edf5ff, #dceaff);
+    position: relative;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.78);
+    transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease, box-shadow 0.18s ease;
+}
+
+.keg-doc-dd-file-icon::before {
+    content: "";
+    position: absolute;
+    left: 0.56rem;
+    top: 0.42rem;
+    width: 0.7rem;
+    height: 0.95rem;
+    border: 2px solid #3f6da8;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.72);
+}
+
+.keg-doc-dd-file-icon::after {
+    content: "";
+    position: absolute;
+    left: 0.7rem;
+    top: 0.75rem;
+    width: 0.42rem;
+    height: 2px;
+    border-radius: 999px;
+    background: #3f6da8;
+    box-shadow: 0 0.24rem 0 #3f6da8;
+}
+
+.keg-doc-dd-option-copy {
+    min-width: 0;
+    display: grid;
+    gap: 0.28rem;
 }
 
 .keg-doc-dd-option-label {
     min-width: 0;
     display: block;
+    color: #223957;
+    font-size: 0.86rem;
+    font-weight: 850;
+    line-height: 1.32;
+    transition: color 0.16s ease;
+}
+
+.keg-doc-dd-selected-mark {
+    flex: 0 0 auto;
+    z-index: 1;
+    width: 1.35rem;
+    height: 1.35rem;
+    border: 1px solid #c8d8ef;
+    border-radius: 999px;
+    background: #f3f7ff;
+    opacity: 0.72;
+    position: relative;
+    margin-top: 0.28rem;
+    transition: border-color 0.16s ease, background 0.16s ease, opacity 0.16s ease, box-shadow 0.18s ease;
+}
+
+.keg-doc-dd-selected-mark::after {
+    content: "";
+    position: absolute;
+    left: 0.42rem;
+    top: 0.29rem;
+    width: 0.38rem;
+    height: 0.65rem;
+    border-right: 2px solid #ffffff;
+    border-bottom: 2px solid #ffffff;
+    opacity: 0;
+    transform: rotate(45deg) scale(0.75);
+    transition: opacity 0.14s ease, transform 0.14s ease;
 }
 
 .keg-doc-dd-view {
     flex: 0 0 auto;
+    z-index: 1;
     cursor: pointer;
     border: 1px solid #b9cae6;
     border-radius: 8px;
@@ -341,6 +507,7 @@
     font-size: 0.74rem;
     font-weight: 700;
     line-height: 1;
+    margin-top: 0.26rem;
     padding: 0.36rem 0.5rem;
     text-decoration: none;
     transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease, transform 0.16s ease, box-shadow 0.18s ease;
@@ -368,17 +535,66 @@
 }
 
 .keg-doc-dd-option:hover:not(.is-disabled) {
-    border-color: #b7cbee;
-    background: #edf4ff;
-    box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
+    border-color: #8bb2e8;
+    background: linear-gradient(180deg, #ffffff, #edf6ff);
+    box-shadow: 0 14px 24px rgba(37, 99, 235, 0.14);
+    transform: translateY(-2px);
+}
+
+.keg-doc-dd-option:hover:not(.is-disabled)::before,
+.keg-doc-dd-option:hover:not(.is-disabled)::after {
+    opacity: 1;
+}
+
+.keg-doc-dd-option:hover:not(.is-disabled)::after {
+    transform: scaleY(1);
+}
+
+.keg-doc-dd-option:hover:not(.is-disabled) .keg-doc-dd-file-icon {
+    border-color: #82ace7;
+    background: linear-gradient(180deg, #e2f0ff, #cfe3ff);
     transform: translateY(-1px);
+    box-shadow: 0 8px 14px rgba(37, 99, 235, 0.16);
+}
+
+.keg-doc-dd-option:hover:not(.is-disabled) .keg-doc-dd-option-label {
+    color: #1f4f85;
+}
+
+.keg-doc-dd-option:hover:not(.is-disabled) .keg-doc-dd-selected-mark {
+    border-color: #89b3e9;
+    background: #e2efff;
+    opacity: 1;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+}
+
+.keg-doc-dd-option:hover:not(.is-disabled) .keg-doc-dd-view {
+    border-color: #8fb2e6;
+    background: linear-gradient(180deg, #ffffff, #dfeeff);
+    color: #1f4f85;
 }
 
 .keg-doc-dd-option.is-selected {
-    border-color: #7fa3e7;
-    background: linear-gradient(180deg, #e0ebff, #d1e0fb);
+    border-color: #7ba7e8;
+    background: linear-gradient(180deg, #e8f2ff, #d8e8ff);
     color: #213f68;
     box-shadow: 0 8px 14px rgba(37, 99, 235, 0.14);
+}
+
+.keg-doc-dd-option.is-selected .keg-doc-dd-file-icon {
+    border-color: #87b5ee;
+    background: linear-gradient(180deg, #dff0ff, #c9e1ff);
+}
+
+.keg-doc-dd-option.is-selected .keg-doc-dd-selected-mark {
+    border-color: #3f8fd8;
+    background: #2f7bd2;
+    opacity: 1;
+}
+
+.keg-doc-dd-option.is-selected .keg-doc-dd-selected-mark::after {
+    opacity: 1;
+    transform: rotate(45deg) scale(1);
 }
 
 .keg-doc-dd-option.is-disabled {
@@ -396,6 +612,48 @@
     color: #667b97;
     font-size: 0.84rem;
     font-weight: 600;
+}
+
+@media (max-width: 768px) {
+    .keg-doc-dd-panel {
+        max-height: 360px;
+        padding: 0.5rem;
+    }
+
+    .keg-doc-dd-topbar {
+        display: grid;
+        gap: 0.42rem;
+    }
+
+    .keg-doc-dd-total {
+        width: max-content;
+    }
+
+    .keg-doc-dd-option {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.44rem;
+        padding: 0.5rem;
+    }
+
+    .keg-doc-dd-option-main {
+        gap: 0.44rem;
+    }
+
+    .keg-doc-dd-file-icon {
+        width: 1.8rem;
+        height: 1.8rem;
+    }
+
+    .keg-doc-dd-selected-mark {
+        margin-top: 0.18rem;
+    }
+
+    .keg-doc-dd-view {
+        grid-column: 1 / -1;
+        justify-self: end;
+        margin-top: 0;
+    }
 }
 
 .note-card {

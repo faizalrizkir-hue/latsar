@@ -1462,6 +1462,7 @@ body.keg-modal-open {
     overflow: hidden;
     margin-bottom: 0;
     background: #fff;
+    font-family: "Plus Jakarta Sans", "Inter", "Segoe UI", system-ui, sans-serif;
 }
 
 .keg-table thead th {
@@ -1470,7 +1471,9 @@ body.keg-modal-open {
     border-bottom: 2px solid var(--line);
     text-align: center;
     vertical-align: middle;
-    font-weight: 800;
+    font-size: 0.88rem;
+    font-weight: 850;
+    letter-spacing: 0;
     color: #1d2a42;
     padding: 0.82rem;
 }
@@ -1483,7 +1486,7 @@ body.keg-modal-open {
 .keg-table tbody td {
     border-top: 1px solid var(--line);
     border-right: 1px solid var(--line);
-    padding: 0.8rem 0.85rem;
+    padding: 0.76rem 0.85rem;
     vertical-align: middle;
     color: #1f2b41;
 }
@@ -1493,16 +1496,30 @@ body.keg-modal-open {
 }
 
 .pernyataan {
-    font-size: 1.04rem;
-    font-weight: 800;
+    font-size: 0.94rem;
+    font-weight: 780;
     color: #1a253b;
+    letter-spacing: 0;
+    line-height: 1.28;
 }
 
 .pernyataan-line {
     display: inline-flex;
     align-items: center;
-    gap: 0.42rem;
+    gap: 0.38rem;
     flex-wrap: wrap;
+}
+
+.pernyataan-record {
+    display: grid;
+    gap: 0.34rem;
+}
+
+.pernyataan-title {
+    display: inline;
+    color: #17233a;
+    font-weight: 820;
+    letter-spacing: 0;
 }
 
 .pernyataan-weight-hint {
@@ -1510,8 +1527,20 @@ body.keg-modal-open {
     transform: translateY(-1px);
 }
 
+.pernyataan-labels {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.34rem;
+}
+
+.pernyataan-labels .row-fill-status,
+.pernyataan-labels .subtopic-predikat {
+    min-height: 1.36rem;
+}
+
 .row-fill-status {
-    border: 1px solid #c4d3e8;
+    border: 1px solid #bfd2ea;
     border-radius: 999px;
     background: #eef3fb;
     color: #506481;
@@ -1519,10 +1548,10 @@ body.keg-modal-open {
     align-items: center;
     justify-content: center;
     font-size: 0.66rem;
-    font-weight: 800;
+    font-weight: 820;
     line-height: 1;
-    letter-spacing: 0.01em;
-    padding: 0.2rem 0.46rem;
+    letter-spacing: 0;
+    padding: 0.23rem 0.52rem;
     white-space: nowrap;
 }
 
@@ -1551,42 +1580,147 @@ body.keg-modal-open {
 }
 
 .keg-page .subtopic-predikat {
-    margin-top: 0.24rem;
-    font-weight: 800;
+    margin-top: 0.38rem;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    width: max-content;
+    font-size: 0.66rem;
+    font-weight: 820;
+    line-height: 1;
+    padding: 0.23rem 0.52rem;
+    white-space: nowrap;
+}
+
+.pernyataan-labels .subtopic-predikat {
+    margin-top: 0;
 }
 
 .keg-page .subtopic-predikat.predikat-is-level-1 {
+    border-color: #f1b4b4;
+    background: #fff0f0;
     color: #b91c1c;
 }
 
 .keg-page .subtopic-predikat.predikat-is-level-2 {
+    border-color: #ebcf80;
+    background: #fff7dd;
     color: #a16207;
 }
 
 .keg-page .subtopic-predikat.predikat-is-level-3 {
+    border-color: #a7d9ba;
+    background: #edf9f2;
     color: #166534;
 }
 
 .keg-page .subtopic-predikat.predikat-is-level-4 {
+    border-color: #a9c3ed;
+    background: #eef5ff;
     color: #1d4ed8;
 }
 
 .keg-page .subtopic-predikat.predikat-is-level-5 {
+    border-color: #cdb5ed;
+    background: #f7f1ff;
     color: #7e22ce;
 }
 
 .keg-page .subtopic-predikat.predikat-pending {
+    border-color: #cdd8e8;
+    background: #f2f6fc;
     color: #5b6f8d;
 }
 
+.keg-page .subtopic-level-copy {
+    margin-top: 0.32rem;
+    display: grid;
+    gap: 0.26rem;
+}
+
 .keg-page .subtopic-level-desc {
-    margin-top: 0.2rem;
-    color: #60728f;
-    font-size: 0.79rem;
-    font-weight: 600;
-    line-height: 1.4;
-    text-align: justify;
-    text-justify: inter-word;
+    margin-top: 0;
+    color: #647791;
+    font-size: 0.78rem;
+    font-weight: 560;
+    line-height: 1.46;
+    letter-spacing: 0;
+    word-spacing: normal;
+    text-align: left;
+    overflow-wrap: anywhere;
+}
+
+.keg-page .subtopic-level-copy.is-collapsible .subtopic-level-desc {
+    overflow: hidden;
+    transition:
+        max-height 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.22s ease,
+        filter 0.22s ease;
+    will-change: max-height;
+}
+
+.keg-page .subtopic-level-copy.is-collapsible.is-animating .subtopic-level-desc,
+.keg-page .subtopic-level-copy.is-collapsible.is-expanded .subtopic-level-desc {
+    display: block;
+    -webkit-line-clamp: unset;
+    -webkit-box-orient: initial;
+}
+
+.keg-page .subtopic-level-copy.is-collapsible:not(.is-expanded) .subtopic-level-desc {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+}
+
+.keg-page .subtopic-level-copy.is-collapsible.is-animating .subtopic-level-desc {
+    display: block;
+    -webkit-line-clamp: unset;
+    -webkit-box-orient: initial;
+}
+
+.keg-page .subtopic-level-copy.is-collapsible.is-animating .row-desc-toggle {
+    pointer-events: none;
+}
+
+.keg-page .subtopic-level-copy.is-collapsible.is-expanded .row-desc-toggle {
+    border-color: #a9c6ed;
+    background: linear-gradient(180deg, #eef6ff, #e3efff);
+    color: #254f7f;
+}
+
+.row-desc-toggle {
+    cursor: pointer;
+    justify-self: start;
+    border: 1px solid #c2d5ef;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #f8fbff, #edf4ff);
+    color: #315884;
+    font-size: 0.68rem;
+    font-weight: 800;
+    line-height: 1;
+    padding: 0.26rem 0.52rem;
+    transition:
+        border-color 0.16s ease,
+        background 0.18s ease,
+        box-shadow 0.18s ease,
+        color 0.16s ease,
+        transform 0.16s ease;
+}
+
+.row-desc-toggle:hover,
+.row-desc-toggle:focus-visible {
+    border-color: #8eb3e5;
+    background: linear-gradient(180deg, #eef6ff, #dfeeff);
+    color: #1d4777;
+    box-shadow: 0 8px 14px rgba(37, 99, 235, 0.12);
+    transform: translateY(-1px);
+}
+
+.row-desc-toggle:focus-visible {
+    outline: 2px solid rgba(96, 165, 250, 0.44);
+    outline-offset: 2px;
 }
 
 .keg-page .subtopic-level-qa-wrap {
@@ -1612,7 +1746,7 @@ body.keg-modal-open {
 }
 
 .keg-page .subtopic-level-qa-wrap .subtopic-level-desc {
-    margin-top: 0.12rem;
+    margin-top: 0;
 }
 
 .keg-page .subtopic-level-separator {
@@ -1625,10 +1759,10 @@ body.keg-modal-open {
 }
 
 .keg-page .qa-level-font {
-    font-family: "Georgia", "Times New Roman", serif;
-    font-style: italic;
-    font-weight: 700;
-    letter-spacing: 0.01em;
+    font-family: "Plus Jakarta Sans", "Inter", "Segoe UI", system-ui, sans-serif;
+    font-style: normal;
+    font-weight: 620;
+    letter-spacing: 0;
 }
 
 .keg-page .subtopic-level-desc.qa-level-font {
@@ -1743,7 +1877,7 @@ body.keg-modal-open {
 }
 
 .row-history {
-    margin-top: 0.2rem;
+    margin-top: 0.42rem;
     display: flex;
     align-items: center;
     flex-wrap: wrap;
@@ -1754,22 +1888,22 @@ body.keg-modal-open {
 }
 
 .row-history-single {
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     line-height: 1.35;
 }
 
 .row-history-time {
-    color: #607897;
+    color: #7387a2;
     font-variant-numeric: tabular-nums;
 }
 
 .row-history-action {
     border: 1px solid transparent;
-    border-radius: 4px;
-    font-size: 0.6rem;
-    font-weight: 700;
+    border-radius: 999px;
+    font-size: 0.58rem;
+    font-weight: 800;
     line-height: 1;
-    padding: 0.1rem 0.3rem;
+    padding: 0.12rem 0.34rem;
     text-transform: none;
     letter-spacing: 0;
     white-space: nowrap;
@@ -1800,8 +1934,8 @@ body.keg-modal-open {
 }
 
 .row-history-account {
-    color: #556f8c;
-    font-weight: 600;
+    color: #6b7f99;
+    font-weight: 640;
 }
 
 .row-history-empty {

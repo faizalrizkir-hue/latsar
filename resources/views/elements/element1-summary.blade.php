@@ -171,25 +171,61 @@
                                 $rowLevelClass = $rowLevel >= 1 && $rowLevel <= 5 ? 'is-level-'.$rowLevel : 'pending';
                                 $rowLevelQa = is_numeric($item['qa_level'] ?? null) ? (int) $item['qa_level'] : 0;
                                 $rowLevelQaClass = $rowLevelQa >= 1 && $rowLevelQa <= 5 ? 'is-level-'.$rowLevelQa : 'pending';
+                                $summaryDescId = 'summary-level-desc-'.$index;
+                                $summaryQaDescId = 'summary-qa-level-desc-'.$index;
                             @endphp
                             <tr>
                                 <td class="text-center fw-semibold">{{ $index + 1 }}</td>
                                 <td>
-                                    <div class="pernyataan">{{ $item['title'] }}</div>
-                                    <div class="bobot subtopic-predikat {{ $rowLevelClass !== 'pending' ? 'predikat-'.$rowLevelClass : 'predikat-pending' }}">
-                                        @if($qaFeatureEnabled)<span class="qa-mandiri-prefix">Mandiri: </span>@endif{{ $item['predikat'] ?? '-' }}
-                                    </div>
-                                    <div class="bobot subtopic-predikat qa-only qa-level-font {{ $rowLevelQaClass !== 'pending' ? 'predikat-'.$rowLevelQaClass : 'predikat-pending' }}">
-                                        QA: {{ $item['qa_predikat'] ?? '-' }}
+                                    <div class="pernyataan-record">
+                                        <div class="pernyataan">{{ $item['title'] }}</div>
+                                        <div class="pernyataan-labels">
+                                            <span class="bobot subtopic-predikat {{ $rowLevelClass !== 'pending' ? 'predikat-'.$rowLevelClass : 'predikat-pending' }}">
+                                                @if($qaFeatureEnabled)<span class="qa-mandiri-prefix">Mandiri: </span>@endif{{ $item['predikat'] ?? '-' }}
+                                            </span>
+                                            <span class="bobot subtopic-predikat qa-only qa-level-font {{ $rowLevelQaClass !== 'pending' ? 'predikat-'.$rowLevelQaClass : 'predikat-pending' }}">
+                                                QA: {{ $item['qa_predikat'] ?? '-' }}
+                                            </span>
+                                        </div>
                                     </div>
                                     @if(!empty($item['level_description']))
-                                        <div class="subtopic-level-desc">@if($qaFeatureEnabled)<span class="qa-mandiri-prefix">Mandiri: </span>@endif{{ $item['level_description'] }}</div>
+                                        <div class="subtopic-level-copy is-collapsible" data-row-desc-wrap>
+                                            <div
+                                                id="{{ $summaryDescId }}"
+                                                class="subtopic-level-desc"
+                                                data-row-desc>@if($qaFeatureEnabled)<span class="qa-mandiri-prefix">Mandiri: </span>@endif{{ $item['level_description'] }}</div>
+                                            <button
+                                                type="button"
+                                                class="row-desc-toggle"
+                                                data-row-desc-toggle
+                                                data-label-open="Lihat detail"
+                                                data-label-close="Ringkas"
+                                                aria-expanded="false"
+                                                aria-controls="{{ $summaryDescId }}">
+                                                Lihat detail
+                                            </button>
+                                        </div>
                                     @endif
                                     @if(!empty($item['qa_level_description'] ?? null))
                                         @if(!empty($item['level_description']))
                                             <div class="subtopic-level-separator qa-only" aria-hidden="true"></div>
                                         @endif
-                                        <div class="subtopic-level-desc qa-only qa-level-font">QA: {{ $item['qa_level_description'] }}</div>
+                                        <div class="subtopic-level-copy is-qa is-collapsible qa-only" data-row-desc-wrap>
+                                            <div
+                                                id="{{ $summaryQaDescId }}"
+                                                class="subtopic-level-desc qa-level-font"
+                                                data-row-desc>QA: {{ $item['qa_level_description'] }}</div>
+                                            <button
+                                                type="button"
+                                                class="row-desc-toggle"
+                                                data-row-desc-toggle
+                                                data-label-open="Lihat detail QA"
+                                                data-label-close="Ringkas QA"
+                                                aria-expanded="false"
+                                                aria-controls="{{ $summaryQaDescId }}">
+                                                Lihat detail QA
+                                            </button>
+                                        </div>
                                     @endif
                                 </td>
                                 <td class="text-center">
@@ -404,6 +440,100 @@
                 applyQaDisplay(showQaNow);
             });
         }
+
+        const setRowDescriptionToggleLabel = (button, isExpanded) => {
+            if (!button) {
+                return;
+            }
+            button.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+            button.textContent = isExpanded
+                ? (button.getAttribute('data-label-close') || 'Ringkas')
+                : (button.getAttribute('data-label-open') || 'Lihat detail');
+        };
+
+        const getRowDescriptionCollapsedHeight = (desc) => {
+            if (!desc) {
+                return 0;
+            }
+            const styles = window.getComputedStyle(desc);
+            const lineHeight = Number.parseFloat(styles.lineHeight || '');
+            const fontSize = Number.parseFloat(styles.fontSize || '');
+            const resolvedLineHeight = Number.isFinite(lineHeight)
+                ? lineHeight
+                : (Number.isFinite(fontSize) ? fontSize * 1.46 : 18);
+            return Math.ceil(resolvedLineHeight * 2);
+        };
+
+        const animateRowDescriptionToggle = (wrap, button) => {
+            if (!wrap || !button) {
+                return;
+            }
+
+            const desc = wrap.querySelector('[data-row-desc]');
+            if (!desc) {
+                return;
+            }
+
+            const isExpanding = !wrap.classList.contains('is-expanded');
+            const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            setRowDescriptionToggleLabel(button, isExpanding);
+
+            if (reduceMotion) {
+                wrap.classList.toggle('is-expanded', isExpanding);
+                return;
+            }
+
+            const collapsedHeight = getRowDescriptionCollapsedHeight(desc);
+            const startHeight = isExpanding
+                ? Math.max(collapsedHeight, Math.ceil(desc.getBoundingClientRect().height))
+                : Math.ceil(desc.scrollHeight);
+
+            wrap.classList.add('is-animating');
+            desc.style.overflow = 'hidden';
+            desc.style.maxHeight = `${startHeight}px`;
+
+            if (isExpanding) {
+                wrap.classList.add('is-expanded');
+            }
+
+            requestAnimationFrame(() => {
+                if (!isExpanding) {
+                    wrap.classList.remove('is-expanded');
+                }
+                const endHeight = isExpanding
+                    ? Math.ceil(desc.scrollHeight)
+                    : collapsedHeight;
+                desc.style.maxHeight = `${endHeight}px`;
+            });
+
+            const finish = (event) => {
+                if (event && event.target !== desc) {
+                    return;
+                }
+                desc.removeEventListener('transitionend', finish);
+                wrap.classList.remove('is-animating');
+                desc.style.removeProperty('max-height');
+                desc.style.removeProperty('overflow');
+            };
+
+            desc.addEventListener('transitionend', finish);
+            window.setTimeout(finish, 460);
+        };
+
+        page.addEventListener('click', (event) => {
+            const rowDescToggle = event.target.closest('[data-row-desc-toggle]');
+            if (!rowDescToggle) {
+                return;
+            }
+
+            event.preventDefault();
+            const wrap = rowDescToggle.closest('[data-row-desc-wrap]');
+            if (!wrap) {
+                return;
+            }
+
+            animateRowDescriptionToggle(wrap, rowDescToggle);
+        });
 
         applyQaDisplay(false);
     })();

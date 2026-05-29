@@ -7,6 +7,9 @@
     <link rel="icon" type="image/png" sizes="32x32" href="{{ \App\Support\VersionedAsset::url('static/logo-sikap-dark.png') }}" media="(prefers-color-scheme: light)">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ \App\Support\VersionedAsset::url('static/logo-sikap-light.png') }}" media="(prefers-color-scheme: dark)">
     <link rel="shortcut icon" href="{{ \App\Support\VersionedAsset::url('static/logo-sikap-dark.png') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/dashboard.css') }}">
     <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/sidenav-theme.css') }}">
@@ -113,26 +116,47 @@
             @continue(empty($elementNav['slug']))
             @php
                 $elementNavTitle = (string) ($elementNav['nav_title'] ?? ($elementNav['title'] ?? 'Element'));
+                $elementSubtopicCount = (int) ($elementNav['subtopic_count'] ?? count((array) ($elementNav['subtopics'] ?? [])));
             @endphp
             <li class="has-sub">
                 <a class="nav-toggle" data-sub-toggle="{{ $elementNav['slug'] }}" data-nav-tooltip="{{ $elementNavTitle }}" title="{{ $elementNavTitle }}">
-                    <span class="nav-icon">{{ $elementNav['icon_label'] ?? 'E' }}</span>
-                    <span class="nav-text">{{ $elementNavTitle }}</span>
+                    <span class="nav-icon nav-element-icon" aria-hidden="true">
+                        <span>{{ $elementNav['icon_label'] ?? 'E' }}</span>
+                    </span>
+                    <span class="nav-main-copy">
+                        <span class="nav-text">{{ $elementNavTitle }}</span>
+                        <span class="nav-caption">{{ $elementSubtopicCount }} topik tersedia</span>
+                    </span>
                     <span class="chevron">&rsaquo;</span>
                 </a>
                 <ul class="nav-sub" id="sub-{{ $elementNav['slug'] }}">
                     <li class="nav-sub-parent">
                         <a href="{{ route('elements.show', $elementNav['slug']) }}">
-                            <span class="sub-icon">&bull;</span>
-                            <span>Rekapitulasi Element</span>
+                            <span class="sub-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24">
+                                    <path d="M5 19V5"/>
+                                    <path d="M5 19h14"/>
+                                    <path d="M9 16v-5"/>
+                                    <path d="M13 16V8"/>
+                                    <path d="M17 16v-3"/>
+                                </svg>
+                            </span>
+                            <span class="sub-label">Rekapitulasi Element</span>
                         </a>
                     </li>
                     @foreach(($elementNav['subtopics'] ?? []) as $subtopicNav)
                         @continue(empty($subtopicNav['slug']))
                         <li class="nav-sub-child">
                             <a href="{{ route('elements.show', $subtopicNav['slug']) }}">
-                                <span class="sub-icon">&bull;</span>
-                                <span>{{ $subtopicNav['title'] ?? Str::headline(str_replace('_', ' ', (string) $subtopicNav['slug'])) }}</span>
+                                <span class="sub-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24">
+                                        <path d="M7 3h7l4 4v14H7z"/>
+                                        <path d="M14 3v5h5"/>
+                                        <path d="M10 12h6"/>
+                                        <path d="M10 16h4"/>
+                                    </svg>
+                                </span>
+                                <span class="sub-label">{{ $subtopicNav['title'] ?? Str::headline(str_replace('_', ' ', (string) $subtopicNav['slug'])) }}</span>
                             </a>
                         </li>
                     @endforeach

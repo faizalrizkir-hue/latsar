@@ -87,7 +87,7 @@
                 </div>
                 <ol class="keg-flow-guide-list">
                     <li><span class="step-no">1</span><span class="step-copy">Klik ikon pensil pada baris pernyataan yang ingin diisi.</span></li>
-                    <li><span class="step-no">2</span><span class="step-copy">Lengkapi tab <strong>Bukti Dukung</strong>, lalu isi <strong>Analisis Bukti Per Level</strong>.</span></li>
+                    <li><span class="step-no">2</span><span class="step-copy">Lengkapi <strong>Bukti Dukung</strong> dan <strong>Analisis Bukti Per Level</strong> pada Form Edit Data.</span></li>
                     <li><span class="step-no">3</span><span class="step-copy">Klik tombol <strong>Simpan Data</strong>. Sistem akan menyimpan <strong>Draft</strong> atau otomatis menandai <strong>Lengkap</strong> jika checklist terpenuhi.</span></li>
                 </ol>
                 <div class="keg-flow-guide-note">Status baris: <strong>Belum Diisi</strong> (kosong), <strong>Draft</strong> (sebagian), <strong>Lengkap</strong> (siap/verifikasi).</div>
@@ -221,16 +221,18 @@
                                     : '';
                                 $hasAnyLevelNote = collect(range(1, 5))
                                     ->contains(fn ($i) => trim((string) data_get($row, 'grad_l'.$i.'_catatan', '')) !== '');
-                                $hasAnyAnalysis = trim((string) ($row->analisis_bukti ?? '')) !== ''
+                                $filledEditLevelCount = collect(range(1, 5))
+                                    ->filter(fn ($i) => trim((string) data_get($row, 'grad_l'.$i.'_catatan', '')) !== '')
+                                    ->count();
+                                $hasLegacyAnalysis = trim((string) ($row->analisis_bukti ?? '')) !== ''
                                     || trim((string) ($row->analisis_nilai ?? '')) !== '';
                                 $isChecklistComplete = $statusPickedDocCount > 0
-                                    && $hasAnyAnalysis
                                     && $hasAnyLevelNote;
                                 $hasAnyDataDraft = is_numeric($row->level ?? null)
                                     || is_numeric($row->skor ?? null)
                                     || $statusPickedDocCount > 0
                                     || $hasAnyLevelNote
-                                    || $hasAnyAnalysis;
+                                    || $hasLegacyAnalysis;
                                 $rowStatusLabel = 'Belum Diisi';
                                 $rowStatusClass = 'is-empty';
                                 $rowStatusKey = 'empty';
@@ -243,6 +245,8 @@
                                     $rowStatusClass = 'is-draft';
                                     $rowStatusKey = 'draft';
                                 }
+                                $levelDescId = 'level-desc-'.$row->id;
+                                $qaDescId = 'qa-level-desc-'.$row->id;
                                 $hasEditableLevelField = collect(range(1, 5))
                                     ->contains(fn ($i) => (int) data_get($savedLevelValidationState, (string) $i, 0) !== 1);
                                 $editLockedByValidation = $isVerified && !$hasEditableLevelField;
@@ -258,29 +262,63 @@
                             <tr data-main-row data-row-id="{{ $row->id }}" data-row-status="{{ $rowStatusKey }}">
                                 <td class="text-center fw-semibold">{{ $row->id }}</td>
                                 <td>
-                                    <div class="pernyataan pernyataan-line">
-                                        <span>{{ $row->pernyataan }}</span>
-                                        <span class="row-fill-status {{ $rowStatusClass }}">{{ $rowStatusLabel }}</span>
-                                        <span
-                                            class="hint-bubble-trigger pernyataan-weight-hint"
-                                            tabindex="0"
-                                            role="button"
-                                            aria-label="Info bobot pernyataan"
-                                            data-hint="Bobot pernyataan: {{ number_format($weight, 2) }}%">?</span>
+                                    <div class="pernyataan-record">
+                                        <div class="pernyataan pernyataan-line">
+                                            <span class="pernyataan-title">{{ $row->pernyataan }}</span>
+                                            <span
+                                                class="hint-bubble-trigger pernyataan-weight-hint"
+                                                tabindex="0"
+                                                role="button"
+                                                aria-label="Info bobot pernyataan"
+                                                data-hint="Bobot pernyataan: {{ number_format($weight, 2) }}%">?</span>
+                                        </div>
+                                        <div class="pernyataan-labels">
+                                            <span class="row-fill-status {{ $rowStatusClass }}">{{ $rowStatusLabel }}</span>
+                                            @if ($currentLevelHint !== '')
+                                                <span class="bobot subtopic-predikat {{ $currentLevelClass !== 'pending' ? 'predikat-'.$currentLevelClass : 'predikat-pending' }}">
+                                                    {{ $currentLevelPredikat }}
+                                                </span>
+                                            @endif
+                                        </div>
                                     </div>
                                     @if ($currentLevelHint !== '')
-                                        <div class="bobot subtopic-predikat {{ $currentLevelClass !== 'pending' ? 'predikat-'.$currentLevelClass : 'predikat-pending' }}">
-                                            {{ $currentLevelPredikat }}
+                                        <div class="subtopic-level-copy is-collapsible" data-row-desc-wrap>
+                                            <div
+                                                id="{{ $levelDescId }}"
+                                                class="subtopic-level-desc"
+                                                data-row-desc>{{ $currentLevelHint }}</div>
+                                            <button
+                                                type="button"
+                                                class="row-desc-toggle"
+                                                data-row-desc-toggle
+                                                data-label-open="Lihat detail"
+                                                data-label-close="Ringkas"
+                                                aria-expanded="false"
+                                                aria-controls="{{ $levelDescId }}">
+                                                Lihat detail
+                                            </button>
                                         </div>
-                                        <div class="subtopic-level-desc">{{ $currentLevelHint }}</div>
                                     @endif
                                     @if ($qaLevelHint !== '')
                                         <div class="subtopic-level-qa-wrap">
                                             @if ($currentLevelHint !== '')
                                                 <div class="subtopic-level-separator" aria-hidden="true"></div>
                                             @endif
-                                            <div class="subtopic-level-desc qa-level-font">
-                                                QA: {{ $qaLevelHint }}
+                                            <div class="subtopic-level-copy is-qa is-collapsible" data-row-desc-wrap>
+                                                <div
+                                                    id="{{ $qaDescId }}"
+                                                    class="subtopic-level-desc qa-level-font"
+                                                    data-row-desc>QA: {{ $qaLevelHint }}</div>
+                                                <button
+                                                    type="button"
+                                                    class="row-desc-toggle"
+                                                    data-row-desc-toggle
+                                                    data-label-open="Lihat detail QA"
+                                                    data-label-close="Ringkas QA"
+                                                    aria-expanded="false"
+                                                    aria-controls="{{ $qaDescId }}">
+                                                    Lihat detail QA
+                                                </button>
                                             </div>
                                         </div>
                                     @endif
@@ -436,57 +474,42 @@
                                                             ->values();
                                                     @endphp
                                                     <div class="edit-pane-wrap" data-edit-pane-wrap>
-                                                        <div class="fw-semibold mb-2 edit-pane-title">Form Edit Data</div>
-                                                        <div class="edit-menu" role="tablist" aria-label="Menu form edit" data-edit-menu>
-                                                            <button type="button" class="edit-menu-btn is-active" role="tab" aria-selected="true" aria-controls="{{ $supportPaneId }}" data-edit-pane-trigger="{{ $supportPaneId }}" data-support-tab-btn>
-                                                                1. Bukti Dukung
-                                                            </button>
-                                                            <span class="edit-flow-arrow" aria-hidden="true">
-                                                                <svg viewBox="0 0 20 20" focusable="false">
-                                                                    <path d="M3 10h12"></path>
-                                                                    <path d="m11 6 4 4-4 4"></path>
-                                                                </svg>
-                                                            </span>
-                                                            <button
-                                                                type="button"
-                                                                class="edit-menu-btn"
-                                                                role="tab"
-                                                                aria-selected="false"
-                                                                aria-controls="{{ $levelPaneId }}"
-                                                                data-edit-pane-trigger="{{ $levelPaneId }}"
-                                                                data-level-tab-btn
-                                                                @if ($currentPickedDocCount <= 0)
-                                                                    title="Pilih minimal 1 dokumen di tab Bukti Dukung."
-                                                                    disabled
-                                                                    aria-disabled="true"
-                                                                @endif>
-                                                                2. Analisis Bukti Per Level
-                                                                @if ($validatedLevelCount > 0)
-                                                                    <span class="edit-validated-badge">{{ $validatedLevelCount }} terverifikasi</span>
-                                                                @endif
-                                                            </button>
-                                                            @if ($canSeeVerifyNoteTab && $hasVerifyNote)
-                                                                <button
-                                                                    type="button"
-                                                                    class="edit-menu-btn has-verify-note"
-                                                                    role="tab"
-                                                                    aria-selected="false"
-                                                                    aria-controls="{{ $verifyNotePaneId }}"
-                                                                    data-edit-pane-trigger="{{ $verifyNotePaneId }}"
-                                                                    data-verify-note-tab-btn>
-                                                                    Catatan Verifikator
-                                                                    <span class="edit-verify-note-badge">Ada Catatan</span>
-                                                                </button>
-                                                            @endif
-                                                        </div>
+                                                        <section class="edit-pane is-active" id="{{ $supportPaneId }}" data-edit-pane role="group" aria-label="Bukti Dukung dan Analisis Bukti Per Level">
+                                                            <div class="keg-edit-flow-head">
+                                                                <div class="keg-edit-flow-main">
+                                                                    <span class="keg-edit-flow-icon is-edit" aria-hidden="true">
+                                                                        <svg viewBox="0 0 24 24" focusable="false">
+                                                                            <path d="M6 3h8l4 4v14H6z"></path>
+                                                                            <path d="M14 3v5h4"></path>
+                                                                            <path d="M8.5 16.5 15.8 9.2l2 2-7.3 7.3-2.7.7z"></path>
+                                                                            <path d="M14.8 10.2l2 2"></path>
+                                                                        </svg>
+                                                                    </span>
+                                                                    <div>
+                                                                        <div class="keg-edit-flow-kicker">Form Edit Data</div>
+                                                                        <div class="keg-edit-flow-title">Bukti Dukung & Analisis Bukti Per Level</div>
+                                                                        <div class="keg-edit-flow-copy">Pilih dokumen pendukung, lalu tulis analisis pada level yang sesuai dengan bukti.</div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
 
-                                                        <section class="edit-pane is-active" id="{{ $supportPaneId }}" data-edit-pane role="tabpanel" aria-label="Bukti Dukung">
-                                                            <div class="mt-2">
-                                                                <label class="form-label mb-1">Pilih Dokumen</label>
-                                                                <div class="small keg-field-hint mb-1">Daftar dokumen diambil langsung dari data dokumen aktif DMS.</div>
+                                                            <div class="keg-form-step is-doc-step">
+                                                                <div class="keg-form-step-marker" aria-hidden="true">1</div>
+                                                                <div class="keg-form-step-body">
+                                                                <div class="keg-form-step-head">
+                                                                    <label class="form-label mb-0">Pilih Bukti Dukung</label>
+                                                                    <span class="keg-form-step-pill {{ $currentPickedDocCount > 0 ? 'is-done' : '' }}" data-doc-step-pill>
+                                                                        {{ $currentPickedDocCount > 0 ? $currentPickedDocCount.' dipilih' : 'Belum dipilih' }}
+                                                                    </span>
+                                                                </div>
+                                                                <div class="small keg-field-hint mb-2">Daftar dokumen diambil langsung dari data dokumen aktif DMS.</div>
                                                                 <div class="keg-doc-dd {{ $isVerified ? 'is-disabled' : '' }}" data-doc-dd>
                                                                     <button type="button" class="keg-doc-dd-toggle keg-field keg-select" data-doc-dd-toggle aria-expanded="false" {{ $isVerified ? 'disabled' : '' }}>
-                                                                        <span data-doc-dd-text>{{ $currentPickedDocCount > 0 ? $currentPickedDocCount.' dokumen dipilih' : '- pilih berkas -' }}</span>
+                                                                        <span class="keg-doc-dd-toggle-copy">
+                                                                            <span class="keg-doc-dd-toggle-label" data-doc-dd-text>{{ $currentPickedDocCount > 0 ? $currentPickedDocCount.' dokumen dipilih' : 'Pilih dokumen pendukung' }}</span>
+                                                                            <span class="keg-doc-dd-toggle-hint">Dokumen aktif dari DMS</span>
+                                                                        </span>
+                                                                        <span class="keg-doc-dd-toggle-icon" aria-hidden="true"></span>
                                                                     </button>
 
                                                                     <div class="keg-doc-dd-panel" data-doc-dd-panel hidden>
@@ -494,7 +517,7 @@
                                                                             <input
                                                                                 type="search"
                                                                                 class="keg-doc-dd-search keg-field"
-                                                                                placeholder="Cari dokumen..."
+                                                                                placeholder="Cari nama dokumen..."
                                                                                 data-doc-dd-search
                                                                                 @if ($groupedPickedDmsFiles->isEmpty())
                                                                                     disabled
@@ -545,8 +568,12 @@
                                                                                                                 data-doc-dd-check
                                                                                                                 {{ $isSelectedOption ? 'checked' : '' }}
                                                                                                                 {{ $isVerified ? 'disabled' : '' }}>
-                                                                                                            <span class="keg-doc-dd-option-label">{{ $file['label'] }}</span>
+                                                                                                            <span class="keg-doc-dd-file-icon" aria-hidden="true"></span>
+                                                                                                            <span class="keg-doc-dd-option-copy">
+                                                                                                                <span class="keg-doc-dd-option-label">{{ $file['label'] }}</span>
+                                                                                                            </span>
                                                                                                         </label>
+                                                                                                        <span class="keg-doc-dd-selected-mark" aria-hidden="true"></span>
                                                                                                         @if (!empty($file['url']))
                                                                                                             <a
                                                                                                                 href="{{ $file['url'] }}"
@@ -570,16 +597,22 @@
                                                                         @endif
                                                                     </div>
                                                                 </div>
+                                                                </div>
                                                             </div>
-                                                            <div class="mt-2">
-                                                                <label class="form-label mb-1">Analisis Pengujian Bukti Dukung</label>
-                                                                <textarea name="analisis_bukti" class="form-control keg-field" rows="4" {{ $isVerified ? 'disabled' : '' }}>{{ $row->analisis_bukti }}</textarea>
-                                                            </div>
-                                                        </section>
 
-                                                        <section class="edit-pane" id="{{ $levelPaneId }}" data-edit-pane role="tabpanel" aria-label="Catatan per Level" hidden>
-                                                            <div class="fw-semibold mb-2">Catatan / Analisis Bukti Per Level</div>
-                                                            <div class="keg-level-docs mb-3" data-level-docs>
+                                                            <div class="keg-form-step {{ $currentPickedDocCount <= 0 ? 'is-disabled' : '' }}" data-level-analysis-step>
+                                                                <div class="keg-form-step-marker" aria-hidden="true">2</div>
+                                                                <div class="keg-form-step-body">
+                                                            <div class="keg-form-step-head">
+                                                                <div>
+                                                                    <div class="form-label mb-0">Analisis Bukti Per Level</div>
+                                                                    <div class="small keg-field-hint" data-level-analysis-hint>
+                                                                        {{ $currentPickedDocCount > 0 ? 'Isi level yang didukung oleh dokumen terpilih.' : 'Pilih minimal 1 dokumen pendukung terlebih dahulu.' }}
+                                                                    </div>
+                                                                </div>
+                                                                <span class="keg-form-step-pill {{ $filledEditLevelCount > 0 ? 'is-done' : '' }}">{{ $filledEditLevelCount }}/5 level</span>
+                                                            </div>
+                                                            <div class="keg-level-docs mt-2 mb-3" data-level-docs>
                                                                 <div class="keg-level-docs-head">Dokumen terpilih</div>
                                                                 <div class="keg-level-docs-empty" data-level-doc-empty {{ $levelPickedDocs->isEmpty() ? '' : 'hidden' }}>
                                                                     Belum ada dokumen terpilih.
@@ -609,6 +642,7 @@
                                                                     @php
                                                                         $field = 'grad_l'.$i.'_catatan';
                                                                         $isLevelLocked = $isVerified && ((int) data_get($savedLevelValidationState, (string) $i, 0) === 1);
+                                                                        $isLevelDisabled = $isLevelLocked || $currentPickedDocCount <= 0;
                                                                     @endphp
                                                                     <div class="col-md-6">
                                                                         <label class="form-label small mb-1 hint-bubble-label">
@@ -629,29 +663,33 @@
                                                                             name="grad_l{{ $i }}_catatan"
                                                                             class="form-control keg-field"
                                                                             rows="2"
-                                                                            @if ($isLevelLocked)
+                                                                            placeholder="Ringkas bukti dan alasan penilaian untuk Level {{ $i }}."
+                                                                            data-level-note-field
+                                                                            data-level-locked="{{ $isLevelLocked ? '1' : '0' }}"
+                                                                            @if ($isLevelDisabled)
                                                                                 disabled
-                                                                                title="Level ini sudah terverifikasi dan tidak dapat diubah."
+                                                                                title="{{ $isLevelLocked ? 'Level ini sudah terverifikasi dan tidak dapat diubah.' : 'Pilih minimal 1 dokumen pendukung terlebih dahulu.' }}"
                                                                             @endif>{{ $row->$field }}</textarea>
                                                                     </div>
                                                                 @endfor
                                                             </div>
-                                                        </section>
-
-                                                        @if ($canSeeVerifyNoteTab && $hasVerifyNote)
-                                                            <section class="edit-pane edit-pane-verify-note has-note" id="{{ $verifyNotePaneId }}" data-edit-pane role="tabpanel" aria-label="Catatan Verifikator" hidden>
-                                                                <div class="edit-verify-note-head">Catatan Verifikator</div>
-                                                                <div class="small keg-field-hint mb-2">Tab ini terisi otomatis dari menu Verifikasi.</div>
-                                                                <div class="edit-verify-note-box">
-                                                                    <div class="edit-verify-note-text">{!! nl2br(e($verifyNoteText)) !!}</div>
                                                                 </div>
-                                                            </section>
-                                                        @endif
+                                                            </div>
+
+                                                            @if ($canSeeVerifyNoteTab && $hasVerifyNote)
+                                                                <div class="edit-pane-verify-note has-note mt-3" id="{{ $verifyNotePaneId }}" aria-label="Catatan Verifikator">
+                                                                    <div class="edit-verify-note-head">Catatan Verifikator</div>
+                                                                    <div class="small keg-field-hint mb-2">Catatan ini terisi otomatis dari menu Verifikasi.</div>
+                                                                    <div class="edit-verify-note-box">
+                                                                        <div class="edit-verify-note-text">{!! nl2br(e($verifyNoteText)) !!}</div>
+                                                                    </div>
+                                                                </div>
+                                                            @endif
+                                                        </section>
                                                     </div>
                                                     @php
-                                                        $analysisChecklistDone = trim((string) ($row->analisis_bukti ?? '')) !== '';
                                                         $levelChecklistDone = $hasAnyLevelNote;
-                                                        $isChecklistComplete = $statusPickedDocCount > 0 && $analysisChecklistDone && $levelChecklistDone;
+                                                        $isChecklistComplete = $statusPickedDocCount > 0 && $levelChecklistDone;
                                                     @endphp
                                                     <div class="keg-edit-submit mt-3">
                                                         <div class="keg-save-hint">Langkah 3: klik tombol simpan. Sistem akan menyimpan sebagai Draft, atau menandai Lengkap ketika checklist terpenuhi.</div>
@@ -659,10 +697,6 @@
                                                             <span class="keg-edit-check-item {{ $statusPickedDocCount > 0 ? 'is-done' : '' }}" data-check-docs>
                                                                 <span class="keg-edit-check-dot" aria-hidden="true"></span>
                                                                 Bukti Dukung
-                                                            </span>
-                                                            <span class="keg-edit-check-item {{ $analysisChecklistDone ? 'is-done' : '' }}" data-check-analysis>
-                                                                <span class="keg-edit-check-dot" aria-hidden="true"></span>
-                                                                Analisis Bukti
                                                             </span>
                                                             <span class="keg-edit-check-item {{ $levelChecklistDone ? 'is-done' : '' }}" data-check-level>
                                                                 <span class="keg-edit-check-dot" aria-hidden="true"></span>
@@ -681,7 +715,7 @@
                                                                 @if ($editLockedByValidation)
                                                                     title="Semua level sudah terverifikasi dan tidak dapat diubah."
                                                                 @elseif (!$isVerified && $statusPickedDocCount <= 0)
-                                                                    title="Pilih minimal 1 dokumen pada tab Bukti Dukung."
+                                                                    title="Pilih minimal 1 dokumen pada Bukti Dukung."
                                                                 @elseif (!$isChecklistComplete)
                                                                     title="Data akan tersimpan sebagai Draft sampai semua checklist lengkap."
                                                                 @else
@@ -709,42 +743,59 @@
                                                                     ->filter(fn ($item) => $item['value'] !== '')
                                                                     ->values();
                                                             @endphp
-                                                            <div class="edit-pane-wrap validate-pane-wrap {{ $isVerified ? 'is-verified' : 'is-pending' }} {{ $validateToneClass }}">
+                                                            <div class="edit-pane-wrap validate-pane-wrap keg-verify-flow-wrap {{ $isVerified ? 'is-verified' : 'is-pending' }} {{ $validateToneClass }}">
                                                                 <section class="edit-pane is-active">
-                                                                    <div class="fw-semibold mb-2 edit-pane-title">Form Verifikasi</div>
-                                                                    <div class="keg-verify-headline mb-2">
-                                                                        Langkah verifikasi: cek dokumen pendukung, tinjau analisis, lalu verifikasi tiap level sebelum menyimpan.
+                                                                    <div class="keg-edit-flow-head keg-verify-flow-head">
+                                                                        <div class="keg-edit-flow-main">
+                                                                            <span class="keg-edit-flow-icon is-verify" aria-hidden="true">
+                                                                                <svg viewBox="0 0 24 24" focusable="false">
+                                                                                    <path d="M12 3 5 6v5.2c0 4.4 2.9 8.4 7 9.8 4.1-1.4 7-5.4 7-9.8V6z"></path>
+                                                                                    <path d="m8.8 12 2.2 2.2 4.4-4.6"></path>
+                                                                                </svg>
+                                                                            </span>
+                                                                            <div>
+                                                                                <div class="keg-edit-flow-kicker">Form Verifikasi</div>
+                                                                                <div class="keg-edit-flow-title">Verifikasi Bukti & Analisis Per Level</div>
+                                                                                <div class="keg-edit-flow-copy">Cek dokumen pendukung, tinjau analisis, lalu verifikasi level yang sudah sesuai.</div>
+                                                                            </div>
+                                                                        </div>
                                                                     </div>
 
-                                                                    <div class="keg-level-docs mb-3">
-                                                                        <div class="keg-level-docs-head">Daftar Dokumen Terpilih</div>
-                                                                        <div class="keg-level-docs-empty {{ $levelPickedDocs->isEmpty() ? '' : 'd-none' }}">
-                                                                            Belum ada dokumen terpilih pada Edit Data.
-                                                                        </div>
-                                                                        <div class="keg-level-docs-list {{ $levelPickedDocs->isEmpty() ? 'd-none' : '' }}">
-                                                                            @foreach ($levelPickedDocs as $pickedFile)
-                                                                                <div class="keg-level-doc-item">
-                                                                                    <span class="keg-level-doc-name">{{ $pickedFile['label'] }}</span>
-                                                                                    @if (!empty($pickedFile['url']))
-                                                                                        <a
-                                                                                            href="{{ $pickedFile['url'] }}"
-                                                                                            target="_blank"
-                                                                                            rel="noopener noreferrer"
-                                                                                            class="keg-level-doc-view"
-                                                                                            title="Lihat dokumen">
-                                                                                            Lihat
-                                                                                        </a>
-                                                                                    @else
-                                                                                        <span class="keg-level-doc-view is-disabled" aria-disabled="true">Lihat</span>
-                                                                                    @endif
+                                                                    <div class="keg-form-step is-verify-step {{ $levelPickedDocs->isNotEmpty() ? 'is-done' : '' }}">
+                                                                        <div class="keg-form-step-marker" aria-hidden="true">1</div>
+                                                                        <div class="keg-form-step-body">
+                                                                            <div class="keg-form-step-head">
+                                                                                <div>
+                                                                                    <label class="form-label mb-0">Dokumen Terpilih</label>
+                                                                                    <div class="small keg-field-hint">Dokumen pendukung yang akan dicek sebelum level diverifikasi.</div>
                                                                                 </div>
-                                                                            @endforeach
+                                                                                <span class="keg-form-step-pill {{ $levelPickedDocs->isNotEmpty() ? 'is-done' : '' }}">{{ $levelPickedDocs->count() }} dokumen</span>
+                                                                            </div>
+                                                                            <div class="keg-level-docs mt-2 mb-0">
+                                                                                <div class="keg-level-docs-empty {{ $levelPickedDocs->isEmpty() ? '' : 'd-none' }}">
+                                                                                    Belum ada dokumen terpilih pada Edit Data.
+                                                                                </div>
+                                                                                <div class="keg-level-docs-list {{ $levelPickedDocs->isEmpty() ? 'd-none' : '' }}">
+                                                                                    @foreach ($levelPickedDocs as $pickedFile)
+                                                                                        <div class="keg-level-doc-item">
+                                                                                            <span class="keg-level-doc-name">{{ $pickedFile['label'] }}</span>
+                                                                                            @if (!empty($pickedFile['url']))
+                                                                                                <a
+                                                                                                    href="{{ $pickedFile['url'] }}"
+                                                                                                    target="_blank"
+                                                                                                    rel="noopener noreferrer"
+                                                                                                    class="keg-level-doc-view"
+                                                                                                    title="Lihat dokumen">
+                                                                                                    Lihat
+                                                                                                </a>
+                                                                                            @else
+                                                                                                <span class="keg-level-doc-view is-disabled" aria-disabled="true">Lihat</span>
+                                                                                            @endif
+                                                                                        </div>
+                                                                                    @endforeach
+                                                                                </div>
+                                                                            </div>
                                                                         </div>
-                                                                    </div>
-
-                                                                    <div class="mt-2">
-                                                                        <label class="form-label mb-1">Hasil Pengisian Analisis Bukti Dukung</label>
-                                                                        <textarea class="form-control keg-field" rows="4" readonly>{{ $row->analisis_bukti }}</textarea>
                                                                     </div>
 
                                                                     @if ($isVerifikator)
@@ -752,9 +803,16 @@
                                                                             @csrf
                                                                             <input type="hidden" name="row_id" value="{{ $row->id }}">
                                                                             <input type="hidden" name="action" value="verify">
-                                                                            <div class="edit-pane-wrap validate-pane-wrap {{ $isVerified ? 'is-verified' : 'is-pending' }} {{ $validateToneClass }}" data-validate-pane-wrap>
-                                                                                <section class="edit-pane is-active">
-                                                                                    <label class="form-label mb-1">Hasil Pengisian Catatan / Analisis Bukti Per Level</label>
+                                                                            <div class="keg-form-step is-verify-step {{ $filledLevelNotes->isEmpty() ? 'is-disabled' : '' }} {{ $isVerified ? 'is-done' : '' }} {{ $validateToneClass }}" data-validate-pane-wrap>
+                                                                                <div class="keg-form-step-marker" aria-hidden="true">2</div>
+                                                                                <div class="keg-form-step-body">
+                                                                                    <div class="keg-form-step-head">
+                                                                                        <div>
+                                                                                            <label class="form-label mb-0">Validasi Analisis Per Level</label>
+                                                                                            <div class="small keg-field-hint">Tinjau catatan level, lalu tandai level yang sudah sesuai dengan bukti.</div>
+                                                                                        </div>
+                                                                                        <span class="keg-form-step-pill {{ $isVerified ? 'is-done' : '' }}">{{ $filledLevelNotes->count() }}/5 level terisi</span>
+                                                                                    </div>
                                                                                     @if ($filledLevelNotes->isEmpty())
                                                                                         <div class="keg-level-docs-empty">Belum ada catatan/analisis per level yang diisi.</div>
                                                                                     @else
@@ -801,11 +859,11 @@
                                                                                         </div>
                                                                                     @endif
 
-                                                                                    <div class="mt-2">
+                                                                                    <div class="mt-3">
                                                                                         <label class="form-label mb-1">Catatan Verifikasi (opsional)</label>
                                                                                         <textarea name="verify_note" class="form-control keg-field" rows="3">{{ $row->verify_note }}</textarea>
                                                                                     </div>
-                                                                                </section>
+                                                                                </div>
                                                                             </div>
                                                                             <div class="keg-verify-submit-actions d-flex justify-content-end gap-2 mt-3">
                                                                                 <button
@@ -835,12 +893,16 @@
                                                                             <input type="hidden" name="row_id" value="{{ $row->id }}">
                                                                             <input type="hidden" name="action" value="qa_verify">
 
-                                                                            <div class="edit-pane-wrap validate-pane-wrap {{ $isQaVerified ? 'is-verified' : 'is-pending' }} {{ $qaValidateToneClass }}" data-validate-pane-wrap>
-                                                                                <section class="edit-pane is-active">
-                                                                                    <div class="keg-verify-headline is-qa mb-2">
-                                                                                        Final QA: validasi konsistensi hasil verifikasi per level, lalu simpan final QA.
+                                                                            <div class="keg-form-step is-verify-step is-qa {{ !$isVerified || $filledLevelNotes->isEmpty() ? 'is-disabled' : '' }} {{ $isQaVerified ? 'is-done' : '' }} {{ $qaValidateToneClass }}" data-validate-pane-wrap>
+                                                                                <div class="keg-form-step-marker" aria-hidden="true">{{ $isVerifikator ? '3' : '2' }}</div>
+                                                                                <div class="keg-form-step-body">
+                                                                                    <div class="keg-form-step-head">
+                                                                                        <div>
+                                                                                            <label class="form-label mb-0">Validasi Final QA</label>
+                                                                                            <div class="small keg-field-hint">Pastikan konsistensi hasil verifikasi per level sebelum disimpan final.</div>
+                                                                                        </div>
+                                                                                        <span class="keg-form-step-pill {{ $isQaVerified ? 'is-done' : '' }}">{{ $isQaVerified ? 'Terverifikasi' : 'Menunggu QA' }}</span>
                                                                                     </div>
-                                                                                    <label class="form-label mb-1">Hasil Pengisian Catatan / Analisis Bukti Per Level (Verifikasi QA)</label>
                                                                                     @if (!$isVerified)
                                                                                         <div class="keg-level-docs-empty">Verifikasi final QA menunggu verifikasi dari Koordinator/Admin.</div>
                                                                                     @elseif ($filledLevelNotes->isEmpty())
@@ -889,7 +951,7 @@
                                                                                         </div>
                                                                                     @endif
 
-                                                                                    <div class="mt-2">
+                                                                                    <div class="mt-3">
                                                                                         <label class="form-label mb-1">Hasil Verifikasi QA</label>
                                                                                         <textarea name="qa_verify_note" class="form-control keg-field" rows="3">{{ $row->qa_verify_note }}</textarea>
                                                                                     </div>
@@ -897,7 +959,7 @@
                                                                                         <label class="form-label mb-1">Rekomendasi Tindak Lanjut</label>
                                                                                         <textarea name="qa_follow_up_recommendation" class="form-control keg-field" rows="3">{{ $row->qa_follow_up_recommendation }}</textarea>
                                                                                     </div>
-                                                                                </section>
+                                                                                </div>
                                                                             </div>
 
                                                                             <div class="keg-verify-submit-actions d-flex justify-content-end gap-2 mt-3">
@@ -1038,7 +1100,7 @@
             const resetVerifyModal = document.getElementById('kegResetVerifyModal');
             const clearRowModal = document.getElementById('kegClearRowModal');
             const infoModalTransitionMs = 220;
-            const docDropdownTransitionMs = 320;
+            const docDropdownTransitionMs = 190;
             const editorRowTransitionMs = 340;
             const qaToggleButton = page.querySelector('[data-qa-toggle]');
             let infoModalCloseTimer = null;
@@ -1526,16 +1588,13 @@
                 clearDocDropdownCloseTimer(dropdown);
                 dropdown.classList.remove('is-closing');
                 panel.removeAttribute('hidden');
-                updateDocDropdownStickyOffsets(dropdown);
                 filterDocDropdown(dropdown, searchInput ? searchInput.value : '');
+                updateDocDropdownStickyOffsets(dropdown);
                 requestAnimationFrame(() => {
                     dropdown.classList.add('is-open');
                     if (toggle) {
                         toggle.setAttribute('aria-expanded', 'true');
                     }
-                    requestAnimationFrame(() => {
-                        updateDocDropdownStickyOffsets(dropdown);
-                    });
                 });
                 if (searchInput && !searchInput.disabled) {
                     setTimeout(() => searchInput.focus(), 80);
@@ -1600,12 +1659,19 @@
                 if (textNode) {
                     textNode.textContent = selectedCount > 0
                         ? `${selectedCount} dokumen dipilih`
-                        : '- pilih berkas -';
+                        : 'Pilih dokumen pendukung';
                 }
 
                 const wrap = dropdown.closest('[data-edit-pane-wrap]');
                 if (wrap) {
+                    const docStepPill = wrap.querySelector('[data-doc-step-pill]');
+                    if (docStepPill) {
+                        docStepPill.textContent = selectedCount > 0 ? `${selectedCount} dipilih` : 'Belum dipilih';
+                        docStepPill.classList.toggle('is-done', selectedCount > 0);
+                    }
+
                     updateLevelTabState(wrap);
+                    updateLevelAnalysisState(wrap);
                     updateLevelDocList(wrap);
                     updateSaveButtonState(wrap);
                 }
@@ -1633,7 +1699,7 @@
 
                 levelTrigger.disabled = true;
                 levelTrigger.setAttribute('aria-disabled', 'true');
-                levelTrigger.setAttribute('title', 'Pilih minimal 1 dokumen di tab Bukti Dukung.');
+                levelTrigger.setAttribute('title', 'Pilih minimal 1 dokumen pada Bukti Dukung.');
 
                 if (levelTrigger.classList.contains('is-active')) {
                     const supportTrigger = wrap.querySelector('[data-support-tab-btn]');
@@ -1643,26 +1709,59 @@
                 }
             }
 
+            function updateLevelAnalysisState(wrap) {
+                if (!wrap) {
+                    return;
+                }
+
+                const selectedCount = wrap.querySelectorAll('[data-doc-dd-check]:checked').length;
+                const hasSelectedDoc = selectedCount > 0;
+                const step = wrap.querySelector('[data-level-analysis-step]');
+                const hint = wrap.querySelector('[data-level-analysis-hint]');
+
+                if (step) {
+                    step.classList.toggle('is-disabled', !hasSelectedDoc);
+                }
+
+                if (hint) {
+                    hint.textContent = hasSelectedDoc
+                        ? 'Isi level yang didukung oleh dokumen terpilih.'
+                        : 'Pilih minimal 1 dokumen pendukung terlebih dahulu.';
+                }
+
+                wrap.querySelectorAll('[data-level-note-field]').forEach((field) => {
+                    const isLocked = String(field.getAttribute('data-level-locked') || '0') === '1';
+                    if (isLocked) {
+                        field.disabled = true;
+                        field.title = 'Level ini sudah terverifikasi dan tidak dapat diubah.';
+                        return;
+                    }
+
+                    field.disabled = !hasSelectedDoc;
+                    if (hasSelectedDoc) {
+                        field.removeAttribute('title');
+                    } else {
+                        field.setAttribute('title', 'Pilih minimal 1 dokumen pendukung terlebih dahulu.');
+                    }
+                });
+            }
+
             function getChecklistCompletion(wrap) {
                 if (!wrap) {
                     return {
                         hasSelectedDoc: false,
-                        hasAnalysis: false,
                         hasLevelNotes: false,
                         isComplete: false,
                     };
                 }
 
                 const hasSelectedDoc = wrap.querySelectorAll('[data-doc-dd-check]:checked').length > 0;
-                const analysisField = wrap.querySelector('textarea[name="analisis_bukti"]');
-                const hasAnalysis = !!(analysisField && String(analysisField.value || '').trim() !== '');
                 const hasLevelNotes = Array.from(wrap.querySelectorAll('textarea[name^="grad_l"][name$="_catatan"]'))
                     .some((field) => String(field.value || '').trim() !== '');
                 return {
                     hasSelectedDoc,
-                    hasAnalysis,
                     hasLevelNotes,
-                    isComplete: hasSelectedDoc && hasAnalysis && hasLevelNotes,
+                    isComplete: hasSelectedDoc && hasLevelNotes,
                 };
             }
 
@@ -1704,7 +1803,6 @@
                 };
 
                 toggleDone('[data-check-docs]', status.hasSelectedDoc);
-                toggleDone('[data-check-analysis]', status.hasAnalysis);
                 toggleDone('[data-check-level]', status.hasLevelNotes);
             }
 
@@ -1752,7 +1850,7 @@
                 saveButton.disabled = !canSaveDraft;
                 saveButton.setAttribute('aria-disabled', canSaveDraft ? 'false' : 'true');
                 if (!canSaveDraft) {
-                    saveButton.setAttribute('title', 'Pilih minimal 1 dokumen pada tab Bukti Dukung.');
+                    saveButton.setAttribute('title', 'Pilih minimal 1 dokumen pada Bukti Dukung.');
                     return;
                 }
 
@@ -2207,11 +2305,11 @@
                 }
                 scope.querySelectorAll('[data-edit-pane-wrap]').forEach((wrap) => {
                     const firstTrigger = wrap.querySelector('[data-edit-pane-trigger]');
-                    if (!firstTrigger) {
-                        return;
+                    if (firstTrigger) {
+                        activateEditPane(wrap, firstTrigger.getAttribute('data-edit-pane-trigger'));
                     }
-                    activateEditPane(wrap, firstTrigger.getAttribute('data-edit-pane-trigger'));
                     updateLevelTabState(wrap);
+                    updateLevelAnalysisState(wrap);
                     updateLevelDocList(wrap);
                     updateSaveButtonState(wrap);
                 });
@@ -2626,7 +2724,97 @@
             runCountUpAnimations(page);
             document.addEventListener('livewire:navigated', reinitCountUpForCurrentPage);
 
+            function setRowDescriptionToggleLabel(button, isExpanded) {
+                if (!button) {
+                    return;
+                }
+                button.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+                button.textContent = isExpanded
+                    ? (button.getAttribute('data-label-close') || 'Ringkas')
+                    : (button.getAttribute('data-label-open') || 'Lihat detail');
+            }
+
+            function getRowDescriptionCollapsedHeight(desc) {
+                if (!desc) {
+                    return 0;
+                }
+                const styles = window.getComputedStyle(desc);
+                const lineHeight = Number.parseFloat(styles.lineHeight || '');
+                const fontSize = Number.parseFloat(styles.fontSize || '');
+                const resolvedLineHeight = Number.isFinite(lineHeight)
+                    ? lineHeight
+                    : (Number.isFinite(fontSize) ? fontSize * 1.46 : 18);
+                return Math.ceil(resolvedLineHeight * 2);
+            }
+
+            function animateRowDescriptionToggle(wrap, button) {
+                if (!wrap || !button) {
+                    return;
+                }
+
+                const desc = wrap.querySelector('[data-row-desc]');
+                if (!desc) {
+                    return;
+                }
+
+                const isExpanding = !wrap.classList.contains('is-expanded');
+                const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                setRowDescriptionToggleLabel(button, isExpanding);
+
+                if (reduceMotion) {
+                    wrap.classList.toggle('is-expanded', isExpanding);
+                    return;
+                }
+
+                const collapsedHeight = getRowDescriptionCollapsedHeight(desc);
+                const startHeight = isExpanding
+                    ? Math.max(collapsedHeight, Math.ceil(desc.getBoundingClientRect().height))
+                    : Math.ceil(desc.scrollHeight);
+
+                wrap.classList.add('is-animating');
+                desc.style.overflow = 'hidden';
+                desc.style.maxHeight = `${startHeight}px`;
+
+                if (isExpanding) {
+                    wrap.classList.add('is-expanded');
+                }
+
+                requestAnimationFrame(() => {
+                    if (!isExpanding) {
+                        wrap.classList.remove('is-expanded');
+                    }
+                    const endHeight = isExpanding
+                        ? Math.ceil(desc.scrollHeight)
+                        : collapsedHeight;
+                    desc.style.maxHeight = `${endHeight}px`;
+                });
+
+                const finish = (event) => {
+                    if (event && event.target !== desc) {
+                        return;
+                    }
+                    desc.removeEventListener('transitionend', finish);
+                    wrap.classList.remove('is-animating');
+                    desc.style.removeProperty('max-height');
+                    desc.style.removeProperty('overflow');
+                };
+
+                desc.addEventListener('transitionend', finish);
+                window.setTimeout(finish, 460);
+            }
+
             page.addEventListener('click', (event) => {
+                const rowDescToggle = event.target.closest('[data-row-desc-toggle]');
+                if (rowDescToggle) {
+                    event.preventDefault();
+                    const wrap = rowDescToggle.closest('[data-row-desc-wrap]');
+                    if (!wrap) {
+                        return;
+                    }
+                    animateRowDescriptionToggle(wrap, rowDescToggle);
+                    return;
+                }
+
                 const clearRowTrigger = event.target.closest('[data-clear-row-btn]');
                 if (clearRowTrigger) {
                     event.preventDefault();

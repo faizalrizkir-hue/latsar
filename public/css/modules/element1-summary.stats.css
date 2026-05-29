@@ -400,7 +400,7 @@
     font-size:0.86rem;
     font-weight:600;
     line-height:1.62;
-    font-family:"Segoe UI","Trebuchet MS","Tahoma",sans-serif;
+    font-family:"Plus Jakarta Sans","Inter","Segoe UI",system-ui,sans-serif;
     white-space:normal;
     text-overflow:clip;
     overflow:visible;
@@ -409,7 +409,7 @@
 }
 
 .element1-summary-page .element1-overview-highlight-title{
-    font-family:"Trebuchet MS","Segoe UI","Tahoma",sans-serif;
+    font-family:"Plus Jakarta Sans","Inter","Segoe UI",system-ui,sans-serif;
     color:#274f80;
     font-size:0.84rem;
     letter-spacing:0.01em;
@@ -419,7 +419,7 @@
 
 .element1-summary-page .element1-overview-highlight-text.is-main{
     color:#21456f;
-    font-family:"Segoe UI","Calibri","Trebuchet MS",sans-serif;
+    font-family:"Plus Jakarta Sans","Inter","Segoe UI",system-ui,sans-serif;
     font-size:1rem;
     font-weight:600;
     line-height:1.74;

@@ -51,7 +51,7 @@ class DashboardRenderTest extends TestCase
         $response
             ->assertOk()
             ->assertViewIs('dashboard')
-            ->assertSee('Skor dan Level Kapabilitas APIP');
+            ->assertSee('Kapabilitas APIP Saat Ini');
     }
 
     private function createElementAssessmentsTable(): void

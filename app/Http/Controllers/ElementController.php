@@ -893,8 +893,12 @@ class ElementController extends Controller
 
             $payload = [
                 'pernyataan' => $data['pernyataan'],
-                'analisis_bukti' => $isVerifiedRow ? $row->analisis_bukti : ($data['analisis_bukti'] ?? null),
-                'analisis_nilai' => $isVerifiedRow ? $row->analisis_nilai : ($data['analisis_nilai'] ?? null),
+                'analisis_bukti' => $isVerifiedRow || !array_key_exists('analisis_bukti', $data)
+                    ? $row->analisis_bukti
+                    : $data['analisis_bukti'],
+                'analisis_nilai' => $isVerifiedRow || !array_key_exists('analisis_nilai', $data)
+                    ? $row->analisis_nilai
+                    : $data['analisis_nilai'],
                 'evidence' => $isVerifiedRow ? $row->evidence : ($data['evidence'] ?? null),
                 'dokumen_path' => $docPath,
                 'doc_file_ids' => $activeDocIds->values()->all(),

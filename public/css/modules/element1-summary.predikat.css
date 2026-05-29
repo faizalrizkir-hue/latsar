@@ -1,5 +1,5 @@
 .element1-summary-page .subtopic-predikat{
-    font-weight:800;
+    font-weight:820;
 }
 
 .element1-summary-page .subtopic-predikat.predikat-is-level-1{
@@ -30,16 +30,24 @@
     margin-top:0.24rem;
     color:#60728f;
     font-size:0.79rem;
-    font-weight:600;
-    line-height:1.4;
-    text-align:justify;
-    text-justify:inter-word;
+    font-weight:560;
+    line-height:1.46;
+    text-align:left;
+    word-spacing:normal;
+}
+
+.element1-summary-page .subtopic-level-copy{
+    margin-top:0.32rem;
+}
+
+.element1-summary-page .subtopic-level-copy .subtopic-level-desc{
+    margin-top:0;
 }
 
 .element1-summary-page .subtopic-level-desc.qa-level-font,
 .element1-summary-page .subtopic-predikat.qa-level-font{
-    font-family:"Georgia","Times New Roman",serif;
-    font-style:italic;
-    font-weight:700;
-    letter-spacing:0.01em;
+    font-family:"Plus Jakarta Sans","Inter","Segoe UI",system-ui,sans-serif;
+    font-style:normal;
+    font-weight:720;
+    letter-spacing:0;
 }

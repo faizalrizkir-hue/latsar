@@ -21,6 +21,10 @@
     text-align:center;
 }
 
+.element1-summary-page .element1-summary-table .pernyataan-labels{
+    justify-content:center;
+}
+
 .element1-summary-page .element1-summary-table th:nth-child(2),
 .element1-summary-page .element1-summary-table td:nth-child(2),
 .element1-summary-page .element1-summary-table td:nth-child(2) .pernyataan,
@@ -28,9 +32,17 @@
     text-align:left;
 }
 
+.element1-summary-page .element1-summary-table td:nth-child(2) .pernyataan-labels{
+    justify-content:flex-start;
+}
+
 .element1-summary-page .element1-summary-table td:nth-child(2) .subtopic-level-desc{
-    text-align:justify;
-    text-justify:inter-word;
+    text-align:left;
+    word-spacing:normal;
+}
+
+.element1-summary-page .element1-summary-table td:nth-child(2) .row-desc-toggle{
+    justify-self:start;
 }
 
 .element1-summary-page .element1-summary-table td .d-flex{

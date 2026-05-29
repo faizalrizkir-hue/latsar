@@ -63,6 +63,9 @@
     $formatPercent = static function (float $value): string {
         return rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.');
     };
+    $overallSimpleStatus = $overallLevel !== null
+        ? $overallLevelLabel.' - '.$overallPredikat
+        : 'Belum Dinilai';
 @endphp
 
 @push('head')
@@ -85,29 +88,35 @@
                         </button>
                     </div>
                 </div>
-                <h1 class="apip-title">Skor dan Level Kapabilitas APIP</h1>
+                <h1 class="apip-title">Kapabilitas APIP Saat Ini</h1>
                 <p class="apip-subtitle">
-                    Ringkasan nilai utama dari seluruh Element 1-5. Nilai akhir dihitung dari total Skor Tertimbang tiap element.
+                    Gambaran cepat nilai, level, dan capaian penilaian APIP dari seluruh element.
                 </p>
+
+                <div class="apip-status-strip {{ $overallLevelClass }}">
+                    <span>Posisi saat ini</span>
+                    <strong>{{ $overallSimpleStatus }}</strong>
+                    <small>Skor {{ number_format((float) ($overallWeightedScore ?? 0), 2) }}</small>
+                </div>
 
                 <div class="apip-overview-kpis">
                     <div class="apip-kpi">
-                        <div class="kpi-label">Skor Kapabilitas APIP (Tertimbang) <span class="qa-mandiri-suffix">(Mandiri)</span></div>
+                        <div class="kpi-label">Nilai APIP <span class="qa-mandiri-suffix">(Mandiri)</span></div>
                         <div class="kpi-value">{{ number_format((float) ($overallWeightedScore ?? 0), 2) }}</div>
-                        <div class="kpi-note">Total skor tertimbang seluruh element</div>
+                        <div class="kpi-note">Akumulasi nilai seluruh element</div>
                     </div>
                     <div class="apip-kpi">
-                        <div class="kpi-label">Level Kapabilitas APIP <span class="qa-mandiri-suffix">(Mandiri)</span></div>
+                        <div class="kpi-label">Level APIP <span class="qa-mandiri-suffix">(Mandiri)</span></div>
                         <div class="kpi-value">{{ $overallLevelLabel }}</div>
                         <div class="kpi-note">{{ $overallPredikat }}</div>
                     </div>
                     <div class="apip-kpi qa-only">
-                        <div class="kpi-label">Skor Kapabilitas APIP (Tertimbang QA)</div>
+                        <div class="kpi-label">Nilai QA</div>
                         <div class="kpi-value">{{ $overallLevelQa !== null ? number_format((float) ($overallWeightedScoreQa ?? 0), 2) : '-' }}</div>
-                        <div class="kpi-note">Total skor tertimbang hasil verifikasi QA</div>
+                        <div class="kpi-note">Nilai setelah verifikasi QA</div>
                     </div>
                     <div class="apip-kpi qa-only">
-                        <div class="kpi-label qa-level-font">Level Kapabilitas APIP (QA)</div>
+                        <div class="kpi-label qa-level-font">Level QA</div>
                         <div class="kpi-value">{{ $overallLevelLabelQa }}</div>
                         <div class="kpi-note qa-level-font">{{ $overallPredikatQa }}</div>
                     </div>
@@ -292,7 +301,6 @@
                     <div class="apip-renstra-scale-switch" role="group" aria-label="Pilih skala waktu grafik Renstra">
                         <button type="button" class="apip-renstra-scale-btn" data-renstra-scale="3y">3Y</button>
                         <button type="button" class="apip-renstra-scale-btn" data-renstra-scale="5y">5Y</button>
-                        <button type="button" class="apip-renstra-scale-btn" data-renstra-scale="ytd">YTD</button>
                         <button type="button" class="apip-renstra-scale-btn is-active" data-renstra-scale="renstra">Per Renstra</button>
                     </div>
                 </div>
@@ -1130,7 +1138,7 @@ const initDashboardRenstraApexChart = () => {
     const closestVisibleCurrentYear = years.includes(currentYear)
         ? currentYear
         : years.filter((year) => year <= currentYear).slice(-1)[0] || fallbackCurrentYear;
-    const scaleToneClasses = ['is-scale-3y', 'is-scale-5y', 'is-scale-ytd', 'is-scale-renstra'];
+    const scaleToneClasses = ['is-scale-3y', 'is-scale-5y', 'is-scale-renstra'];
     let scaleSwitchTimer = null;
 
     const applyScaleToneClass = (scaleKey) => {
@@ -1176,9 +1184,6 @@ const initDashboardRenstraApexChart = () => {
         if (scaleKey === '5y') {
             const minYear = closestVisibleCurrentYear - 4;
             return series.filter((item) => item.year >= minYear && item.year <= closestVisibleCurrentYear);
-        }
-        if (scaleKey === 'ytd') {
-            return series.filter((item) => item.year === closestVisibleCurrentYear);
         }
         return series;
     };
@@ -1271,7 +1276,7 @@ const initDashboardRenstraApexChart = () => {
             }
 
             let activeScale = (chartRoot.getAttribute('data-scale-active') || 'renstra').trim().toLowerCase();
-            if (!['3y', '5y', 'ytd', 'renstra'].includes(activeScale)) {
+            if (!['3y', '5y', 'renstra'].includes(activeScale)) {
                 activeScale = 'renstra';
             }
 
@@ -1466,7 +1471,7 @@ const initDashboardRenstraApexChart = () => {
                 button.addEventListener('click', () => {
                     const nextScale = (button.getAttribute('data-renstra-scale') || '').trim().toLowerCase();
                     if (nextScale === '' || nextScale === activeScale) return;
-                    if (!['3y', '5y', 'ytd', 'renstra'].includes(nextScale)) return;
+                    if (!['3y', '5y', 'renstra'].includes(nextScale)) return;
                     activeScale = nextScale;
                     updateScaleButtonState(activeScale);
                     updateChart(activeScale);
