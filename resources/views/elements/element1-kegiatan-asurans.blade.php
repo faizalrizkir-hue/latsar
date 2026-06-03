@@ -1,6 +1,6 @@
 @extends('layouts.dashboard-shell')
 @php
-    $pageTitle = $modulePageTitle ?? 'Element 1 - Kualitas Peran dan Layanan';
+    $pageTitle = $modulePageTitle ?? 'Elemen 1 - Kualitas Peran dan Layanan';
 @endphp
 
 @push('head')
@@ -34,7 +34,7 @@
             3 => '<svg viewBox="0 0 24 24"><path d="M12 3 5 6v5.5c0 4.3 3 8.2 7 9.5 4-1.3 7-5.2 7-9.5V6l-7-3Z"/><path d="m9.3 11.7 2 2 3.6-3.6"/></svg>',
         ];
         $moduleElementNumber = null;
-        if (preg_match('/element\s+(\d+)/i', (string) ($modulePageTitle ?? $pageTitle), $modulePageTitleMatch)) {
+        if (preg_match('/elem(?:ent|en)\s+(\d+)/i', (string) ($modulePageTitle ?? $pageTitle), $modulePageTitleMatch)) {
             $moduleElementNumber = (int) ($modulePageTitleMatch[1] ?? 0);
         }
         $moduleHeaderIconSvg = $elementInfoIconMap[$moduleElementNumber] ?? null;

@@ -27,7 +27,7 @@ final class DashboardHomeViewNormalizer
                 $slug = (string) $elementSlug;
                 $label = $slug;
                 if (preg_match('/^element(\d+)$/', $slug, $matches)) {
-                    $label = 'Element '.$matches[1];
+                    $label = 'Elemen '.$matches[1];
                 }
 
                 return '- '.$label.': '.number_format((float) $elementWeight * 100, 0).'%';
@@ -94,6 +94,9 @@ final class DashboardHomeViewNormalizer
         foreach ($elements as $element) {
             $item = is_array($element) ? $element : [];
             $elementSlug = trim((string) ($item['slug'] ?? ''));
+            if (array_key_exists('title', $item)) {
+                $item['title'] = self::normalizeElementWording((string) $item['title']);
+            }
 
             $level = is_numeric($item['level'] ?? null) ? (int) $item['level'] : null;
             $qaLevel = is_numeric($item['qa_level'] ?? null) ? (int) $item['qa_level'] : null;
@@ -107,6 +110,9 @@ final class DashboardHomeViewNormalizer
 
             foreach ($subtopicsRaw as $subtopic) {
                 $subtopicItem = is_array($subtopic) ? $subtopic : [];
+                if (array_key_exists('title', $subtopicItem)) {
+                    $subtopicItem['title'] = self::normalizeElementWording((string) $subtopicItem['title']);
+                }
                 $subtopicLevel = is_numeric($subtopicItem['level'] ?? null) ? (int) $subtopicItem['level'] : null;
                 $subtopicQaLevel = is_numeric($subtopicItem['qa_level'] ?? null) ? (int) $subtopicItem['qa_level'] : null;
 
@@ -144,11 +150,11 @@ final class DashboardHomeViewNormalizer
             $item['qa_level_label'] = $qaLevel !== null ? 'L'.$qaLevel : '-';
             $item['description'] = self::normalizeDescription(
                 (string) ($item['description'] ?? ''),
-                'Belum ada keterangan level untuk element ini.'
+                'Belum ada keterangan level untuk elemen ini.'
             );
             $item['qa_description'] = self::normalizeDescription(
                 (string) ($item['qa_description'] ?? ''),
-                'Belum ada keterangan level QA untuk element ini.'
+                'Belum ada keterangan level QA untuk elemen ini.'
             );
             $item['subtopics'] = $subtopics;
             $item['subtopic_count'] = (int) ($item['subtopic_count'] ?? count($subtopics));
@@ -162,6 +168,15 @@ final class DashboardHomeViewNormalizer
         }
 
         return $normalizedElements;
+    }
+
+    private static function normalizeElementWording(string $value): string
+    {
+        $normalized = preg_replace('/\bElement\b/u', 'Elemen', $value);
+        $normalized = is_string($normalized) ? $normalized : $value;
+        $normalized = preg_replace('/\belement\b/u', 'elemen', $normalized);
+
+        return is_string($normalized) ? $normalized : $value;
     }
 
     private static function normalizeDescription(string $value, string $fallback): string

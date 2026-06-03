@@ -23,7 +23,7 @@ class DashboardShellDataBuilder
         $notificationScopeElementSlug = ElementTeamAssignment::topLevelElementSlug($notificationScopeSlug);
         $notificationScopeLabel = '';
         if (preg_match('/^element(\d+)$/i', $notificationScopeElementSlug, $matches)) {
-            $notificationScopeLabel = 'Penugasan Element '.($matches[1] ?? '');
+            $notificationScopeLabel = 'Penugasan Elemen '.($matches[1] ?? '');
         }
 
         $notifications = $viewData['notifications'] ?? null;
@@ -152,7 +152,7 @@ class DashboardShellDataBuilder
                 return (string) ($matches[1] ?? '');
             }
 
-            if (preg_match('/element\s*(\d+)/i', $title, $matches)) {
+            if (preg_match('/elem(?:ent|en)\s*(\d+)/i', $title, $matches)) {
                 return (string) ($matches[1] ?? '');
             }
 
@@ -192,7 +192,9 @@ class DashboardShellDataBuilder
                 $elementSlug = (string) ($element['slug'] ?? '');
                 $elementTitle = trim((string) ($element['title'] ?? $elementSlug));
                 if ($elementTitle === '') {
-                    $elementTitle = Str::headline($elementSlug);
+                    $elementTitle = preg_match('/^element(\d+)$/i', $elementSlug, $matches)
+                        ? 'Elemen '.((string) ($matches[1] ?? ''))
+                        : Str::headline($elementSlug);
                 }
 
                 $subtopics = collect((array) ($element['subtopics'] ?? []))
@@ -215,7 +217,7 @@ class DashboardShellDataBuilder
                     ->all();
 
                 $elementNumber = $resolveElementNumber($elementSlug, $elementTitle, $elementIndex + 1);
-                $navTitle = is_numeric($elementNumber) ? 'Element '.$elementNumber : $elementTitle;
+                $navTitle = is_numeric($elementNumber) ? 'Elemen '.$elementNumber : $elementTitle;
                 $iconLabel = is_numeric($elementNumber) ? $elementNumber : 'E';
 
                 return [
@@ -239,7 +241,9 @@ class DashboardShellDataBuilder
                     $firstModule = $modules->first();
                     $elementTitle = trim((string) ($firstModule['page_title'] ?? ''));
                     if ($elementTitle === '') {
-                        $elementTitle = Str::headline((string) $elementSlug);
+                        $elementTitle = preg_match('/^element(\d+)$/i', (string) $elementSlug, $matches)
+                            ? 'Elemen '.((string) ($matches[1] ?? ''))
+                            : Str::headline((string) $elementSlug);
                     }
 
                     $subtopicPosition = 1;
@@ -261,7 +265,7 @@ class DashboardShellDataBuilder
                         ->all();
 
                     $elementNumber = $resolveElementNumber((string) $elementSlug, $elementTitle);
-                    $navTitle = is_numeric($elementNumber) ? 'Element '.$elementNumber : $elementTitle;
+                    $navTitle = is_numeric($elementNumber) ? 'Elemen '.$elementNumber : $elementTitle;
                     $iconLabel = is_numeric($elementNumber) ? $elementNumber : 'E';
 
                     return [
@@ -308,7 +312,7 @@ class DashboardShellDataBuilder
                 return $resolvedNavTitle;
             }
 
-            $cleanedTitle = preg_replace('/^\s*element\s*\d+\s*[:\-]?\s*/i', '', $resolvedElementTitle);
+            $cleanedTitle = preg_replace('/^\s*elem(?:ent|en)\s*\d+\s*[:\-]?\s*/i', '', $resolvedElementTitle);
             $cleanedTitle = is_string($cleanedTitle) ? trim($cleanedTitle) : $resolvedElementTitle;
             if ($cleanedTitle === '' || strcasecmp($cleanedTitle, $resolvedNavTitle) === 0) {
                 return $resolvedNavTitle;
@@ -401,7 +405,7 @@ class DashboardShellDataBuilder
                     if (preg_match('/^element(\d+)$/i', $resolvedElementSlug, $matches)) {
                         $elementNumber = (string) ($matches[1] ?? '');
                     }
-                    $elementNavLabel = $elementNumber !== '' ? 'Element '.$elementNumber : Str::headline($resolvedElementSlug);
+                    $elementNavLabel = $elementNumber !== '' ? 'Elemen '.$elementNumber : Str::headline($resolvedElementSlug);
                     $resolvedElementDirectory = $normalizeElementDirectoryTitle(
                         $elementNavLabel,
                         $modulePageTitleText !== '' ? $modulePageTitleText : $elementNavLabel
@@ -446,7 +450,7 @@ class DashboardShellDataBuilder
                 $pushHeadnavCrumb($headnavCrumbs, $defaultHeadnavTitle);
             }
         } elseif ($routeName === 'elements.index') {
-            $pushHeadnavCrumb($headnavCrumbs, 'Penilaian Element', route('elements.index'));
+            $pushHeadnavCrumb($headnavCrumbs, 'Penilaian Elemen', route('elements.index'));
         } elseif (is_string($routeName) && Str::startsWith($routeName, 'dms.')) {
             $pushHeadnavCrumb($headnavCrumbs, 'Data Management System', route('dms.index'));
             if ($routeName === 'dms.create') {
@@ -465,7 +469,7 @@ class DashboardShellDataBuilder
         } elseif ($routeName === 'accounts.index') {
             $pushHeadnavCrumb($headnavCrumbs, 'Manajemen Akun', route('accounts.index'));
         } elseif (is_string($routeName) && Str::startsWith($routeName, 'element-preferences.')) {
-            $pushHeadnavCrumb($headnavCrumbs, 'Preferensi Element', route('element-preferences.index'));
+            $pushHeadnavCrumb($headnavCrumbs, 'Preferensi Elemen', route('element-preferences.index'));
         } elseif ($defaultHeadnavTitle !== '') {
             $pushHeadnavCrumb($headnavCrumbs, $defaultHeadnavTitle);
         }

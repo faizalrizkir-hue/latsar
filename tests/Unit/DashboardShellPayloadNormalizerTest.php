@@ -12,7 +12,7 @@ class DashboardShellPayloadNormalizerTest extends TestCase
         $crumbs = [
             ['label' => ' Dashboard ', 'url' => ' /dashboard '],
             ['label' => '  ', 'url' => '/ignored'],
-            ['label' => 'Element 1', 'url' => '/elements/element1', 'is_current' => true],
+            ['label' => 'Elemen 1', 'url' => '/elements/element1', 'is_current' => true],
         ];
 
         $sanitized = DashboardShellPayloadNormalizer::sanitizeHeadnavCrumbs($crumbs);
@@ -21,7 +21,7 @@ class DashboardShellPayloadNormalizerTest extends TestCase
         $this->assertSame('Dashboard', $sanitized[0]['label']);
         $this->assertSame('/dashboard', $sanitized[0]['url']);
         $this->assertFalse($sanitized[0]['is_current']);
-        $this->assertSame('Element 1', $sanitized[1]['label']);
+        $this->assertSame('Elemen 1', $sanitized[1]['label']);
         $this->assertNull($sanitized[1]['url']);
         $this->assertTrue($sanitized[1]['is_current']);
     }

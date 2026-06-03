@@ -67,7 +67,11 @@ class Notification extends Model
                             ->orWhere(function (Builder $legacyBuilder) use ($elementNumber) {
                                 $legacyBuilder
                                     ->whereNull('element_slug')
-                                    ->where('subtopic_title', 'like', 'Element '.$elementNumber.'%');
+                                    ->where(function (Builder $titleBuilder) use ($elementNumber) {
+                                        $titleBuilder
+                                            ->where('subtopic_title', 'like', 'Element '.$elementNumber.'%')
+                                            ->orWhere('subtopic_title', 'like', 'Elemen '.$elementNumber.'%');
+                                    });
                             });
                     }
                 });
@@ -245,7 +249,9 @@ class Notification extends Model
 
         $query->where(function (Builder $builder) use ($elementNumbers) {
             foreach ($elementNumbers as $elementNumber) {
-                $builder->orWhere('subtopic_title', 'like', 'Element '.$elementNumber.'%');
+                $builder
+                    ->orWhere('subtopic_title', 'like', 'Element '.$elementNumber.'%')
+                    ->orWhere('subtopic_title', 'like', 'Elemen '.$elementNumber.'%');
             }
         });
     }

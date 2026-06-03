@@ -7,6 +7,9 @@
     <link rel="icon" type="image/png" sizes="32x32" href="{{ \App\Support\VersionedAsset::url('static/logo-sikap-dark.png') }}" media="(prefers-color-scheme: light)">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ \App\Support\VersionedAsset::url('static/logo-sikap-light.png') }}" media="(prefers-color-scheme: dark)">
     <link rel="shortcut icon" href="{{ \App\Support\VersionedAsset::url('static/logo-sikap-dark.png') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/login.css') }}">
     @php
         $recaptchaSiteKey = config('services.recaptcha.site_key');
@@ -100,13 +103,13 @@
                 <input type="hidden" name="g-recaptcha-response" id="recaptchaToken">
                 <div class="field">
                     <label for="username">NRK</label>
-                    <input type="text" id="username" name="username" placeholder="Masukkan NRK" value="{{ old('username') }}" required autofocus aria-describedby="usernameError">
+                    <input type="text" id="username" name="username" placeholder="Masukkan NRK" value="{{ old('username') }}" required autofocus autocomplete="username" aria-describedby="usernameError">
                     <div class="field-error" id="usernameError" aria-live="polite"></div>
                 </div>
                 <div class="field">
                     <label for="password">Kata sandi</label>
                     <div class="password-wrapper">
-                        <input type="password" id="password" name="password" placeholder="Minimal 6 karakter" required aria-describedby="passwordError">
+                        <input type="password" id="password" name="password" placeholder="Minimal 6 karakter" required autocomplete="current-password" aria-describedby="passwordError">
                         <button type="button" class="toggle-password" id="passwordToggle" aria-label="Lihat password" aria-pressed="false">
                             <svg class="icon-eye" viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/>
@@ -141,7 +144,11 @@
                         data-action="{{ $recaptchaAction }}"
                     @endif
                 >
-                    Masuk
+                    <span>Masuk</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 12h14"/>
+                        <path d="m13 6 6 6-6 6"/>
+                    </svg>
                 </button>
             </form>
             <div class="quick-links" aria-label="Quick Links aplikasi terkait">
@@ -207,7 +214,7 @@
             </div>
         </section>
     </div>
-    <div class="watermark">(c) Inspektorat Provinsi DKI Jakarta 2025</div>
+    <div class="watermark">&copy; Inspektorat Provinsi DKI Jakarta {{ now('Asia/Jakarta')->year }}</div>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const root = document.documentElement;
@@ -219,6 +226,7 @@
             const usernameError = document.getElementById('usernameError');
             const passwordError = document.getElementById('passwordError');
             const passwordToggle = document.getElementById('passwordToggle');
+            const loginCard = document.querySelector('.card');
             const form = document.querySelector('form');
             const overlay = document.getElementById('loadingOverlay');
             const loadingContent = document.getElementById('loadingContent');
@@ -235,6 +243,25 @@
             let overlayTimer = null;
             let redirectTimer = null;
             let logoutToastTimer = null;
+
+            if (loginCard && window.matchMedia('(pointer: fine)').matches && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                loginCard.addEventListener('pointermove', (event) => {
+                    const rect = loginCard.getBoundingClientRect();
+                    const x = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+                    const y = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
+                    loginCard.style.setProperty('--spotlight-x', `${Math.round(x * 100)}%`);
+                    loginCard.style.setProperty('--spotlight-y', `${Math.round(y * 100)}%`);
+                    loginCard.style.setProperty('--tilt-x', `${((0.5 - y) * 5).toFixed(2)}deg`);
+                    loginCard.style.setProperty('--tilt-y', `${((x - 0.5) * 7).toFixed(2)}deg`);
+                });
+
+                loginCard.addEventListener('pointerleave', () => {
+                    loginCard.style.setProperty('--spotlight-x', '50%');
+                    loginCard.style.setProperty('--spotlight-y', '20%');
+                    loginCard.style.setProperty('--tilt-x', '0deg');
+                    loginCard.style.setProperty('--tilt-y', '0deg');
+                });
+            }
 
             const initialTheme = (() => {
                 const stored = localStorage.getItem(STORAGE_KEY);

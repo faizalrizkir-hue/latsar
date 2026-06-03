@@ -65,13 +65,15 @@
 .accounts-page .card-soft table tbody tr:hover{background:rgba(255,255,255,0.02);}
 .accounts-page .card-soft .badge{font-weight:700;}
 .accounts-page .account-action-cell{
-    min-width:260px;
+    min-width:250px;
 }
 .accounts-page .account-action-bar{
     align-items:center;
+    gap:8px !important;
 }
 .accounts-page .account-action-form{
     margin:0;
+    position:relative;
 }
 .accounts-page .account-action-btn{
     min-height:34px;
@@ -92,83 +94,162 @@
     box-shadow:none;
 }
 .accounts-page .account-action-btn-icon{
-    width:34px;
-    min-width:34px;
-    min-height:34px;
+    --action-accent:#60a5fa;
+    --action-bg:rgba(96,165,250,0.14);
+    --action-bg-hover:rgba(96,165,250,0.22);
+    --action-border:rgba(96,165,250,0.38);
+    --action-shadow:rgba(37,99,235,0.18);
+    position:relative;
+    isolation:isolate;
+    width:38px;
+    min-width:38px;
+    height:38px;
+    min-height:38px;
     padding:0;
-    border-radius:10px;
+    border:1px solid var(--action-border);
+    border-radius:13px;
+    background:
+        radial-gradient(circle at 28% 20%, rgba(255,255,255,0.22), transparent 34%),
+        linear-gradient(180deg, var(--action-bg), rgba(15,23,42,0.1));
+    color:var(--action-accent);
     display:inline-flex;
     align-items:center;
     justify-content:center;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.16), 0 8px 18px rgba(15,23,42,0.1);
+    overflow:visible;
+}
+.accounts-page .account-action-btn-icon::before{
+    content:"";
+    position:absolute;
+    inset:7px;
+    border-radius:10px;
+    background:color-mix(in srgb, var(--action-accent) 16%, transparent 84%);
+    opacity:.9;
+    z-index:-1;
+    transition:transform .18s ease, opacity .18s ease, background .18s ease;
+}
+.accounts-page .account-action-btn-icon::after{
+    content:attr(data-action-label);
+    position:absolute;
+    left:50%;
+    bottom:calc(100% + 8px);
+    z-index:20;
+    padding:5px 8px;
+    border-radius:8px;
+    background:#0f172a;
+    color:#f8fafc;
+    box-shadow:0 10px 20px rgba(15,23,42,0.2);
+    font-size:.72rem;
+    font-weight:800;
+    line-height:1;
+    white-space:nowrap;
+    opacity:0;
+    transform:translate(-50%, 4px);
+    pointer-events:none;
+    transition:opacity .16s ease, transform .16s ease;
+}
+.accounts-page .account-action-btn-icon:hover::after,
+.accounts-page .account-action-btn-icon:focus-visible::after{
+    opacity:1;
+    transform:translate(-50%, 0);
 }
 .accounts-page .account-action-btn-icon .action-icon{
-    width:16px;
-    height:16px;
+    position:relative;
+    z-index:1;
+    width:20px;
+    height:20px;
     fill:none;
     stroke:currentColor;
-    stroke-width:2.2;
+    stroke-width:1.95;
     stroke-linecap:round;
     stroke-linejoin:round;
     pointer-events:none;
 }
+.accounts-page .account-action-btn-icon .action-badge{
+    fill:color-mix(in srgb, var(--action-accent) 16%, #ffffff 84%);
+    stroke:currentColor;
+    stroke-width:1.65;
+}
+.accounts-page .account-action-btn-icon path.action-badge{
+    fill:none;
+    stroke-width:2.05;
+}
+.accounts-page .account-action-btn-icon .action-mark{
+    stroke:currentColor;
+    stroke-width:2.25;
+}
+.accounts-page .account-action-btn-icon .action-mark-fill{
+    fill:currentColor;
+    stroke:none;
+}
+.accounts-page .account-action-btn-icon:hover{
+    transform:translateY(-2px);
+    border-color:color-mix(in srgb, var(--action-accent) 72%, #ffffff 28%);
+    background:
+        radial-gradient(circle at 28% 20%, rgba(255,255,255,0.28), transparent 34%),
+        linear-gradient(180deg, var(--action-bg-hover), rgba(15,23,42,0.08));
+    box-shadow:0 14px 24px var(--action-shadow);
+}
+.accounts-page .account-action-btn-icon:hover::before,
+.accounts-page .account-action-btn-icon:focus-visible::before{
+    transform:scale(1.08);
+    opacity:1;
+}
+.accounts-page .account-action-btn-icon:focus-visible{
+    outline:2px solid color-mix(in srgb, var(--action-accent) 48%, transparent 52%);
+    outline-offset:2px;
+}
 .accounts-page .account-action-btn-icon[disabled]{
-    opacity:.72;
+    opacity:.55;
     cursor:not-allowed;
     box-shadow:none;
+    filter:saturate(.78);
 }
 .accounts-page .account-action-btn-icon[disabled]:hover{
     transform:none;
     box-shadow:none;
+    border-color:var(--action-border);
+}
+.accounts-page .account-action-btn-icon[disabled]:hover::after{
+    opacity:1;
+}
+.accounts-page .account-action-btn-icon[disabled]:hover::before{
+    transform:none;
 }
 .accounts-page .account-action-role{
-    color:#1d4ed8;
-    border:1px solid rgba(59,130,246,0.52);
-    background:linear-gradient(180deg,rgba(96,165,250,0.2),rgba(59,130,246,0.12));
-}
-.accounts-page .account-action-role:hover{
-    color:#1e40af;
-    border-color:rgba(59,130,246,0.82);
-    box-shadow:0 12px 22px rgba(37,99,235,0.2);
+    --action-accent:#60a5fa;
+    --action-bg:rgba(96,165,250,0.14);
+    --action-bg-hover:rgba(96,165,250,0.24);
+    --action-border:rgba(96,165,250,0.42);
+    --action-shadow:rgba(37,99,235,0.22);
 }
 .accounts-page .account-action-deactivate{
-    color:#b45309;
-    border:1px solid rgba(245,158,11,0.56);
-    background:linear-gradient(180deg,rgba(253,230,138,0.28),rgba(251,191,36,0.14));
-}
-.accounts-page .account-action-deactivate:hover{
-    color:#92400e;
-    border-color:rgba(245,158,11,0.86);
-    box-shadow:0 12px 22px rgba(217,119,6,0.22);
+    --action-accent:#f59e0b;
+    --action-bg:rgba(245,158,11,0.16);
+    --action-bg-hover:rgba(245,158,11,0.25);
+    --action-border:rgba(245,158,11,0.44);
+    --action-shadow:rgba(217,119,6,0.22);
 }
 .accounts-page .account-action-activate{
-    color:#15803d;
-    border:1px solid rgba(34,197,94,0.54);
-    background:linear-gradient(180deg,rgba(134,239,172,0.24),rgba(74,222,128,0.12));
-}
-.accounts-page .account-action-activate:hover{
-    color:#166534;
-    border-color:rgba(34,197,94,0.84);
-    box-shadow:0 12px 22px rgba(22,163,74,0.2);
+    --action-accent:#22c55e;
+    --action-bg:rgba(34,197,94,0.14);
+    --action-bg-hover:rgba(34,197,94,0.24);
+    --action-border:rgba(34,197,94,0.42);
+    --action-shadow:rgba(22,163,74,0.2);
 }
 .accounts-page .account-action-reset{
-    color:#475569;
-    border:1px solid rgba(148,163,184,0.55);
-    background:linear-gradient(180deg,rgba(226,232,240,0.42),rgba(203,213,225,0.24));
-}
-.accounts-page .account-action-reset:hover{
-    color:#334155;
-    border-color:rgba(100,116,139,0.82);
-    box-shadow:0 12px 22px rgba(51,65,85,0.2);
+    --action-accent:#94a3b8;
+    --action-bg:rgba(148,163,184,0.16);
+    --action-bg-hover:rgba(148,163,184,0.26);
+    --action-border:rgba(148,163,184,0.42);
+    --action-shadow:rgba(51,65,85,0.2);
 }
 .accounts-page .account-action-delete{
-    color:#dc2626;
-    border:1px solid rgba(248,113,113,0.58);
-    background:linear-gradient(180deg,rgba(254,202,202,0.28),rgba(252,165,165,0.14));
-}
-.accounts-page .account-action-delete:hover{
-    color:#b91c1c;
-    border-color:rgba(248,113,113,0.88);
-    box-shadow:0 12px 22px rgba(220,38,38,0.22);
+    --action-accent:#ef4444;
+    --action-bg:rgba(239,68,68,0.14);
+    --action-bg-hover:rgba(239,68,68,0.24);
+    --action-border:rgba(248,113,113,0.44);
+    --action-shadow:rgba(220,38,38,0.22);
 }
 .accounts-page .account-action-btn.btn-outline-primary,
 .accounts-page .account-action-btn.btn-outline-success,
@@ -416,6 +497,18 @@
 :root[data-theme="light"] .accounts-page .badge-role-anggota,
 :root[data-theme="light"] .accounts-page .badge-role-koordinator,
 :root[data-theme="light"] .accounts-page .badge-role-admin{color:#fff;}
+:root[data-theme="light"] .accounts-page .account-action-btn-icon{
+    background:
+        radial-gradient(circle at 28% 20%, rgba(255,255,255,0.84), transparent 34%),
+        linear-gradient(180deg, color-mix(in srgb, var(--action-accent) 10%, #ffffff 90%), #ffffff);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.88), 0 8px 18px color-mix(in srgb, var(--action-accent) 13%, transparent 87%);
+}
+:root[data-theme="light"] .accounts-page .account-action-btn-icon .action-badge{
+    fill:color-mix(in srgb, var(--action-accent) 13%, #ffffff 87%);
+}
+:root[data-theme="dark"] .accounts-page .account-action-btn-icon .action-badge{
+    fill:color-mix(in srgb, var(--action-accent) 24%, #0f172a 76%);
+}
 :root[data-theme="light"] .accounts-page .card-soft table tbody tr:hover{background:#f8fafc;}
 :root[data-theme="light"] .accounts-page .account-action-btn.btn-outline-primary,
 :root[data-theme="light"] .accounts-page .account-action-btn.btn-outline-success,

@@ -787,7 +787,8 @@
 .guide-embed-aspect {
     position: relative;
     width: 100%;
-    height: clamp(360px, calc((100vh / var(--scale, 1)) - 252px), 620px);
+    height: 0;
+    padding-top: max(60%, 324px);
 }
 
 .guide-embed-frame {
@@ -923,10 +924,6 @@
         padding: 8px;
     }
 
-    .guide-embed-aspect {
-        height: clamp(340px, calc((100vh / var(--scale, 1)) - 220px), 560px);
-    }
-
     .guide-book {
         grid-template-columns: minmax(0, 1fr);
         min-height: 460px;
@@ -996,10 +993,6 @@
 
     .guide-embed-preview {
         padding: 6px;
-    }
-
-    .guide-embed-aspect {
-        height: clamp(320px, calc((100vh / var(--scale, 1)) - 190px), 500px);
     }
 
     .guide-book,

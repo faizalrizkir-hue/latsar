@@ -49,7 +49,7 @@
                         <thead>
                             <tr>
                                 <th style="width:64px;">No</th>
-                                <th style="min-width:380px;">Element / Topik / Pernyataan</th>
+                                <th style="min-width:380px;">Elemen / Topik / Pernyataan</th>
                                 <th style="min-width:280px;">Hasil Verifikasi QA</th>
                                 <th style="min-width:280px;">Rekomendasi Tindak Lanjut</th>
                                 <th style="width:150px;">Verifikator QA</th>
@@ -63,7 +63,7 @@
                                     <td>
                                         <div class="aoi-context">
                                             <div class="aoi-context-item">
-                                                <span class="aoi-context-label">Element</span>
+                                                <span class="aoi-context-label">Elemen</span>
                                                 <div class="aoi-context-value aoi-col-element">{{ $item['element_title'] ?: '-' }}</div>
                                             </div>
                                             <div class="aoi-context-item">

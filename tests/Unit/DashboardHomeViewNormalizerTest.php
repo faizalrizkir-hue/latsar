@@ -20,8 +20,8 @@ class DashboardHomeViewNormalizerTest extends TestCase
         $this->assertSame('is-level-3', $meta['overall_level_class']);
         $this->assertSame('Level 3', $meta['overall_level_label']);
         $this->assertSame('Memadai', $meta['overall_predikat']);
-        $this->assertStringContainsString('Element 1: 40%', (string) $meta['weight_hint_text']);
-        $this->assertStringContainsString('Element 2: 20%', (string) $meta['weight_hint_text']);
+        $this->assertStringContainsString('Elemen 1: 40%', (string) $meta['weight_hint_text']);
+        $this->assertStringContainsString('Elemen 2: 20%', (string) $meta['weight_hint_text']);
         $this->assertCount(5, (array) $meta['segment_offsets']);
         $this->assertSame('is-level-4', $meta['overall_level_qa_class']);
     }
@@ -31,7 +31,7 @@ class DashboardHomeViewNormalizerTest extends TestCase
         $elements = [
             [
                 'slug' => 'element1',
-                'title' => 'Element 1',
+                'title' => 'Elemen 1',
                 'level' => 3,
                 'qa_level' => 2,
                 'description' => '',
@@ -66,7 +66,7 @@ class DashboardHomeViewNormalizerTest extends TestCase
             ],
             [
                 'slug' => 'element2',
-                'title' => 'Element 2',
+                'title' => 'Elemen 2',
                 'subtopics' => [],
             ],
         ];
@@ -79,7 +79,7 @@ class DashboardHomeViewNormalizerTest extends TestCase
         $this->assertTrue((bool) $element1['can_open']);
         $this->assertSame('is-level-3', $element1['level_class']);
         $this->assertSame('L3', $element1['level_label']);
-        $this->assertSame('Belum ada keterangan level untuk element ini.', $element1['description']);
+        $this->assertSame('Belum ada keterangan level untuk elemen ini.', $element1['description']);
         $this->assertSame(3, (int) $element1['statement_count']);
         $this->assertSame('100', (string) $element1['subtopic_weight_total_percent']);
         $this->assertSame(0.50, (float) $element1['subtopic_contribution_total']);

@@ -137,13 +137,18 @@
                                                         data-target="{{ $roleEditId }}"
                                                         @disabled($isCurrentUserAccount)
                                                         aria-label="Ganti role akun {{ $account->display_name ?: $account->username }}"
+                                                        data-action-label="{{ $isCurrentUserAccount ? 'Role terkunci' : 'Ganti role' }}"
                                                         title="{{ $isCurrentUserAccount ? 'Role akun yang sedang digunakan tidak bisa diubah.' : 'Ganti role' }}"
                                                     >
                                                         <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
-                                                            <path d="M15.5 19.5a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11Z"></path>
-                                                            <path d="M15.5 6.5v2m0 8v2m-3.5-6h-2m13 0h-2m-7.3-3.3-1.4-1.4m8.4 8.4 1.4 1.4m0-9.8-1.4 1.4m-8.4 8.4-1.4 1.4"></path>
-                                                            <path d="M3 19.5c0-2.6 2.1-4.7 4.7-4.7h1.8"></path>
-                                                            <circle cx="8.6" cy="8.1" r="3.1"></circle>
+                                                            <rect x="4" y="5" width="16" height="14" rx="2.6"></rect>
+                                                            <path d="M8 9h8"></path>
+                                                            <path d="M8 13h4.8"></path>
+                                                            <path class="action-badge" d="M15.2 14.2h4.4v4.4h-4.4Z"></path>
+                                                            <path class="action-mark" d="M17.4 12.9v1.3"></path>
+                                                            <path class="action-mark" d="M17.4 18.6v1.3"></path>
+                                                            <path class="action-mark" d="M14.1 16.4h1.3"></path>
+                                                            <path class="action-mark" d="M19.6 16.4h1.3"></path>
                                                         </svg>
                                                         <span class="visually-hidden">Ganti Role</span>
                                                     </button>
@@ -185,6 +190,7 @@
                                                             type="{{ $account->active ? 'button' : 'submit' }}"
                                                             class="btn btn-sm account-action-btn account-action-btn-icon {{ $account->active ? 'account-action-deactivate' : 'account-action-activate' }}"
                                                             aria-label="{{ $account->active ? 'Nonaktifkan akun '.$account->username : 'Aktifkan akun '.$account->username }}"
+                                                            data-action-label="{{ $account->active ? 'Nonaktifkan' : 'Aktifkan' }}"
                                                             title="{{ $account->active ? 'Nonaktifkan' : 'Aktifkan' }}"
                                                             @if($account->active)
                                                                 data-account-modal-trigger
@@ -196,14 +202,17 @@
                                                         >
                                                             @if($account->active)
                                                                 <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
-                                                                    <path d="M12 3v9"></path>
-                                                                    <path d="M7.1 5.6a8 8 0 1 0 9.8 0"></path>
+                                                                    <rect x="3.5" y="7" width="17" height="10" rx="5"></rect>
+                                                                    <circle cx="8.5" cy="12" r="2.8"></circle>
+                                                                    <path class="action-mark" d="M14.3 10.3 17.7 13.7"></path>
+                                                                    <path class="action-mark" d="M17.7 10.3 14.3 13.7"></path>
                                                                 </svg>
                                                                 <span class="visually-hidden">Nonaktifkan</span>
                                                             @else
                                                                 <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
-                                                                    <path d="m9 12 2 2 4-4"></path>
-                                                                    <circle cx="12" cy="12" r="9"></circle>
+                                                                    <rect x="3.5" y="7" width="17" height="10" rx="5"></rect>
+                                                                    <circle cx="15.5" cy="12" r="2.8"></circle>
+                                                                    <path class="action-mark" d="m6.4 12 1.5 1.5 3-3.2"></path>
                                                                 </svg>
                                                                 <span class="visually-hidden">Aktifkan</span>
                                                             @endif
@@ -219,12 +228,16 @@
                                                         class="btn btn-sm reset-toggle account-action-btn account-action-btn-icon account-action-reset"
                                                         data-target="{{ $resetId }}"
                                                         aria-label="Reset password akun {{ $account->username }}"
+                                                        data-action-label="Reset password"
                                                         title="Reset password"
                                                     >
                                                         <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
-                                                            <circle cx="8.5" cy="12" r="3.5"></circle>
-                                                            <path d="M12 12h9m-5 0v3m3-3v2"></path>
-                                                            <path d="M2.5 12a6 6 0 0 1 6-6"></path>
+                                                            <circle cx="7.7" cy="14" r="3.2"></circle>
+                                                            <path d="M10.9 14h9.3"></path>
+                                                            <path d="M15.5 14v2.4"></path>
+                                                            <path d="M18.6 14v1.75"></path>
+                                                            <path class="action-badge" d="M5.2 7.75A8 8 0 0 1 18.4 5.3"></path>
+                                                            <path class="action-mark" d="M18.35 2.9v2.65h-2.7"></path>
                                                         </svg>
                                                         <span class="visually-hidden">Reset Password</span>
                                                     </button>
@@ -246,6 +259,7 @@
                                                             type="button"
                                                             class="btn btn-sm account-action-btn account-action-btn-icon account-action-delete"
                                                             aria-label="Hapus akun {{ $account->username }}"
+                                                            data-action-label="Hapus"
                                                             title="Hapus akun"
                                                             data-account-modal-trigger
                                                             data-account-modal-kind="delete"
@@ -254,10 +268,11 @@
                                                             data-account-modal-confirm-label="Ya, Hapus"
                                                         >
                                                             <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
-                                                                <path d="M3 6h18"></path>
-                                                                <path d="M8 6V4h8v2"></path>
-                                                                <path d="M19 6 18 20H6L5 6"></path>
-                                                                <path d="M10 10v7m4-7v7"></path>
+                                                                <path d="M4 6h16"></path>
+                                                                <path d="M9 6V4h6v2"></path>
+                                                                <path d="M18.5 6 17.6 20H6.4L5.5 6"></path>
+                                                                <path d="M10 10v6.5"></path>
+                                                                <path d="M14 10v6.5"></path>
                                                             </svg>
                                                             <span class="visually-hidden">Hapus</span>
                                                         </button>
@@ -288,14 +303,14 @@
                     <div class="card-body">
                         <div class="card-hero card-soft-hero d-flex justify-content-between align-items-center">
                             <div>
-                                <h5 class="card-title mb-0">Penunjukan Tim Element</h5>
-                                <small>Tentukan koordinator element beserta Anggota Tim yang bertugas.</small>
+                                <h5 class="card-title mb-0">Penunjukan Tim Elemen</h5>
+                                <small>Tentukan koordinator elemen beserta Anggota Tim yang bertugas.</small>
                             </div>
                         </div>
 
                         @if(!$hasElementAssignmentTable)
                             <div class="alert alert-warning mb-0">
-                                Fitur penunjukan tim element memerlukan migrasi baru. Jalankan <code>php artisan migrate</code> terlebih dahulu.
+                                Fitur penunjukan tim elemen memerlukan migrasi baru. Jalankan <code>php artisan migrate</code> terlebih dahulu.
                             </div>
                         @else
                             @php
@@ -333,7 +348,7 @@
                                     class="element-assignment-form"
                                     data-element-assignment-form
                                     data-element-slug="{{ $elementSlug }}"
-                                    data-element-short-label="{{ preg_replace('/^element(\d+)$/', 'Element $1', $elementSlug) }}"
+                                    data-element-short-label="{{ preg_replace('/^element(\d+)$/', 'Elemen $1', $elementSlug) }}"
                                 >
                                     @csrf
                                     <input type="hidden" name="action" value="save_element_assignment">
@@ -344,7 +359,7 @@
                                         <div class="col-xl-3 col-lg-4">
                                             <div class="assignment-meta">
                                                 <div class="assignment-title">{{ $elementLabel }}</div>
-                                                <div class="assignment-desc">Tentukan 1 koordinator utama dan pilih Anggota Tim yang bertugas pada element ini.</div>
+                                                <div class="assignment-desc">Tentukan 1 koordinator utama dan pilih Anggota Tim yang bertugas pada elemen ini.</div>
                                             </div>
                                         </div>
 
@@ -401,7 +416,7 @@
                                                                         </div>
                                                                     @endforeach
                                                                 </div>
-                                                                <div class="assignment-help-text">Pilih akun Koordinator aktif yang bertugas untuk verifikasi pada element ini.</div>
+                                                                <div class="assignment-help-text">Pilih akun Koordinator aktif yang bertugas untuk verifikasi pada elemen ini.</div>
                                                             @endif
                                                         </div>
                                                     </div>
@@ -445,7 +460,7 @@
 
                                                     <div class="col-12">
                                                         <div class="assignment-actions">
-                                                            <div class="assignment-help-text assignment-rules-note">1 koordinator dan 1 Anggota Tim hanya bisa berada di 1 element. Klik simpan pada salah satu card untuk menerapkan seluruh perubahan yang sedang dipilih.</div>
+                                                            <div class="assignment-help-text assignment-rules-note">1 koordinator dan 1 Anggota Tim hanya bisa berada di 1 elemen. Klik simpan pada salah satu card untuk menerapkan seluruh perubahan yang sedang dipilih.</div>
                                                             <button type="submit" class="btn btn-primary assignment-submit-btn">Simpan Penunjukan</button>
                                                         </div>
                                                     </div>

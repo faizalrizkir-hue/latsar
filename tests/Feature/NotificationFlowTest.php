@@ -103,7 +103,7 @@ class NotificationFlowTest extends TestCase
             'element_slug' => 'element1',
             'subtopic_slug' => 'element1_kegiatan_asurans',
             'subtopic_title' => 'Topik 1 - Kegiatan Asurans',
-            'statement' => 'Koordinator melakukan verifikasi final QA pada element 1: Pernyataan C',
+            'statement' => 'Koordinator melakukan verifikasi final QA pada elemen 1: Pernyataan C',
             'row_id' => 3,
             'coordinator_name' => 'Koordinator 1',
             'coordinator_username' => 'koor1',

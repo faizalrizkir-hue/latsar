@@ -131,7 +131,7 @@ a{text-decoration:none;color:inherit;}
 
 @keyframes pageFadeIn{
     from{opacity:0; transform:translateY(6px);}
-    to{opacity:1; transform:translateY(0);}
+    to{opacity:1; transform:none;}
 }
 .app{display:flex;min-height:100vh;}
 .sidenav{
@@ -1750,7 +1750,8 @@ a{text-decoration:none;color:inherit;}
                 --scale:1;
             }
             body{
-                zoom:1 !important;
+                zoom:normal !important;
+                transform:none !important;
             }
             .app{flex-direction:column;}
             .sidenav{position:relative;height:auto;}

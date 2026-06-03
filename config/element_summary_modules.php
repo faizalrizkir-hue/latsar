@@ -4,11 +4,11 @@ return [
     'modules' => [
         'element1' => [
             'view' => 'elements.element1-summary',
-            'title' => 'Element 1 : Kualitas Peran dan Layanan',
+            'title' => 'Elemen 1 : Kualitas Peran dan Layanan',
             'header_code' => 'E1',
-            'header_subtitle' => 'Ringkasan skor tertimbang, level element, dan capaian topik Element 1',
-            'level_label' => 'Level Element 1',
-            'info_modal_title' => 'Informasi Level Element',
+            'header_subtitle' => 'Ringkasan skor tertimbang, level elemen, dan capaian topik Elemen 1',
+            'level_label' => 'Level Elemen 1',
+            'info_modal_title' => 'Informasi Level Elemen',
             'styles' => [
                 'css/element1-kegiatan-asurans.css',
                 'css/element1-summary.css',
@@ -46,11 +46,11 @@ return [
             ],        ],
         'element2' => [
             'view' => 'elements.element1-summary',
-            'title' => 'Element 2 : Profesionalisme Penugasan',
+            'title' => 'Elemen 2 : Profesionalisme Penugasan',
             'header_code' => 'E2',
-            'header_subtitle' => 'Ringkasan skor tertimbang, level element, dan capaian 6 topik Element 2',
-            'level_label' => 'Level Element 2',
-            'info_modal_title' => 'Informasi Level Element 2',
+            'header_subtitle' => 'Ringkasan skor tertimbang, level elemen, dan capaian 6 topik Elemen 2',
+            'level_label' => 'Level Elemen 2',
+            'info_modal_title' => 'Informasi Level Elemen 2',
             'styles' => [
                 'css/element1-kegiatan-asurans.css',
                 'css/element1-summary.css',
@@ -96,11 +96,11 @@ return [
             ],        ],
         'element3' => [
             'view' => 'elements.element1-summary',
-            'title' => 'Element 3 : Manajemen Pengawasan',
+            'title' => 'Elemen 3 : Manajemen Pengawasan',
             'header_code' => 'E3',
-            'header_subtitle' => 'Ringkasan skor tertimbang, level element, dan capaian 2 topik Element 3',
-            'level_label' => 'Level Element 3',
-            'info_modal_title' => 'Informasi Level Element 3',
+            'header_subtitle' => 'Ringkasan skor tertimbang, level elemen, dan capaian 2 topik Elemen 3',
+            'level_label' => 'Level Elemen 3',
+            'info_modal_title' => 'Informasi Level Elemen 3',
             'styles' => [
                 'css/element1-kegiatan-asurans.css',
                 'css/element1-summary.css',
@@ -138,11 +138,11 @@ return [
             ],        ],
         'element4' => [
             'view' => 'elements.element1-summary',
-            'title' => 'Element 4 : Pengelolaan Kinerja dan Sumber Daya Pengawasan',
+            'title' => 'Elemen 4 : Pengelolaan Kinerja dan Sumber Daya Pengawasan',
             'header_code' => 'E4',
-            'header_subtitle' => 'Ringkasan skor tertimbang, level element, dan capaian 5 topik Element 4',
-            'level_label' => 'Level Element 4',
-            'info_modal_title' => 'Informasi Level Element 4 - Pengelolaan Kinerja dan Sumber Daya Pengawasan',
+            'header_subtitle' => 'Ringkasan skor tertimbang, level elemen, dan capaian 5 topik Elemen 4',
+            'level_label' => 'Level Elemen 4',
+            'info_modal_title' => 'Informasi Level Elemen 4 - Pengelolaan Kinerja dan Sumber Daya Pengawasan',
             'styles' => [
                 'css/element1-kegiatan-asurans.css',
                 'css/element1-summary.css',
@@ -186,11 +186,11 @@ return [
             ],        ],
         'element5' => [
             'view' => 'elements.element1-summary',
-            'title' => 'Element 5 : Budaya dan Hubungan Organisasi',
+            'title' => 'Elemen 5 : Budaya dan Hubungan Organisasi',
             'header_code' => 'E5',
-            'header_subtitle' => 'Ringkasan skor tertimbang, level element, dan capaian 4 topik Element 5',
-            'level_label' => 'Level Element 5',
-            'info_modal_title' => 'Informasi Level Element 5 - Budaya dan Hubungan Organisasi',
+            'header_subtitle' => 'Ringkasan skor tertimbang, level elemen, dan capaian 4 topik Elemen 5',
+            'level_label' => 'Level Elemen 5',
+            'info_modal_title' => 'Informasi Level Elemen 5 - Budaya dan Hubungan Organisasi',
             'styles' => [
                 'css/element1-kegiatan-asurans.css',
                 'css/element1-summary.css',

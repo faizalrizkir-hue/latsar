@@ -4,6 +4,19 @@
     <link rel="stylesheet" href="{{ \App\Support\VersionedAsset::url('css/profile.css') }}">
 @endpush
 
+@php
+    $lastLoginDevice = is_array($lastLoginDevice ?? null) ? $lastLoginDevice : [];
+    $hasLastLoginDevice = (bool) ($lastLoginDevice['available'] ?? false);
+    $lastLoginBrowser = trim((string) ($lastLoginDevice['browser_label'] ?? '-'));
+    $lastLoginDeviceMeta = collect([
+        trim((string) ($lastLoginDevice['device'] ?? '')),
+        trim((string) ($lastLoginDevice['os'] ?? '')),
+    ])->filter(fn (string $value): bool => $value !== '' && $value !== '-')->implode(' - ');
+    $lastLoginDeviceText = $hasLastLoginDevice
+        ? trim($lastLoginBrowser.($lastLoginDeviceMeta !== '' ? ' - '.$lastLoginDeviceMeta : ''))
+        : '-';
+@endphp
+
 @section('content')
     <div class="row g-4 profile-page">
         <div class="col-lg-7">
@@ -120,8 +133,8 @@
                         </dd>
                         <dt class="col-5 text-muted">IP terakhir</dt>
                         <dd class="col-7">{{ $account?->last_login_ip ?? '-' }}</dd>
-                        <dt class="col-5 text-muted">Device terakhir</dt>
-                        <dd class="col-7" style="word-break: break-word;">{{ $account?->last_login_device ?? '-' }}</dd>
+                        <dt class="col-5 text-muted">Browser terakhir</dt>
+                        <dd class="col-7">{{ $lastLoginDeviceText }}</dd>
                         <dt class="col-5 text-muted">Terakhir diperbarui</dt>
                         <dd class="col-7">{{ $account?->updated_at?->timezone('Asia/Jakarta')->format('d M Y H:i') ?? '-' }}</dd>
                     </dl>
@@ -130,7 +143,7 @@
                         <div class="profile-team-summary__head">
                             <div>
                                 <h6 class="mb-1">Informasi Tim</h6>
-                                <small>Ringkasan penugasan pada element yang ditunjuk administrator.</small>
+                                <small>Ringkasan penugasan pada elemen yang ditunjuk administrator.</small>
                             </div>
                         </div>
 
@@ -152,7 +165,7 @@
                             </div>
                         @empty
                             <div class="profile-team-empty">
-                                Belum ada penugasan tim element untuk akun ini.
+                                Belum ada penugasan tim elemen untuk akun ini.
                             </div>
                         @endforelse
                     </div>

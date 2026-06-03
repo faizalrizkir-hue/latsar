@@ -2,6 +2,7 @@
 
 @php
     $pageTitle = $pageTitle ?? 'Informasi Umum';
+    $canEdit = (bool) ($canEdit ?? false);
     $uuReferenceUrl = 'https://peraturan.bpk.go.id/Download/28013/UU%20Nomor%2023%20Tahun%202014.pdf';
     $legalRegulations = is_array($legalRegulations ?? null) ? $legalRegulations : [];
     $profile = $profile ?? null;
@@ -52,6 +53,40 @@
     if ($websiteText !== '') {
         $websiteHref = preg_match('/^https?:\/\//i', $websiteText) ? $websiteText : 'https://'.$websiteText;
     }
+    $mapsUrl = 'https://maps.app.goo.gl/dXWiYdL7T1SHfehc8';
+    $mapsEmbedUrl = 'https://www.google.com/maps?q=-6.1813206,106.8280449&z=17&output=embed';
+    $missionItems = collect(preg_split('/\R+/', $fieldValue('misi')) ?: [])
+        ->map(fn (string $item): string => trim((string) preg_replace('/^\s*(?:-|\x{2013}|\x{2014})\s*/u', '', $item)))
+        ->filter()
+        ->values();
+    $legalRegulationCount = count($legalRegulations);
+    $summaryItems = [
+        [
+            'label' => 'Pemerintah Daerah',
+            'value' => $fieldValue('pemerintah_daerah'),
+            'icon' => $fieldIcon('pemerintah_daerah'),
+            'tone' => $fieldIconClass('pemerintah_daerah'),
+        ],
+        [
+            'label' => 'Nama SKPD',
+            'value' => $fieldValue('nama_skpd'),
+            'icon' => $fieldIcon('nama_skpd'),
+            'tone' => $fieldIconClass('nama_skpd'),
+        ],
+        [
+            'label' => 'Bidang',
+            'value' => $fieldValue('bidang'),
+            'icon' => $fieldIcon('bidang'),
+            'tone' => $fieldIconClass('bidang'),
+        ],
+        [
+            'label' => 'Kantor Wilayah',
+            'value' => $fieldValue('jumlah_kantor_wilayah'),
+            'icon' => $fieldIcon('jumlah_kantor_wilayah'),
+            'tone' => $fieldIconClass('jumlah_kantor_wilayah'),
+        ],
+    ];
+    $editableStartOpen = $canEdit && (($errors ?? null)?->any() ?? false);
 @endphp
 
 @push('head')
@@ -60,7 +95,73 @@
 
 @section('content')
     <div class="general-info-page">
-        <form method="POST" action="{{ route('informasi-umum.update') }}" class="general-form">
+        <section class="general-overview">
+            <div class="general-overview-main">
+                <span class="general-overview-kicker">Profil Organisasi</span>
+                <h2>{{ $fieldValue('nama_skpd') }}</h2>
+                <p>{{ $fieldValue('bidang') }}</p>
+                <div class="general-overview-actions">
+                    @if($websiteHref !== '')
+                        <a href="{{ $websiteHref }}" target="_blank" rel="noopener noreferrer" class="general-overview-action">
+                            <span aria-hidden="true">{!! $fieldIcon('website') !!}</span>
+                            Website
+                        </a>
+                    @endif
+                    @if(trim($fieldValue('kontak')) !== '')
+                        <button type="button" class="general-overview-action" data-copy-value="{{ $fieldValue('kontak') }}">
+                            <span aria-hidden="true">{!! $fieldIcon('kontak') !!}</span>
+                            Salin Kontak
+                        </button>
+                    @endif
+                </div>
+            </div>
+            <aside class="general-map-card" aria-label="Lokasi Inspektorat Provinsi DKI Jakarta">
+                <div class="general-map-preview">
+                    <iframe
+                        src="{{ $mapsEmbedUrl }}"
+                        title="Peta Inspektorat Provinsi DKI Jakarta"
+                        loading="lazy"
+                        referrerpolicy="no-referrer-when-downgrade"
+                        allowfullscreen
+                    ></iframe>
+                </div>
+                <div class="general-map-content">
+                    <div>
+                        <span>Lokasi Kantor</span>
+                        <strong>Inspektorat Provinsi DKI Jakarta</strong>
+                    </div>
+                    <a href="{{ $mapsUrl }}" target="_blank" rel="noopener noreferrer" class="general-map-link">
+                        <span aria-hidden="true">
+                            <svg viewBox="0 0 24 24"><path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                        </span>
+                        Buka Maps
+                    </a>
+                </div>
+            </aside>
+        </section>
+
+        <div class="general-summary-grid" aria-label="Ringkasan profil organisasi">
+            @foreach($summaryItems as $item)
+                <article class="general-summary-item">
+                    <span class="general-summary-icon {{ $item['tone'] }}" aria-hidden="true">{!! $item['icon'] !!}</span>
+                    <div>
+                        <span>{{ $item['label'] }}</span>
+                        <strong>{{ $item['value'] !== '' ? $item['value'] : '-' }}</strong>
+                    </div>
+                </article>
+            @endforeach
+        </div>
+
+        @if(session('status'))
+            <div class="general-status-alert" role="status">{{ session('status') }}</div>
+        @endif
+
+        <form
+            method="POST"
+            action="{{ route('informasi-umum.update') }}"
+            class="general-form {{ $editableStartOpen ? 'is-editing' : 'is-read-mode' }}"
+            data-general-form
+        >
             @csrf
 
             <section class="general-card general-legal-card">
@@ -69,6 +170,7 @@
                         <h3>Dasar Hukum Penilaian Kapabilitas APIP</h3>
                         <p>Daftar pedoman/peraturan resmi yang menjadi acuan penilaian kapabilitas APIP.</p>
                     </div>
+                    <span class="general-card-head-badge">{{ $legalRegulationCount }} Dokumen</span>
                 </div>
                 <div class="general-card-body">
                     <div class="general-legal-list">
@@ -81,15 +183,15 @@
                                 $isAvailable = $fileUrl !== '';
                             @endphp
                             <article class="general-legal-item {{ $isAvailable ? '' : 'is-missing' }}">
-                                <div class="general-legal-item__badge">{{ $index + 1 }}</div>
+                                <div class="general-legal-item__badge" aria-hidden="true">
+                                    <span>{{ $index + 1 }}</span>
+                                </div>
                                 <div class="general-legal-item__content">
+                                    @if($category !== '')
+                                        <span class="general-legal-item__category">{{ $category }}</span>
+                                    @endif
                                     <h4>{{ $title !== '' ? $title : 'Dokumen tanpa judul' }}</h4>
-                                    <p>
-                                        @if($category !== '')
-                                            {{ $category }} -
-                                        @endif
-                                        {{ $fileName !== '' ? $fileName : 'File belum ditentukan' }}
-                                    </p>
+                                    <p>{{ $fileName !== '' ? $fileName : 'File belum ditentukan' }}</p>
                                 </div>
                                 <div class="general-legal-item__action">
                                     @if($isAvailable)
@@ -99,6 +201,9 @@
                                             rel="noopener noreferrer"
                                             class="general-legal-open-btn"
                                         >
+                                            <span aria-hidden="true">
+                                                <svg viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M9 7h8v8"/></svg>
+                                            </span>
                                             Lihat
                                         </a>
                                     @else
@@ -166,7 +271,8 @@
                                 name="kepala_pemerintah_daerah"
                                 class="general-input @error('kepala_pemerintah_daerah') is-invalid @enderror"
                                 value="{{ $fieldValue('kepala_pemerintah_daerah') }}"
-                                @disabled(!$canEdit)
+                                data-general-edit-field
+                                @disabled(!$canEdit || !$editableStartOpen)
                             >
                             @error('kepala_pemerintah_daerah')
                                 <div class="general-feedback">{{ $message }}</div>
@@ -207,7 +313,16 @@
                                 <span class="general-label-icon {{ $fieldIconClass('misi') }}" aria-hidden="true">{!! $fieldIcon('misi') !!}</span>
                                 <span>Misi</span>
                             </label>
-                            <textarea class="general-textarea is-locked" rows="6" disabled>{{ $fieldValue('misi') }}</textarea>
+                            <div class="general-mission-list">
+                                @forelse($missionItems as $index => $mission)
+                                    <div class="general-mission-item">
+                                        <span class="general-mission-number">{{ $index + 1 }}</span>
+                                        <p>{{ $mission }}</p>
+                                    </div>
+                                @empty
+                                    <div class="general-empty-text">Belum ada misi yang tercatat.</div>
+                                @endforelse
+                            </div>
                         </div>
 
                         <div class="general-field">
@@ -221,7 +336,8 @@
                                 name="inspektur"
                                 class="general-input @error('inspektur') is-invalid @enderror"
                                 value="{{ $fieldValue('inspektur') }}"
-                                @disabled(!$canEdit)
+                                data-general-edit-field
+                                @disabled(!$canEdit || !$editableStartOpen)
                             >
                             @error('inspektur')
                                 <div class="general-feedback">{{ $message }}</div>
@@ -275,7 +391,11 @@
 
                 <div class="general-card-footer">
                     @if($canEdit)
-                        <button type="submit" class="general-save-btn">Simpan Informasi Umum</button>
+                        <div class="general-edit-actions">
+                            <button type="button" class="general-edit-btn" data-general-edit-toggle>Aktifkan Edit</button>
+                            <button type="button" class="general-cancel-btn" data-general-edit-cancel>Batal</button>
+                            <button type="submit" class="general-save-btn">Simpan Informasi Umum</button>
+                        </div>
                     @else
                         <div class="general-readonly-note">
                             Anda tidak memiliki izin untuk mengubah data pada halaman ini.
@@ -287,3 +407,57 @@
     </div>
 @endsection
 
+@push('scripts')
+<script>
+(() => {
+    const form = document.querySelector('[data-general-form]');
+    const editFields = form ? Array.from(form.querySelectorAll('[data-general-edit-field]')) : [];
+    const editToggle = form?.querySelector('[data-general-edit-toggle]');
+    const editCancel = form?.querySelector('[data-general-edit-cancel]');
+    const originalValues = new Map(editFields.map((field) => [field, field.value]));
+
+    const setEditMode = (isEditing) => {
+        if (!form) return;
+        form.classList.toggle('is-editing', isEditing);
+        form.classList.toggle('is-read-mode', !isEditing);
+        editFields.forEach((field) => {
+            field.disabled = !isEditing;
+        });
+        if (isEditing) {
+            editFields[0]?.focus({ preventScroll: true });
+        }
+    };
+
+    editToggle?.addEventListener('click', () => {
+        setEditMode(true);
+    });
+
+    editCancel?.addEventListener('click', () => {
+        editFields.forEach((field) => {
+            field.value = originalValues.get(field) ?? field.value;
+        });
+        setEditMode(false);
+    });
+
+    document.querySelectorAll('[data-copy-value]').forEach((button) => {
+        button.addEventListener('click', async () => {
+            const value = (button.getAttribute('data-copy-value') || '').trim();
+            if (!value) return;
+
+            try {
+                await navigator.clipboard.writeText(value);
+                const previousLabel = button.innerHTML;
+                button.classList.add('is-copied');
+                button.innerHTML = '<span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></span>Kontak Disalin';
+                window.setTimeout(() => {
+                    button.classList.remove('is-copied');
+                    button.innerHTML = previousLabel;
+                }, 1400);
+            } catch (error) {
+                button.classList.remove('is-copied');
+            }
+        });
+    });
+})();
+</script>
+@endpush

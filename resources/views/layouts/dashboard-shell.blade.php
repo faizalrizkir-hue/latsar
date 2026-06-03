@@ -111,11 +111,11 @@
                     @endif
                 </a>
             </li>
-            <li class="nav-section-label" aria-hidden="true"><span>Penilaian Element</span></li>
+            <li class="nav-section-label" aria-hidden="true"><span>Penilaian Elemen</span></li>
             @foreach($navElements as $elementNav)
             @continue(empty($elementNav['slug']))
             @php
-                $elementNavTitle = (string) ($elementNav['nav_title'] ?? ($elementNav['title'] ?? 'Element'));
+                $elementNavTitle = (string) ($elementNav['nav_title'] ?? ($elementNav['title'] ?? 'Elemen'));
                 $elementSubtopicCount = (int) ($elementNav['subtopic_count'] ?? count((array) ($elementNav['subtopics'] ?? [])));
             @endphp
             <li class="has-sub">
@@ -141,7 +141,7 @@
                                     <path d="M17 16v-3"/>
                                 </svg>
                             </span>
-                            <span class="sub-label">Rekapitulasi Element</span>
+                            <span class="sub-label">Rekapitulasi Elemen</span>
                         </a>
                     </li>
                     @foreach(($elementNav['subtopics'] ?? []) as $subtopicNav)
@@ -275,7 +275,7 @@
                                     $notifyActorPhotoUrl = $resolvePhotoUrl((string) data_get($notif, 'coordinatorAccount.profile_photo', ''));
                                     $notifyActorInitials = $avatarLabel($notifyActorName, 'U');
                                     $notifyTitle = trim((string) data_get($notif, 'subtopic_title', 'Notifikasi'));
-                                    $notifyTitle = preg_replace('/^\s*element\s*\d+\s*[-:]?\s*/i', '', $notifyTitle);
+                                    $notifyTitle = preg_replace('/^\s*elem(?:ent|en)\s*\d+\s*[-:]?\s*/i', '', $notifyTitle);
                                     $notifyTitle = is_string($notifyTitle) ? trim($notifyTitle) : 'Notifikasi';
                                     $notifyTitle = preg_replace('/^\s*sub\s*topik\s*\d+\s*[-:]?\s*/i', '', $notifyTitle);
                                     $notifyTitle = is_string($notifyTitle) ? trim($notifyTitle) : 'Notifikasi';
@@ -287,7 +287,7 @@
                                     if ($notifyStatement !== '' && !Str::contains($notifyStatement, '|')) {
                                         $normalized = preg_replace('/^.*?\bmelakukan\b\s*/iu', '', $notifyStatement);
                                         $normalized = is_string($normalized) ? $normalized : $notifyStatement;
-                                        $normalized = preg_replace('/\bpada\s+element\s+\d+.*?:\s*/iu', '', $normalized);
+                                        $normalized = preg_replace('/\bpada\s+elem(?:ent|en)\s+\d+.*?:\s*/iu', '', $normalized);
                                         $normalized = is_string($normalized) ? trim($normalized) : $notifyStatement;
 
                                         $legacyActionMap = [
@@ -401,7 +401,7 @@
                         <a href="{{ route('profile.edit') }}" role="menuitem">Edit Profil</a>
                         @if($canManageAccounts)
                             <a href="{{ route('accounts.index') }}" role="menuitem">Manajemen Akun</a>
-                            <a href="{{ route('element-preferences.index') }}" role="menuitem">Preferensi Element</a>
+                            <a href="{{ route('element-preferences.index') }}" role="menuitem">Preferensi Elemen</a>
                         @endif
                         <form action="{{ route('logout') }}" method="GET" id="idleLogoutForm" data-idle-timeout-ms="{{ $idleTimeoutMs }}">
                             <button type="submit" role="menuitem">Logout</button>
@@ -425,9 +425,36 @@
     const root=document.documentElement;
     const SIDENAV_COLLAPSE_KEY='dashboard-sidenav-collapsed';
     const SIDENAV_MOBILE_BREAKPOINT=960;
+    let mobileSidenavScrollY=0;
+    let mobileSidenavScrollLocked=false;
     const getAppRoot = () => document.querySelector('.app');
     const getSidenavToggle = () => document.getElementById('sidenavToggle');
     const isMobileViewport = () => window.innerWidth <= SIDENAV_MOBILE_BREAKPOINT;
+    const setMobileSidenavTop = (scrollY = window.scrollY || document.documentElement.scrollTop || 0) => {
+        const top = Math.max(0, Math.round(Number(scrollY) || 0));
+        root.style.setProperty('--mobile-sidenav-scroll-top', `${top}px`);
+    };
+    const lockMobileSidenavScroll = () => {
+        if(mobileSidenavScrollLocked) return;
+        mobileSidenavScrollY = Math.max(0, Math.round(window.scrollY || document.documentElement.scrollTop || 0));
+        setMobileSidenavTop(mobileSidenavScrollY);
+        document.body.style.top = `-${mobileSidenavScrollY}px`;
+        document.body.classList.add('sidenav-open-lock');
+        mobileSidenavScrollLocked = true;
+    };
+    const unlockMobileSidenavScroll = () => {
+        const restoreY = mobileSidenavScrollY;
+        document.body.classList.remove('sidenav-open-lock');
+        document.body.style.top = '';
+        root.style.removeProperty('--mobile-sidenav-scroll-top');
+        mobileSidenavScrollLocked = false;
+        mobileSidenavScrollY = 0;
+        if(restoreY > 0){
+            window.scrollTo(0, restoreY);
+            requestAnimationFrame(() => window.scrollTo(0, restoreY));
+            window.setTimeout(() => window.scrollTo(0, restoreY), 0);
+        }
+    };
     const updateSidenavToggleUi = (collapsed) => {
         const sidenavToggle = getSidenavToggle();
         const appRoot = getAppRoot();
@@ -452,8 +479,12 @@
         if(!appRoot) return;
 
         const isOpen = Boolean(open);
+        if(isOpen){
+            lockMobileSidenavScroll();
+        }else{
+            unlockMobileSidenavScroll();
+        }
         appRoot.classList.toggle('mobile-sidenav-open', isOpen);
-        document.body.classList.toggle('sidenav-open-lock', isOpen);
         updateSidenavToggleUi(appRoot.classList.contains('sidenav-collapsed'));
     };
     const syncSidenavViewportMode = () => {

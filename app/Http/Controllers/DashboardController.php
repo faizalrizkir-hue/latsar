@@ -335,7 +335,7 @@ class DashboardController extends Controller
                 : [
                     'level' => null,
                     'predikat' => 'Belum Dinilai',
-                    'description' => 'Data penilaian untuk element ini belum tersedia.',
+                    'description' => 'Data penilaian untuk elemen ini belum tersedia.',
                 ];
             $resolvedElementLevel = is_numeric($levelData['level'] ?? null)
                 ? (int) $levelData['level']
@@ -346,13 +346,13 @@ class DashboardController extends Controller
                     $resolvedElementLevel,
                     (string) ($levelData['description'] ?? '')
                 )
-                : 'Data penilaian untuk element ini belum tersedia.';
+                : 'Data penilaian untuk elemen ini belum tersedia.';
             $levelDataQa = $hasQaData
                 ? $this->getLevelData($elementScoreQa)
                 : [
                     'level' => null,
                     'predikat' => 'Belum Dinilai',
-                    'description' => 'Data verifikasi final QA untuk element ini belum tersedia.',
+                    'description' => 'Data verifikasi final QA untuk elemen ini belum tersedia.',
                 ];
             $resolvedQaElementLevel = is_numeric($levelDataQa['level'] ?? null)
                 ? (int) $levelDataQa['level']
@@ -363,7 +363,7 @@ class DashboardController extends Controller
                     $resolvedQaElementLevel,
                     (string) ($levelDataQa['description'] ?? '')
                 )
-                : 'Data verifikasi final QA untuk element ini belum tersedia.';
+                : 'Data verifikasi final QA untuk elemen ini belum tersedia.';
 
             $elements[] = [
                 'slug' => $elementSlug,
@@ -1167,7 +1167,7 @@ class DashboardController extends Controller
             return $fallbackDescription;
         }
 
-        return 'Belum ada deskripsi level element.';
+        return 'Belum ada deskripsi level elemen.';
     }
 
     private function compactLevelDescription(string $description): string

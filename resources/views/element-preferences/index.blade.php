@@ -71,7 +71,7 @@
                 return '';
             }
 
-            $stripped = preg_replace('/^\s*element\s*\d+\s*[:\-]?\s*/i', '', $normalized);
+            $stripped = preg_replace('/^\s*elem(?:ent|en)\s*\d+\s*[:\-]?\s*/i', '', $normalized);
             $stripped = is_string($stripped) ? trim($stripped) : $normalized;
 
             return $stripped !== '' ? $stripped : $normalized;
@@ -92,9 +92,9 @@
     <div class="element-preferences-page">
         <div class="card shadow-sm pref-intro-card pref-lift">
             <div class="card-body">
-                <h3 class="mb-2">Preferensi Element</h3>
+                <h3 class="mb-2">Preferensi Elemen</h3>
                 <p class="mb-0 text-muted">
-                    Pengaturan ini dipakai untuk penyesuaian total struktur penilaian: tambah/hapus element,
+                    Pengaturan ini dipakai untuk penyesuaian total struktur penilaian: tambah/hapus elemen,
                     tambah/hapus topik, jumlah pernyataan, serta bobot masing-masing.
                 </p>
             </div>
@@ -218,7 +218,7 @@
                             }
                             $elementDisplayTitle = $elementInputTitle;
                             if (is_int($elementNumber) && $elementNumber > 0) {
-                                $elementDisplayTitle = 'Element '.$elementNumber.($elementInputTitle !== '' ? ' : '.$elementInputTitle : '');
+                                $elementDisplayTitle = 'Elemen '.$elementNumber.($elementInputTitle !== '' ? ' : '.$elementInputTitle : '');
                             }
                             if ($elementDisplayTitle === '') {
                                 $elementDisplayTitle = $elementTitle;
@@ -254,18 +254,18 @@
 
                                 <div class="pref-element-controls">
                                     <div class="pref-weight-field pref-element-title-field">
-                                        <label class="form-label mb-1">Nama Element</label>
+                                        <label class="form-label mb-1">Nama Elemen</label>
                                         <input
                                             type="text"
                                             class="form-control"
                                             name="elements[{{ $elementSlug }}][title]"
                                             value="{{ $elementInputTitle }}"
-                                            placeholder="Nama element"
+                                            placeholder="Nama elemen"
                                         >
                                     </div>
 
                                     <div class="pref-weight-field">
-                                        <label class="form-label mb-1" for="weight-{{ $elementSlug }}">Bobot Element (%)</label>
+                                        <label class="form-label mb-1" for="weight-{{ $elementSlug }}">Bobot Elemen (%)</label>
                                         <input
                                             id="weight-{{ $elementSlug }}"
                                             type="number"
@@ -284,13 +284,13 @@
                                             Tambah Topik
                                         </button>
                                         <button type="button" class="btn btn-outline-danger btn-sm" data-remove-element>
-                                            Hapus Element
+                                            Hapus Elemen
                                         </button>
                                     </div>
                                 </div>
 
                                 <details class="pref-level-card pref-level-card-element" data-pref-slide>
-                                    <summary>Informasi Level Element (1-5)</summary>
+                                    <summary>Informasi Level Elemen (1-5)</summary>
                                     <div class="pref-level-body">
                                         <div class="pref-level-grid">
                                             @for($level = 1; $level <= 5; $level++)
@@ -490,7 +490,7 @@
                         </div>
                         <div class="pref-toolbar-actions">
                             <button type="button" class="btn btn-outline-danger" data-pref-reset-data-trigger>Reset Data</button>
-                            <button type="button" class="btn btn-outline-primary" data-add-element>Tambah Element</button>
+                            <button type="button" class="btn btn-outline-primary" data-add-element>Tambah Elemen</button>
                             <button type="submit" class="btn btn-primary">Simpan Preferensi</button>
                         </div>
                     </div>
@@ -614,7 +614,7 @@
         const normalized = String(value || '').trim();
         if (!normalized) return '';
 
-        const stripped = normalized.replace(/^\s*element\s*\d+\s*[:\-]?\s*/i, '').trim();
+        const stripped = normalized.replace(/^\s*elem(?:ent|en)\s*\d+\s*[:\-]?\s*/i, '').trim();
         return stripped || normalized;
     };
 
@@ -641,10 +641,10 @@
         const cleanName = stripElementPrefix(nameValue);
 
         if (Number.isFinite(elementNumber) && elementNumber > 0) {
-            return cleanName !== '' ? `Element ${elementNumber} : ${cleanName}` : `Element ${elementNumber}`;
+            return cleanName !== '' ? `Elemen ${elementNumber} : ${cleanName}` : `Elemen ${elementNumber}`;
         }
 
-        return cleanName !== '' ? cleanName : 'Element';
+        return cleanName !== '' ? cleanName : 'Elemen';
     };
 
     const buildElementDisplayTitle = (elementCard, nameValue = '') => {
@@ -1314,7 +1314,7 @@
         let hasWarning = false;
         const elementInputs = Array.from(elementsContainer.querySelectorAll('.pref-weight-input[data-weight-type="element"]'));
         const elementTotal = elementInputs.reduce((total, input) => total + parseWeightValue(input), 0);
-        const elementWarning = buildWeightWarningMessage('element', elementTotal);
+        const elementWarning = buildWeightWarningMessage('elemen', elementTotal);
         if (elementInputs.length > 0 && elementWarning !== '') {
             applyGroupWeightWarning(
                 elementInputs,
@@ -1576,19 +1576,19 @@
 
                 <div class="pref-element-controls">
                     <div class="pref-weight-field pref-element-title-field">
-                        <label class="form-label mb-1">Nama Element</label>
+                        <label class="form-label mb-1">Nama Elemen</label>
                         <input
                             type="text"
                             class="form-control"
                             name="elements[${elementSlug}][title]"
                             value="${title}"
-                            placeholder="Nama element"
+                            placeholder="Nama elemen"
                             data-element-title-input
                         >
                     </div>
 
                     <div class="pref-weight-field">
-                        <label class="form-label mb-1">Bobot Element (%)</label>
+                        <label class="form-label mb-1">Bobot Elemen (%)</label>
                         <input
                             type="number"
                             name="elements[${elementSlug}][weight]"
@@ -1606,13 +1606,13 @@
                             Tambah Topik
                         </button>
                         <button type="button" class="btn btn-outline-danger btn-sm" data-remove-element>
-                            Hapus Element
+                            Hapus Elemen
                         </button>
                     </div>
                 </div>
 
                 <details class="pref-level-card pref-level-card-element" data-pref-slide>
-                    <summary>Informasi Level Element (1-5)</summary>
+                    <summary>Informasi Level Elemen (1-5)</summary>
                     <div class="pref-level-body">
                         <div class="pref-level-grid">
                             ${elementLevelFields}
@@ -1674,8 +1674,8 @@
             event.preventDefault();
 
             openConfirmModal({
-                title: 'Reset Data Element',
-                message: 'Semua isian Element dan riwayat edit akan dihapus permanen. Tindakan ini tidak bisa dibatalkan. Lanjutkan?',
+                title: 'Reset Data Elemen',
+                message: 'Semua isian elemen dan riwayat edit akan dihapus permanen. Tindakan ini tidak bisa dibatalkan. Lanjutkan?',
                 label: 'Reset Data',
                 kind: 'danger',
                 trigger: resetDataTrigger,
@@ -1796,15 +1796,15 @@
 
             const totalElements = elementsContainer.querySelectorAll('[data-element-card]').length;
             if (totalElements <= 1) {
-                window.alert('Minimal harus ada 1 element.');
+                window.alert('Minimal harus ada 1 elemen.');
                 return;
             }
 
-            const elementTitle = elementCard.querySelector('.pref-element-title')?.textContent?.trim() || 'Element';
+            const elementTitle = elementCard.querySelector('.pref-element-title')?.textContent?.trim() || 'Elemen';
             openConfirmModal({
-                title: 'Hapus Element',
-                message: `Element "${elementTitle}" akan dihapus dari struktur. Lanjutkan?`,
-                label: 'Hapus Element',
+                title: 'Hapus Elemen',
+                message: `Elemen "${elementTitle}" akan dihapus dari struktur. Lanjutkan?`,
+                label: 'Hapus Elemen',
                 kind: 'danger',
                 trigger: removeElementButton,
                 onConfirm: () => {
@@ -1813,7 +1813,7 @@
                     showToast({
                         type: 'success',
                         title: 'Berhasil',
-                        message: `Element ${elementTitle} dihapus dari draft preferensi.`,
+                        message: `Elemen ${elementTitle} dihapus dari draft preferensi.`,
                     });
                 },
             });
@@ -1838,7 +1838,7 @@
 
             const subtopicCount = elementCard.querySelectorAll('[data-subtopic-card]').length;
             if (subtopicCount <= 1) {
-                window.alert('Minimal harus ada 1 topik pada setiap element.');
+                window.alert('Minimal harus ada 1 topik pada setiap elemen.');
                 return;
             }
 

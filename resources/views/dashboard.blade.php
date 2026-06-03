@@ -63,9 +63,6 @@
     $formatPercent = static function (float $value): string {
         return rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.');
     };
-    $overallSimpleStatus = $overallLevel !== null
-        ? $overallLevelLabel.' - '.$overallPredikat
-        : 'Belum Dinilai';
 @endphp
 
 @push('head')
@@ -90,20 +87,14 @@
                 </div>
                 <h1 class="apip-title">Kapabilitas APIP Saat Ini</h1>
                 <p class="apip-subtitle">
-                    Gambaran cepat nilai, level, dan capaian penilaian APIP dari seluruh element.
+                    Gambaran cepat nilai, level, dan capaian penilaian APIP dari seluruh elemen.
                 </p>
-
-                <div class="apip-status-strip {{ $overallLevelClass }}">
-                    <span>Posisi saat ini</span>
-                    <strong>{{ $overallSimpleStatus }}</strong>
-                    <small>Skor {{ number_format((float) ($overallWeightedScore ?? 0), 2) }}</small>
-                </div>
 
                 <div class="apip-overview-kpis">
                     <div class="apip-kpi">
                         <div class="kpi-label">Nilai APIP <span class="qa-mandiri-suffix">(Mandiri)</span></div>
                         <div class="kpi-value">{{ number_format((float) ($overallWeightedScore ?? 0), 2) }}</div>
-                        <div class="kpi-note">Akumulasi nilai seluruh element</div>
+                        <div class="kpi-note">Akumulasi nilai seluruh elemen</div>
                     </div>
                     <div class="apip-kpi">
                         <div class="kpi-label">Level APIP <span class="qa-mandiri-suffix">(Mandiri)</span></div>
@@ -120,6 +111,18 @@
                         <div class="kpi-value">{{ $overallLevelLabelQa }}</div>
                         <div class="kpi-note qa-level-font">{{ $overallPredikatQa }}</div>
                     </div>
+                </div>
+
+                <div class="apip-level-info-panel {{ $overallLevelClass }}">
+                    <div class="apip-level-info-heading">
+                        <span>Informasi Level PK APIP</span>
+                    </div>
+                    @if ($overallDescription !== '')
+                        <p>{{ $overallDescription }}</p>
+                    @endif
+                    @if ($overallDescriptionQa !== '')
+                        <p class="qa-only qa-level-font">QA: {{ $overallDescriptionQa }}</p>
+                    @endif
                 </div>
             </article>
 
@@ -172,12 +175,6 @@
                         <span class="meter-level-separator">-</span>
                         <span class="meter-predikat">{{ $overallPredikatQa }}</span>
                     </div>
-                    @if ($overallDescription !== '')
-                        <p class="meter-note">{{ $overallDescription }}</p>
-                    @endif
-                    @if ($overallDescriptionQa !== '')
-                        <p class="meter-note qa-only qa-level-font">QA: {{ $overallDescriptionQa }}</p>
-                    @endif
                 </div>
             </article>
         </section>
@@ -401,7 +398,7 @@
                 @endif
             @endif
         </section>
-        <section class="card apip-element-summary-card apip-element-recap-card">
+        <section class="card apip-element-summary-card apip-element-recap-card" id="apipLevelRecap">
             @php
                 $levelRecap = [
                     'level1' => [
@@ -443,7 +440,7 @@
                         'label' => 'Belum Dinilai',
                         'predikat' => 'Belum Dinilai',
                         'level_class' => 'pending',
-                        'description' => 'Element belum memiliki data penilaian mandiri yang cukup untuk menentukan level.',
+                        'description' => 'Elemen belum memiliki data penilaian mandiri yang cukup untuk menentukan level.',
                         'elements' => [],
                     ],
                 ];
@@ -456,7 +453,7 @@
 
                     $levelRecap[$bucketKey]['elements'][] = [
                         'slug' => (string) ($element['slug'] ?? ''),
-                        'title' => (string) ($element['title'] ?? 'Element'),
+                        'title' => (string) ($element['title'] ?? 'Elemen'),
                         'level_label' => (string) ($element['level_label'] ?? 'Belum Dinilai'),
                         'predikat' => (string) ($element['predikat'] ?? 'Belum Dinilai'),
                         'score' => is_numeric($element['score'] ?? null) ? number_format((float) $element['score'], 2) : '-',
@@ -469,7 +466,6 @@
                                 if ($title === '') {
                                     $title = trim((string) ($subtopic['slug'] ?? 'Topik'));
                                 }
-                                $levelLabel = trim((string) ($subtopic['level_label'] ?? '-'));
                                 $levelNote = trim((string) ($subtopic['level_note'] ?? $subtopic['description'] ?? ''));
                                 if ($levelNote === '') {
                                     $levelNote = 'Belum ada informasi level topik.';
@@ -477,7 +473,6 @@
 
                                 return [
                                     'title' => $title,
-                                    'level_label' => $levelLabel !== '' ? $levelLabel : '-',
                                     'level_note' => $levelNote,
                                 ];
                             })
@@ -498,6 +493,9 @@
                             'count' => count($bucket['elements'] ?? []),
                             'elements' => collect((array) ($bucket['elements'] ?? []))
                                 ->map(function (array $item): array {
+                                    $slug = (string) ($item['slug'] ?? '');
+                                    $canOpen = (bool) ($item['can_open'] ?? true);
+
                                     return [
                                         'title' => (string) ($item['title'] ?? ''),
                                         'level_label' => (string) ($item['level_label'] ?? 'Belum Dinilai'),
@@ -506,11 +504,11 @@
                                         'weighted_score' => (string) ($item['weighted_score'] ?? '0.00'),
                                         'subtopic_count' => (int) ($item['subtopic_count'] ?? 0),
                                         'assessed_subtopic_count' => (int) ($item['assessed_subtopic_count'] ?? 0),
+                                        'open_url' => ($canOpen && $slug !== '') ? route('elements.show', $slug) : '',
                                         'subtopic_details' => collect((array) ($item['subtopic_details'] ?? []))
                                             ->map(function (array $subtopic): array {
                                                 return [
                                                     'title' => trim((string) ($subtopic['title'] ?? '')),
-                                                    'level_label' => trim((string) ($subtopic['level_label'] ?? '-')),
                                                     'level_note' => trim((string) ($subtopic['level_note'] ?? 'Belum ada informasi level topik.')),
                                                 ];
                                             })
@@ -529,69 +527,164 @@
                 $pendingElementCount = count($levelRecap['pending']['elements']);
                 $pendingBucket = $levelRecap['pending'];
                 $mainLevelBuckets = collect($levelRecap)->except('pending')->all();
+                $assessedPercent = $totalElementCount > 0 ? (int) round(($assessedElementCount / $totalElementCount) * 100) : 0;
+                $nonEmptyLevelBuckets = collect($mainLevelBuckets)
+                    ->filter(fn (array $bucket): bool => count($bucket['elements'] ?? []) > 0)
+                    ->all();
+                $recapFilterBuckets = collect($mainLevelBuckets)
+                    ->put('pending', $pendingBucket)
+                    ->all();
+                $renderRecapLevelIcon = static function (string $levelKey): string {
+                    return match ($levelKey) {
+                        'level1' => '<svg viewBox="0 0 24 24" focusable="false"><path d="M12 21v-8"></path><path d="M12 13C7.5 13 5 10.5 5 6c4.5 0 7 2.5 7 7Z"></path><path d="M12 13c4.5 0 7-2.5 7-7-4.5 0-7 2.5-7 7Z"></path></svg>',
+                        'level2' => '<svg viewBox="0 0 24 24" focusable="false"><path d="M4 4h7v7H4Z"></path><path d="M13 4h7v7h-7Z"></path><path d="M4 13h7v7H4Z"></path><path d="M13 13h7v7h-7Z"></path></svg>',
+                        'level3' => '<svg viewBox="0 0 24 24" focusable="false"><path d="m5 12 4 4L19 6"></path><path d="M21 12a9 9 0 1 1-5.1-8.1"></path></svg>',
+                        'level4' => '<svg viewBox="0 0 24 24" focusable="false"><path d="M7 8h10"></path><path d="M7 16h10"></path><path d="M8 8v8"></path><path d="M16 8v8"></path><circle cx="7" cy="8" r="2"></circle><circle cx="17" cy="8" r="2"></circle><circle cx="7" cy="16" r="2"></circle><circle cx="17" cy="16" r="2"></circle></svg>',
+                        'level5' => '<svg viewBox="0 0 24 24" focusable="false"><path d="m12 3 2.3 4.7 5.2.8-3.8 3.7.9 5.2-4.6-2.5-4.6 2.5.9-5.2-3.8-3.7 5.2-.8Z"></path><path d="M12 15v6"></path></svg>',
+                        default => '<svg viewBox="0 0 24 24" focusable="false"><path d="M12 8v5"></path><path d="M12 17h.01"></path><path d="M10.3 3.86 2.82 17.1A2 2 0 0 0 4.56 20h14.88a2 2 0 0 0 1.74-2.9L13.7 3.86a2 2 0 0 0-3.4 0Z"></path></svg>',
+                    };
+                };
             @endphp
             <div class="section-head apip-summary-head">
                 <div class="apip-summary-head-top">
-                    <h3>Rekapitulasi Level Element</h3>
+                    <h3>Rekapitulasi Level Elemen</h3>
                     <div class="apip-summary-actions">
                         <button
                             type="button"
                             class="apip-summary-hint hint-bubble-trigger"
-                            data-hint="Ringkasan ini menampilkan persebaran level mandiri per element. Gunakan tombol Info Level untuk membaca penjelasan level tanpa menambah detail di dashboard utama."
-                            aria-label="Informasi rekapitulasi level element">
+                            data-hint="Ringkasan ini menampilkan persebaran level mandiri per elemen. Gunakan bar level untuk memfilter, atau ikon ? untuk membaca penjelasan level."
+                            aria-label="Informasi rekapitulasi level elemen">
                             ?
                         </button>
                     </div>
                 </div>
-                <p>Dashboard ringkas: fokus pada element yang sudah berada di Level 1-5 dan yang belum dinilai.</p>
+                <p>Peta ringkas persebaran level dan tindak lanjut elemen.</p>
             </div>
 
-            <div class="apip-recap-kpi-strip">
-                <div class="apip-recap-kpi">
-                    <span>Total Element</span>
+            <div class="apip-recap-insights" aria-label="Ringkasan rekapitulasi level elemen">
+                <div class="apip-recap-insight is-total">
+                    <span class="apip-recap-insight-main">
+                        <span class="apip-recap-insight-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <path d="M4 7.5 12 3l8 4.5-8 4.5L4 7.5Z"></path>
+                                <path d="M4 12l8 4.5 8-4.5"></path>
+                                <path d="M4 16.5 12 21l8-4.5"></path>
+                            </svg>
+                        </span>
+                        <span class="apip-recap-insight-label">Total</span>
+                    </span>
                     <strong>{{ $totalElementCount }}</strong>
                 </div>
-                <div class="apip-recap-kpi">
-                    <span>Sudah Dinilai</span>
-                    <strong>{{ $assessedElementCount }}</strong>
+                <div class="apip-recap-insight is-progress">
+                    <span class="apip-recap-insight-main">
+                        <span class="apip-recap-insight-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <path d="M4 17h16"></path>
+                                <path d="M7 14l4-4 3 3 5-6"></path>
+                                <path d="M15 7h4v4"></path>
+                            </svg>
+                        </span>
+                        <span class="apip-recap-insight-label">Progress</span>
+                    </span>
+                    <strong>{{ $assessedPercent }}%</strong>
                 </div>
-                <div class="apip-recap-kpi">
-                    <span>Belum Dinilai</span>
+                <div class="apip-recap-insight is-pending">
+                    <span class="apip-recap-insight-main">
+                        <span class="apip-recap-insight-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <path d="M12 8v5"></path>
+                                <path d="M12 17h.01"></path>
+                                <path d="M10.3 3.86 2.82 17.1A2 2 0 0 0 4.56 20h14.88a2 2 0 0 0 1.74-2.9L13.7 3.86a2 2 0 0 0-3.4 0Z"></path>
+                            </svg>
+                        </span>
+                        <span class="apip-recap-insight-label">Belum</span>
+                    </span>
                     <strong>{{ $pendingElementCount }}</strong>
                 </div>
             </div>
 
-            <div class="apip-recap-grid">
-                @foreach ($mainLevelBuckets as $levelKey => $bucket)
-                    <article class="apip-recap-level-card {{ $bucket['level_class'] }}">
+            <div class="apip-recap-level-map" role="group" aria-label="Filter rekapitulasi level elemen">
+                <button
+                    type="button"
+                    class="apip-recap-filter is-all is-active"
+                    data-recap-filter="all"
+                    aria-pressed="true">
+                    <span>Semua</span>
+                    <strong>{{ $totalElementCount }}</strong>
+                </button>
+                @foreach ($recapFilterBuckets as $levelKey => $bucket)
+                    @php
+                        $bucketCount = count($bucket['elements'] ?? []);
+                        $bucketLabel = (string) ($bucket['label'] ?? 'Level');
+                        $shortLabel = $levelKey === 'pending'
+                            ? 'Belum Dinilai'
+                            : $bucketLabel;
+                    @endphp
+                    <button
+                        type="button"
+                        class="apip-recap-filter {{ $bucket['level_class'] }} {{ $bucketCount === 0 ? 'is-empty' : '' }}"
+                        data-recap-filter="{{ $levelKey }}"
+                        aria-pressed="false"
+                        aria-label="Filter {{ $bucketLabel }}: {{ $bucketCount }} elemen">
+                        <span>{{ $shortLabel }}</span>
+                        <strong>{{ $bucketCount }}</strong>
+                    </button>
+                @endforeach
+            </div>
+
+            <div class="apip-recap-grid" data-recap-grid>
+                @foreach ($nonEmptyLevelBuckets as $levelKey => $bucket)
+                    <article class="apip-recap-level-card {{ $bucket['level_class'] }}" data-recap-card="{{ $levelKey }}">
                         <div class="apip-recap-level-head">
                             <div class="apip-recap-level-title-wrap">
                                 <span class="level-chip {{ $bucket['level_class'] }}">{{ $bucket['label'] }}</span>
-                                <h4>{{ $bucket['predikat'] }}</h4>
+                                <div class="apip-recap-level-heading">
+                                    <span class="apip-recap-predikat-icon" aria-hidden="true">
+                                        {!! $renderRecapLevelIcon($levelKey) !!}
+                                    </span>
+                                    <h4>{{ $bucket['predikat'] }}</h4>
+                                </div>
                             </div>
                             <button
                                 type="button"
                                 class="apip-level-info-btn"
                                 data-level-modal-open="{{ $levelKey }}"
                                 aria-label="Lihat informasi {{ $bucket['label'] }}">
-                                Info Level
+                                ?
                             </button>
                         </div>
                         <div class="apip-recap-level-count">
                             <strong>{{ count($bucket['elements']) }}</strong>
-                            <span>element</span>
+                            <span>elemen</span>
                         </div>
                         <div class="apip-recap-level-list">
-                            @forelse ($bucket['elements'] as $item)
-                                <div class="apip-recap-element-item">
-                                    <span class="apip-recap-element-name">{{ $item['title'] }}</span>
-                                    @if(($item['can_open'] ?? false) && ($item['slug'] ?? '') !== '')
-                                        <a class="btn-open-element" href="{{ route('elements.show', $item['slug']) }}">Buka</a>
-                                    @endif
-                                </div>
-                            @empty
-                                <div class="empty-state apip-recap-empty">Belum ada element pada kategori ini.</div>
-                            @endforelse
+                            @foreach ($bucket['elements'] as $item)
+                                @php
+                                    $itemTitle = trim((string) ($item['title'] ?? ''));
+                                    $itemCode = '';
+                                    $itemName = $itemTitle;
+                                    if (preg_match('/^Elem(?:ent|en)\s+(\d+)\s*:\s*(.+)$/i', $itemTitle, $itemMatches)) {
+                                        $itemCode = 'E'.$itemMatches[1];
+                                        $itemName = trim($itemMatches[2]);
+                                    }
+                                @endphp
+                                @if(($item['can_open'] ?? false) && ($item['slug'] ?? '') !== '')
+                                    <a class="apip-recap-element-chip" href="{{ route('elements.show', $item['slug']) }}" aria-label="Buka {{ $itemTitle }}">
+                                        @if ($itemCode !== '')
+                                            <span class="apip-recap-element-code">{{ $itemCode }}</span>
+                                        @endif
+                                        <span class="apip-recap-element-name">{{ $itemName }}</span>
+                                        <span class="apip-recap-chip-action" aria-hidden="true">&rsaquo;</span>
+                                    </a>
+                                @else
+                                    <span class="apip-recap-element-chip">
+                                        @if ($itemCode !== '')
+                                            <span class="apip-recap-element-code">{{ $itemCode }}</span>
+                                        @endif
+                                        <span class="apip-recap-element-name">{{ $itemName }}</span>
+                                    </span>
+                                @endif
+                            @endforeach
                         </div>
                     </article>
                 @endforeach
@@ -599,63 +692,66 @@
 
             @if ($pendingElementCount > 0)
                 <div class="apip-recap-pending-row">
-                    <article class="apip-recap-level-card pending apip-recap-level-card-pending-row">
+                    <article class="apip-recap-level-card pending apip-recap-level-card-pending-row" data-recap-card="pending">
                         <div class="apip-recap-level-head">
                             <div class="apip-recap-level-title-wrap">
                                 <span class="level-chip pending">{{ $pendingBucket['label'] }}</span>
-                                <h4>Perlu Tindak Lanjut Penilaian</h4>
+                                <div class="apip-recap-level-heading">
+                                    <span class="apip-recap-predikat-icon" aria-hidden="true">
+                                        {!! $renderRecapLevelIcon('pending') !!}
+                                    </span>
+                                    <h4>Perlu Tindak Lanjut Penilaian</h4>
+                                </div>
                             </div>
                             <button
                                 type="button"
                                 class="apip-level-info-btn"
                                 data-level-modal-open="pending"
                                 aria-label="Lihat informasi {{ $pendingBucket['label'] }}">
-                                Info Level
+                                ?
                             </button>
                         </div>
                         <div class="apip-recap-level-count">
                             <strong>{{ $pendingElementCount }}</strong>
-                            <span>element</span>
+                            <span>elemen</span>
                         </div>
                         <div class="apip-recap-level-list">
                             @foreach ($pendingBucket['elements'] as $item)
-                                <div class="apip-recap-element-item">
-                                    <span class="apip-recap-element-name">{{ $item['title'] }}</span>
-                                    @if(($item['can_open'] ?? false) && ($item['slug'] ?? '') !== '')
-                                        <a class="btn-open-element" href="{{ route('elements.show', $item['slug']) }}">Buka</a>
-                                    @endif
-                                </div>
+                                @php
+                                    $itemTitle = trim((string) ($item['title'] ?? ''));
+                                    $itemCode = '';
+                                    $itemName = $itemTitle;
+                                    if (preg_match('/^Elem(?:ent|en)\s+(\d+)\s*:\s*(.+)$/i', $itemTitle, $itemMatches)) {
+                                        $itemCode = 'E'.$itemMatches[1];
+                                        $itemName = trim($itemMatches[2]);
+                                    }
+                                @endphp
+                                @if(($item['can_open'] ?? false) && ($item['slug'] ?? '') !== '')
+                                    <a class="apip-recap-element-chip is-action" href="{{ route('elements.show', $item['slug']) }}" aria-label="Buka {{ $itemTitle }}">
+                                        @if ($itemCode !== '')
+                                            <span class="apip-recap-element-code">{{ $itemCode }}</span>
+                                        @endif
+                                        <span class="apip-recap-element-name">{{ $itemName }}</span>
+                                        <span class="apip-recap-chip-action" aria-hidden="true">&rsaquo;</span>
+                                    </a>
+                                @else
+                                    <span class="apip-recap-element-chip is-action">
+                                        @if ($itemCode !== '')
+                                            <span class="apip-recap-element-code">{{ $itemCode }}</span>
+                                        @endif
+                                        <span class="apip-recap-element-name">{{ $itemName }}</span>
+                                    </span>
+                                @endif
                             @endforeach
                         </div>
                     </article>
                 </div>
             @endif
 
-            <div class="apip-level-modal" id="apipLevelModal" hidden>
-                <div class="apip-level-modal__backdrop" data-level-modal-close></div>
-                <div
-                    class="apip-level-modal__dialog has-footer"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="apipLevelModalTitle"
-                    aria-describedby="apipLevelModalDesc">
-                    <div class="apip-level-modal__header">
-                        <button type="button" class="apip-level-modal__close" data-level-modal-close aria-label="Tutup info level">&times;</button>
-                        <p class="apip-level-modal__eyebrow" id="apipLevelModalEyebrow">Informasi Level</p>
-                        <h4 class="apip-level-modal__title" id="apipLevelModalTitle">Level</h4>
-                        <p class="apip-level-modal__desc" id="apipLevelModalDesc"></p>
-                    </div>
-                    <div class="apip-level-modal__body">
-                        <div class="apip-level-modal__count">
-                            Jumlah Element: <strong id="apipLevelModalCount">0</strong>
-                        </div>
-                        <div class="apip-level-modal__list" id="apipLevelModalList"></div>
-                    </div>
-                    <div class="apip-level-modal__footer">
-                        <button type="button" class="apip-level-modal__footer-btn btn btn-outline-secondary" data-level-modal-close>Tutup</button>
-                    </div>
-                </div>
+            <div class="apip-recap-filter-empty" data-recap-empty hidden>
+                Kategori ini belum memiliki elemen.
             </div>
+
         </section>
         @if($qaFeatureEnabled)
             <button
@@ -673,6 +769,54 @@
     </div>
 @endsection
 
+@push('global-modals')
+    <div class="apip-level-modal" id="apipLevelModal" hidden aria-hidden="true">
+        <div class="apip-level-modal__backdrop" data-level-modal-close></div>
+        <div
+            class="apip-level-modal__dialog has-footer"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="apipLevelModalTitle"
+            aria-describedby="apipLevelModalDesc">
+            <div class="apip-level-modal__header">
+                <button type="button" class="apip-level-modal__close" data-level-modal-close aria-label="Tutup info level">&times;</button>
+                <div class="apip-level-modal__hero">
+                    <span class="apip-level-modal__hero-icon" id="apipLevelModalIcon" aria-hidden="true"></span>
+                    <div class="apip-level-modal__hero-copy">
+                        <p class="apip-level-modal__eyebrow" id="apipLevelModalEyebrow">Informasi Level</p>
+                        <h4 class="apip-level-modal__title" id="apipLevelModalTitle">Level</h4>
+                        <p class="apip-level-modal__desc" id="apipLevelModalDesc"></p>
+                    </div>
+                </div>
+            </div>
+            <div class="apip-level-modal__body">
+                <div class="apip-level-modal__stats" aria-label="Ringkasan informasi level">
+                    <div class="apip-level-modal__stat">
+                        <span>Elemen</span>
+                        <strong id="apipLevelModalCount">0</strong>
+                    </div>
+                    <div class="apip-level-modal__stat">
+                        <span>Topik</span>
+                        <strong id="apipLevelModalTopicCount">0</strong>
+                    </div>
+                    <div class="apip-level-modal__stat">
+                        <span>Rata-rata Skor</span>
+                        <strong id="apipLevelModalAvgScore">-</strong>
+                    </div>
+                    <div class="apip-level-modal__stat">
+                        <span>Progress Topik</span>
+                        <strong id="apipLevelModalTopicProgress">-</strong>
+                    </div>
+                </div>
+                <div class="apip-level-modal__list" id="apipLevelModalList"></div>
+            </div>
+            <div class="apip-level-modal__footer">
+                <button type="button" class="apip-level-modal__footer-btn btn btn-outline-secondary" data-level-modal-close>Tutup</button>
+            </div>
+        </div>
+    </div>
+@endpush
+
 @push('scripts')
 <script>
 const dashboardLevelRecapPayload = @json($levelRecapPayload ?? []);
@@ -685,10 +829,14 @@ const initDashboardLevelRecapModal = () => {
     }
 
     const modalDialog = modal.querySelector('.apip-level-modal__dialog');
+    const modalIcon = document.getElementById('apipLevelModalIcon');
     const modalTitle = document.getElementById('apipLevelModalTitle');
     const modalEyebrow = document.getElementById('apipLevelModalEyebrow');
     const modalDesc = document.getElementById('apipLevelModalDesc');
     const modalCount = document.getElementById('apipLevelModalCount');
+    const modalTopicCount = document.getElementById('apipLevelModalTopicCount');
+    const modalAvgScore = document.getElementById('apipLevelModalAvgScore');
+    const modalTopicProgress = document.getElementById('apipLevelModalTopicProgress');
     const modalList = document.getElementById('apipLevelModalList');
     const closeButtons = modal.querySelectorAll('[data-level-modal-close]');
     const openButtons = document.querySelectorAll('[data-level-modal-open]');
@@ -697,6 +845,81 @@ const initDashboardLevelRecapModal = () => {
         : {};
     const modalToneClasses = ['is-level-1', 'is-level-2', 'is-level-3', 'is-level-4', 'is-level-5', 'is-pending'];
     const modalTransitionMs = 240;
+    const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const accordionTransitionMs = prefersReducedMotion ? 0 : 240;
+
+    const levelIconSvg = (levelKey) => ({
+        level1: '<svg viewBox="0 0 24 24" focusable="false"><path d="M12 21v-8"></path><path d="M12 13C7.5 13 5 10.5 5 6c4.5 0 7 2.5 7 7Z"></path><path d="M12 13c4.5 0 7-2.5 7-7-4.5 0-7 2.5-7 7Z"></path></svg>',
+        level2: '<svg viewBox="0 0 24 24" focusable="false"><path d="M4 4h7v7H4Z"></path><path d="M13 4h7v7h-7Z"></path><path d="M4 13h7v7H4Z"></path><path d="M13 13h7v7h-7Z"></path></svg>',
+        level3: '<svg viewBox="0 0 24 24" focusable="false"><path d="m5 12 4 4L19 6"></path><path d="M21 12a9 9 0 1 1-5.1-8.1"></path></svg>',
+        level4: '<svg viewBox="0 0 24 24" focusable="false"><path d="M7 8h10"></path><path d="M7 16h10"></path><path d="M8 8v8"></path><path d="M16 8v8"></path><circle cx="7" cy="8" r="2"></circle><circle cx="17" cy="8" r="2"></circle><circle cx="7" cy="16" r="2"></circle><circle cx="17" cy="16" r="2"></circle></svg>',
+        level5: '<svg viewBox="0 0 24 24" focusable="false"><path d="m12 3 2.3 4.7 5.2.8-3.8 3.7.9 5.2-4.6-2.5-4.6 2.5.9-5.2-3.8-3.7 5.2-.8Z"></path><path d="M12 15v6"></path></svg>',
+        pending: '<svg viewBox="0 0 24 24" focusable="false"><path d="M12 8v5"></path><path d="M12 17h.01"></path><path d="M10.3 3.86 2.82 17.1A2 2 0 0 0 4.56 20h14.88a2 2 0 0 0 1.74-2.9L13.7 3.86a2 2 0 0 0-3.4 0Z"></path></svg>',
+    }[levelKey] || '<svg viewBox="0 0 24 24" focusable="false"><path d="M12 8v5"></path><path d="M12 17h.01"></path><path d="M10.3 3.86 2.82 17.1A2 2 0 0 0 4.56 20h14.88a2 2 0 0 0 1.74-2.9L13.7 3.86a2 2 0 0 0-3.4 0Z"></path></svg>');
+
+    const formatModalScore = (value) => {
+        const score = Number.parseFloat(String(value ?? '').replace(',', '.'));
+        return Number.isFinite(score) ? score.toFixed(2) : '-';
+    };
+
+    const animateModalAccordion = (details, shouldOpen) => {
+        const content = details ? details.querySelector('.apip-level-modal__item-body') : null;
+        if (!details || !content) return;
+
+        if (details._modalAccordionTimer) {
+            window.clearTimeout(details._modalAccordionTimer);
+            details._modalAccordionTimer = null;
+        }
+
+        if (accordionTransitionMs === 0) {
+            details.open = shouldOpen;
+            content.style.removeProperty('height');
+            content.style.removeProperty('opacity');
+            content.style.removeProperty('overflow');
+            return;
+        }
+
+        if (shouldOpen) {
+            details.open = true;
+            details.classList.add('is-animating');
+            content.style.height = '0px';
+            content.style.opacity = '0';
+            content.style.overflow = 'hidden';
+
+            window.requestAnimationFrame(() => {
+                content.style.height = `${content.scrollHeight}px`;
+                content.style.opacity = '1';
+            });
+
+            details._modalAccordionTimer = window.setTimeout(() => {
+                content.style.removeProperty('height');
+                content.style.removeProperty('opacity');
+                content.style.removeProperty('overflow');
+                details.classList.remove('is-animating');
+                details._modalAccordionTimer = null;
+            }, accordionTransitionMs);
+            return;
+        }
+
+        details.classList.add('is-animating');
+        content.style.height = `${content.scrollHeight}px`;
+        content.style.opacity = '1';
+        content.style.overflow = 'hidden';
+
+        window.requestAnimationFrame(() => {
+            content.style.height = '0px';
+            content.style.opacity = '0';
+        });
+
+        details._modalAccordionTimer = window.setTimeout(() => {
+            details.open = false;
+            content.style.removeProperty('height');
+            content.style.removeProperty('opacity');
+            content.style.removeProperty('overflow');
+            details.classList.remove('is-animating');
+            details._modalAccordionTimer = null;
+        }, accordionTransitionMs);
+    };
 
     const getViewportUiScale = () => {
         const zoomRaw = getComputedStyle(document.body).zoom;
@@ -742,6 +965,7 @@ const initDashboardLevelRecapModal = () => {
 
     const closeModal = () => {
         modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
         window.setTimeout(() => {
             modal.hidden = true;
             clearModalViewportStyles();
@@ -765,6 +989,28 @@ const initDashboardLevelRecapModal = () => {
             modalDialog.classList.add(toneClass);
         }
 
+        const entries = Array.isArray(levelData.elements) ? levelData.elements : [];
+        const topicTotal = entries.reduce((sum, item) => {
+            const total = Number.parseInt(item.subtopic_count ?? 0, 10);
+            return sum + (Number.isFinite(total) ? Math.max(0, total) : 0);
+        }, 0);
+        const topicAssessed = entries.reduce((sum, item) => {
+            const assessed = Number.parseInt(item.assessed_subtopic_count ?? 0, 10);
+            return sum + (Number.isFinite(assessed) ? Math.max(0, assessed) : 0);
+        }, 0);
+        const numericScores = entries
+            .map((item) => Number.parseFloat(String(item.score ?? '').replace(',', '.')))
+            .filter((score) => Number.isFinite(score));
+        const avgScore = numericScores.length > 0
+            ? (numericScores.reduce((sum, score) => sum + score, 0) / numericScores.length).toFixed(2)
+            : '-';
+        const topicProgressPercent = topicTotal > 0
+            ? Math.round((Math.min(topicAssessed, topicTotal) / topicTotal) * 100)
+            : null;
+
+        if (modalIcon) {
+            modalIcon.innerHTML = levelIconSvg(levelKey);
+        }
         if (modalEyebrow) {
             modalEyebrow.textContent = `Informasi ${levelData.label ?? 'Level'}`;
         }
@@ -779,37 +1025,82 @@ const initDashboardLevelRecapModal = () => {
             modalDesc.textContent = levelData.description ?? '';
         }
         if (modalCount) {
-            modalCount.textContent = String(levelData.count ?? 0);
+            modalCount.textContent = String(levelData.count ?? entries.length);
+        }
+        if (modalTopicCount) {
+            modalTopicCount.textContent = topicTotal > 0 ? `${topicAssessed}/${topicTotal}` : '-';
+        }
+        if (modalAvgScore) {
+            modalAvgScore.textContent = avgScore;
+        }
+        if (modalTopicProgress) {
+            modalTopicProgress.textContent = topicProgressPercent !== null ? `${topicProgressPercent}%` : '-';
         }
 
         if (!modalList) return;
 
-        const entries = Array.isArray(levelData.elements) ? levelData.elements : [];
         if (entries.length === 0) {
-            modalList.innerHTML = '<div class="apip-level-modal__empty">Belum ada element pada kategori ini.</div>';
+            modalList.innerHTML = '<div class="apip-level-modal__empty">Belum ada elemen pada kategori ini.</div>';
             return;
         }
 
         modalList.innerHTML = '';
-        entries.forEach((item) => {
-            const article = document.createElement('article');
-            article.className = 'apip-level-modal__item';
+        entries.forEach((item, index) => {
+            const details = document.createElement('details');
+            details.className = 'apip-level-modal__item';
+            details.open = index === 0;
+
+            const subtopicTotal = Number.parseInt(item.subtopic_count ?? 0, 10);
+            const subtopicAssessed = Number.parseInt(item.assessed_subtopic_count ?? 0, 10);
+            const isSubtopicCountValid = Number.isFinite(subtopicTotal) && subtopicTotal > 0;
+            const progressPercent = isSubtopicCountValid
+                ? Math.round((Math.min(Math.max(0, subtopicAssessed), subtopicTotal) / subtopicTotal) * 100)
+                : 0;
+            const subtopicProgress = isSubtopicCountValid
+                ? `${Math.max(0, subtopicAssessed)}/${subtopicTotal}`
+                : '-';
+
+            const summary = document.createElement('summary');
+            summary.className = 'apip-level-modal__summary';
+
+            const summaryMain = document.createElement('span');
+            summaryMain.className = 'apip-level-modal__summary-main';
 
             const title = document.createElement('h5');
             title.textContent = item.title ?? '';
 
-            article.appendChild(title);
+            const progressWrap = document.createElement('span');
+            progressWrap.className = 'apip-level-modal__progress';
+            progressWrap.style.setProperty('--progress-width', `${progressPercent}%`);
+
+            const progressBar = document.createElement('span');
+            progressBar.className = 'apip-level-modal__progress-bar';
+
+            const progressText = document.createElement('span');
+            progressText.className = 'apip-level-modal__progress-text';
+            progressText.textContent = `Topik ${subtopicProgress}`;
+
+            progressWrap.appendChild(progressBar);
+            progressWrap.appendChild(progressText);
+            summaryMain.appendChild(title);
+            summaryMain.appendChild(progressWrap);
+
+            const chevron = document.createElement('span');
+            chevron.className = 'apip-level-modal__summary-toggle';
+            chevron.setAttribute('aria-hidden', 'true');
+            chevron.innerHTML = '<svg viewBox="0 0 24 24" focusable="false"><path d="m9 6 6 6-6 6"></path></svg>';
+
+            summary.appendChild(summaryMain);
+            summary.appendChild(chevron);
+            details.appendChild(summary);
+
+            const content = document.createElement('div');
+            content.className = 'apip-level-modal__item-body';
 
             const meta = document.createElement('div');
             meta.className = 'apip-level-modal__meta';
-            const subtopicTotal = Number.parseInt(item.subtopic_count ?? 0, 10);
-            const subtopicAssessed = Number.parseInt(item.assessed_subtopic_count ?? 0, 10);
-            const isSubtopicCountValid = Number.isFinite(subtopicTotal) && subtopicTotal > 0;
-            const subtopicProgress = isSubtopicCountValid
-                ? `${Math.max(0, subtopicAssessed)}/${subtopicTotal}`
-                : '-';
             const metaFields = [
-                ['Skor', item.score ?? '-'],
+                ['Skor', formatModalScore(item.score)],
                 ['Tertimbang', item.weighted_score ?? '0.00'],
                 ['Topik', subtopicProgress],
             ];
@@ -831,14 +1122,14 @@ const initDashboardLevelRecapModal = () => {
                 meta.appendChild(chip);
             });
 
-            article.appendChild(meta);
+            content.appendChild(meta);
 
             const subtopics = Array.isArray(item.subtopic_details) ? item.subtopic_details : [];
             if (subtopics.length === 0) {
                 const emptySubtopic = document.createElement('p');
                 emptySubtopic.className = 'apip-level-modal__subtopics';
-                emptySubtopic.textContent = 'Belum ada daftar topik untuk element ini.';
-                article.appendChild(emptySubtopic);
+                emptySubtopic.textContent = 'Belum ada daftar topik untuk elemen ini.';
+                content.appendChild(emptySubtopic);
             } else {
                 const subtopicList = document.createElement('div');
                 subtopicList.className = 'apip-level-modal__subtopic-list';
@@ -850,8 +1141,11 @@ const initDashboardLevelRecapModal = () => {
                     const subtopicHead = document.createElement('p');
                     subtopicHead.className = 'apip-level-modal__subtopic-head';
                     const subtopicTitle = String(subtopic.title ?? '').trim();
-                    const subtopicLevelLabel = String(subtopic.level_label ?? '-').trim() || '-';
-                    subtopicHead.textContent = `${subtopicTitle} (${subtopicLevelLabel})`;
+
+                    const subtopicName = document.createElement('span');
+                    subtopicName.textContent = subtopicTitle;
+
+                    subtopicHead.appendChild(subtopicName);
 
                     const subtopicLevelInfo = document.createElement('p');
                     subtopicLevelInfo.className = 'apip-level-modal__subtopic-note';
@@ -862,10 +1156,29 @@ const initDashboardLevelRecapModal = () => {
                     subtopicList.appendChild(subtopicRow);
                 });
 
-                article.appendChild(subtopicList);
+                content.appendChild(subtopicList);
             }
 
-            modalList.appendChild(article);
+            const openUrl = String(item.open_url ?? '').trim();
+            if (openUrl !== '') {
+                const actionWrap = document.createElement('div');
+                actionWrap.className = 'apip-level-modal__item-actions';
+
+                const openLink = document.createElement('a');
+                openLink.className = 'apip-level-modal__open-link';
+                openLink.href = openUrl;
+                openLink.textContent = 'Buka Elemen';
+
+                actionWrap.appendChild(openLink);
+                content.appendChild(actionWrap);
+            }
+
+            details.appendChild(content);
+            summary.addEventListener('click', (event) => {
+                event.preventDefault();
+                animateModalAccordion(details, !details.open);
+            });
+            modalList.appendChild(details);
         });
     };
 
@@ -875,7 +1188,8 @@ const initDashboardLevelRecapModal = () => {
         button.addEventListener('click', () => {
             const levelKey = button.getAttribute('data-level-modal-open') || '';
             renderModalContent(levelKey);
-            modal.hidden = false;
+            modal.removeAttribute('hidden');
+            modal.setAttribute('aria-hidden', 'false');
             requestAnimationFrame(() => {
                 modal.classList.add('is-open');
                 syncModalToViewport();
@@ -908,6 +1222,86 @@ const initDashboardLevelRecapModal = () => {
         window.addEventListener('scroll', syncModalToViewport, { passive: true });
         window.addEventListener('pageshow', syncModalToViewport);
     }
+};
+
+const initDashboardLevelRecapFilters = () => {
+    const recap = document.getElementById('apipLevelRecap');
+    if (!recap || recap.dataset.recapFilterBound === '1') return;
+
+    const filterButtons = Array.from(recap.querySelectorAll('[data-recap-filter]'));
+    const cards = Array.from(recap.querySelectorAll('[data-recap-card]'));
+    const emptyState = recap.querySelector('[data-recap-empty]');
+
+    if (filterButtons.length === 0 || cards.length === 0) return;
+
+    const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const transitionMs = prefersReducedMotion ? 0 : 220;
+    const transitionClass = 'is-recap-card-hidden';
+
+    const setFilterNodeVisible = (node, isVisible, animate = true) => {
+        if (!node) return;
+        if (node._recapFilterTimer) {
+            window.clearTimeout(node._recapFilterTimer);
+            node._recapFilterTimer = null;
+        }
+
+        if (!animate || transitionMs === 0) {
+            node.hidden = !isVisible;
+            node.classList.toggle(transitionClass, !isVisible);
+            return;
+        }
+
+        if (isVisible) {
+            node.hidden = false;
+            node.classList.add(transitionClass);
+            window.requestAnimationFrame(() => {
+                window.requestAnimationFrame(() => {
+                    node.classList.remove(transitionClass);
+                });
+            });
+            return;
+        }
+
+        if (node.hidden) return;
+        node.classList.add(transitionClass);
+        node._recapFilterTimer = window.setTimeout(() => {
+            node.hidden = true;
+            node._recapFilterTimer = null;
+        }, transitionMs);
+    };
+
+    const applyFilter = (activeKey, animate = true) => {
+        const normalizedKey = activeKey || 'all';
+        let visibleCount = 0;
+
+        filterButtons.forEach((button) => {
+            const isActive = (button.getAttribute('data-recap-filter') || 'all') === normalizedKey;
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+
+        cards.forEach((card) => {
+            const cardKey = card.getAttribute('data-recap-card') || '';
+            const isVisible = normalizedKey === 'all' || cardKey === normalizedKey;
+            setFilterNodeVisible(card, isVisible, animate);
+            if (isVisible) {
+                visibleCount += 1;
+            }
+        });
+
+        if (emptyState) {
+            setFilterNodeVisible(emptyState, !(normalizedKey === 'all' || visibleCount > 0), animate);
+        }
+    };
+
+    filterButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            applyFilter(button.getAttribute('data-recap-filter') || 'all');
+        });
+    });
+
+    recap.dataset.recapFilterBound = '1';
+    applyFilter('all', false);
 };
 
 const initDashboardRenstraInputModal = () => {
@@ -1622,6 +2016,7 @@ const initDashboardQaToggle = () => {
 
 const initDashboardHomePage = () => {
     initDashboardLevelRecapModal();
+    initDashboardLevelRecapFilters();
     initDashboardRenstraInputModal();
     initDashboardRenstraApexChart();
     initDashboardQaToggle();

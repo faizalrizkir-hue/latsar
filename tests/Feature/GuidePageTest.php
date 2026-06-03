@@ -35,8 +35,8 @@ class GuidePageTest extends TestCase
             ->assertSee('Panduan')
             ->assertSee('Administrator')
             ->assertSee('Koordinator / Anggota Tim')
-            ->assertSee('https://online.fliphtml5.com/bpnya/skeq/')
-            ->assertSee('https://online.fliphtml5.com/bpnya/wrvz/')
+            ->assertSee('https://online.fliphtml5.com/bpnya/bdaj/')
+            ->assertSee('https://online.fliphtml5.com/bpnya/oejy/')
             ->assertSee('Online FlipHTML5')
             ->assertSee('Gambar Proses Bisnis')
             ->assertSee('/panduan');

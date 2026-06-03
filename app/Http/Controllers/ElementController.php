@@ -26,30 +26,30 @@ class ElementController extends Controller
     }
 
     private array $pages = [
-        'element1' => 'Element 1 : Kualitas Peran dan Layanan',
-        'element2' => 'Element 2 : Profesionalisme Penugasan',
-        'element3' => 'Element 3 : Manajemen Pengawasan',
-        'element4' => 'Element 4 : Pengelolaan Kinerja dan Sumber Daya Pengawasan',
-        'element5' => 'Element 5 : Budaya dan Hubungan Organisasi',
+        'element1' => 'Elemen 1 : Kualitas Peran dan Layanan',
+        'element2' => 'Elemen 2 : Profesionalisme Penugasan',
+        'element3' => 'Elemen 3 : Manajemen Pengawasan',
+        'element4' => 'Elemen 4 : Pengelolaan Kinerja dan Sumber Daya Pengawasan',
+        'element5' => 'Elemen 5 : Budaya dan Hubungan Organisasi',
         'element1_kegiatan_asurans' => 'Topik 1 - Kegiatan Asurans',
         'element1_jasa_konsultansi' => 'Topik 2 - Kegiatan Konsultansi',
-        'element2_komunikasi_hasil' => 'Element 2 - Komunikasi Hasil Penugasan',
-        'element2_pelaksanaan_penugasan' => 'Element 2 - Pelaksanaan Penugasan',
-        'element2_pemantauan_tindak_lanjut' => 'Element 2 - Pemantauan Tindak Lanjut',
-        'element2_pengembangan_informasi' => 'Element 2 - Pengembangan Informasi Awal',
-        'element2_pengendalian_kualitas' => 'Element 2 - Pengendalian Kualitas Penugasan',
-        'element2_perencanaan_penugasan' => 'Element 2 - Perencanaan Penugasan',
-        'element3_pelaporan_manajemen_kld' => 'Element 3 - Pelaporan kepada Manajemen K/L/D',
-        'element3_perencanaan_pengawasan' => 'Element 3 - Perencanaan Pengawasan',
-        'element4_dukungan_tik' => 'Element 4 - Dukungan terhadap Teknologi Informasi',
-        'element4_manajemen_kinerja' => 'Element 4 - Manajemen Kinerja',
-        'element4_mekanisme_pendanaan' => 'Element 4 - Manajemen Sumber Daya Keuangan',
-        'element4_pengembangan_sdm_profesional_apip' => 'Element 4 - Pengembangan SDM Profesional APIP',
-        'element4_perencanaan_sdm_apip' => 'Element 4 - Perencanaan Kebutuhan dan Pengadaan SDM Pengawasan',
-        'element5_akses_informasi_sumberdaya' => 'Element 5 - Akses terhadap Informasi dan Sistem Informasi',
-        'element5_hubungan_apip_manajemen' => 'Element 5 - Kualitas Komunikasi APIP',
-        'element5_koordinasi_pengawasan' => 'Element 5 - Koordinasi Pengawasan dengan Pihak Eksternal',
-        'element5_pembangunan_budaya_integritas' => 'Element 5 - Pembangunan Budaya Integritas',
+        'element2_komunikasi_hasil' => 'Elemen 2 - Komunikasi Hasil Penugasan',
+        'element2_pelaksanaan_penugasan' => 'Elemen 2 - Pelaksanaan Penugasan',
+        'element2_pemantauan_tindak_lanjut' => 'Elemen 2 - Pemantauan Tindak Lanjut',
+        'element2_pengembangan_informasi' => 'Elemen 2 - Pengembangan Informasi Awal',
+        'element2_pengendalian_kualitas' => 'Elemen 2 - Pengendalian Kualitas Penugasan',
+        'element2_perencanaan_penugasan' => 'Elemen 2 - Perencanaan Penugasan',
+        'element3_pelaporan_manajemen_kld' => 'Elemen 3 - Pelaporan kepada Manajemen K/L/D',
+        'element3_perencanaan_pengawasan' => 'Elemen 3 - Perencanaan Pengawasan',
+        'element4_dukungan_tik' => 'Elemen 4 - Dukungan terhadap Teknologi Informasi',
+        'element4_manajemen_kinerja' => 'Elemen 4 - Manajemen Kinerja',
+        'element4_mekanisme_pendanaan' => 'Elemen 4 - Manajemen Sumber Daya Keuangan',
+        'element4_pengembangan_sdm_profesional_apip' => 'Elemen 4 - Pengembangan SDM Profesional APIP',
+        'element4_perencanaan_sdm_apip' => 'Elemen 4 - Perencanaan Kebutuhan dan Pengadaan SDM Pengawasan',
+        'element5_akses_informasi_sumberdaya' => 'Elemen 5 - Akses terhadap Informasi dan Sistem Informasi',
+        'element5_hubungan_apip_manajemen' => 'Elemen 5 - Kualitas Komunikasi APIP',
+        'element5_koordinasi_pengawasan' => 'Elemen 5 - Koordinasi Pengawasan dengan Pihak Eksternal',
+        'element5_pembangunan_budaya_integritas' => 'Elemen 5 - Pembangunan Budaya Integritas',
     ];
 
     private ?array $cachedPageTitles = null;
@@ -225,7 +225,7 @@ class ElementController extends Controller
             if (!(bool) ($summaryModuleConfig['is_active'] ?? true)) {
                 return redirect()
                     ->route('dashboard')
-                    ->with('error', 'Element ini sedang dinonaktifkan pada Preferensi Element.');
+                    ->with('error', 'Elemen ini sedang dinonaktifkan pada Preferensi Elemen.');
             }
 
             return $this->renderElementSummary($slug, $summaryModuleConfig);
@@ -236,7 +236,7 @@ class ElementController extends Controller
             if (!(bool) ($moduleConfig['is_active'] ?? true)) {
                 return redirect()
                     ->route('elements.show', Str::before($slug, '_'))
-                    ->with('error', 'Sub topik ini sedang dinonaktifkan pada Preferensi Element.');
+                    ->with('error', 'Sub topik ini sedang dinonaktifkan pada Preferensi Elemen.');
             }
 
             return $this->renderKegiatanAsurans($slug, $moduleConfig);
@@ -266,7 +266,7 @@ class ElementController extends Controller
             if (!(bool) ($summaryModuleConfig['is_active'] ?? true)) {
                 return redirect()
                     ->route('dashboard')
-                    ->with('error', 'Element ini sedang dinonaktifkan pada Preferensi Element.');
+                    ->with('error', 'Elemen ini sedang dinonaktifkan pada Preferensi Elemen.');
             }
 
             return redirect()->route('elements.show', $slug);
@@ -277,7 +277,7 @@ class ElementController extends Controller
             if (!(bool) ($moduleConfig['is_active'] ?? true)) {
                 return redirect()
                     ->route('elements.show', Str::before($slug, '_'))
-                    ->with('error', 'Sub topik ini sedang dinonaktifkan pada Preferensi Element.');
+                    ->with('error', 'Sub topik ini sedang dinonaktifkan pada Preferensi Elemen.');
             }
 
             return $this->handleKegiatanAsurans($request, $slug, $moduleConfig);
@@ -298,9 +298,9 @@ class ElementController extends Controller
             'css/element1-summary.css',
         ])));
         $summaryHeaderCode = (string) ($summaryConfig['header_code'] ?? strtoupper((string) Str::of($slug)->replace('element', 'E')));
-        $summaryHeaderSubtitle = (string) ($summaryConfig['header_subtitle'] ?? ('Ringkasan skor tertimbang, level element, dan progres topik '.Str::title(str_replace('_', ' ', $slug))));
-        $summaryLevelLabel = (string) ($summaryConfig['level_label'] ?? ('Level '.Str::headline($slug)));
-        $summaryInfoModalTitle = (string) ($summaryConfig['info_modal_title'] ?? ('Informasi Level '.Str::headline($slug)));
+        $summaryHeaderSubtitle = (string) ($summaryConfig['header_subtitle'] ?? ('Ringkasan skor tertimbang, level elemen, dan progres topik '.Str::title(str_replace('_', ' ', $slug))));
+        $summaryLevelLabel = (string) ($summaryConfig['level_label'] ?? ('Level '.$elementTitle));
+        $summaryInfoModalTitle = (string) ($summaryConfig['info_modal_title'] ?? ('Informasi Level '.$elementTitle));
         $summaryInfoLevels = collect((array) ($summaryConfig['info_levels'] ?? []))
             ->map(fn ($item) => is_array($item) ? $item : [])
             ->values();
@@ -767,7 +767,7 @@ class ElementController extends Controller
         $moduleModelClass = (string) ($moduleConfig['model'] ?? Element1KegiatanAsurans::class);
         $moduleEditLogModelClass = (string) ($moduleConfig['edit_log_model'] ?? Element1KegiatanAsuransEditLog::class);
         $moduleWeights = (array) ($moduleConfig['weights'] ?? $this->kegiatanWeights);
-        $moduleNotificationTitle = (string) ($moduleConfig['notification_title'] ?? 'Element 1 - Kegiatan Asurans');
+        $moduleNotificationTitle = (string) ($moduleConfig['notification_title'] ?? 'Elemen 1 - Kegiatan Asurans');
         $moduleSubtopicTitle = (string) ($moduleConfig['subtopic_title'] ?? $moduleNotificationTitle);
         $moduleEditLogTable = (new $moduleEditLogModelClass())->getTable();
 
@@ -1367,7 +1367,7 @@ class ElementController extends Controller
 
             $value = preg_replace('/^\s*sub\s*topik\s*\d+\s*[-:]?\s*/i', '', $candidate);
             $value = is_string($value) ? trim($value) : $candidate;
-            $value = preg_replace('/^\s*element\s*\d+\s*[-:]?\s*/i', '', $value);
+            $value = preg_replace('/^\s*elem(?:ent|en)\s*\d+\s*[-:]?\s*/i', '', $value);
             $value = is_string($value) ? trim($value) : $candidate;
             $value = trim((string) $value);
             if ($value !== '') {
@@ -1566,7 +1566,7 @@ class ElementController extends Controller
 
         return redirect()
             ->route('dashboard')
-            ->with('error', 'Anda tidak memiliki akses ke element yang dipilih.');
+            ->with('error', 'Anda tidak memiliki akses ke elemen yang dipilih.');
     }
 
     private function canUserVerifySlug(array $user, string $slug): bool

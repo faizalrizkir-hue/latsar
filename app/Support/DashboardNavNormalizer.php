@@ -48,7 +48,9 @@ final class DashboardNavNormalizer
 
                 $title = trim((string) ($normalized['title'] ?? ''));
                 if ($title === '') {
-                    $title = Str::headline($slug);
+                    $title = preg_match('/^element(\d+)$/i', $slug, $matches)
+                        ? 'Elemen '.((string) ($matches[1] ?? ''))
+                        : Str::headline($slug);
                 }
                 $normalized['title'] = $title;
 

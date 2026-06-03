@@ -24,11 +24,11 @@ class AccountController extends Controller
     ];
 
     private const ELEMENT_OPTIONS = [
-        'element1' => 'Element 1 : Kualitas Peran dan Layanan',
-        'element2' => 'Element 2 : Profesionalisme Penugasan',
-        'element3' => 'Element 3 : Manajemen Pengawasan',
-        'element4' => 'Element 4 : Pengelolaan Kinerja dan Sumber Daya Pengawasan',
-        'element5' => 'Element 5 : Budaya dan Hubungan Organisasi',
+        'element1' => 'Elemen 1 : Kualitas Peran dan Layanan',
+        'element2' => 'Elemen 2 : Profesionalisme Penugasan',
+        'element3' => 'Elemen 3 : Manajemen Pengawasan',
+        'element4' => 'Elemen 4 : Pengelolaan Kinerja dan Sumber Daya Pengawasan',
+        'element5' => 'Elemen 5 : Budaya dan Hubungan Organisasi',
     ];
 
     public function index(Request $request)
@@ -105,7 +105,7 @@ class AccountController extends Controller
 
             case 'save_element_assignment':
                 if (!Schema::hasTable('element_team_assignments')) {
-                    return back()->withErrors(['status' => 'Tabel penunjukan tim element belum tersedia. Jalankan migrasi terlebih dahulu.']);
+                    return back()->withErrors(['status' => 'Tabel penunjukan tim elemen belum tersedia. Jalankan migrasi terlebih dahulu.']);
                 }
 
                 $draftAssignments = $this->existingElementAssignmentDrafts();
@@ -115,7 +115,7 @@ class AccountController extends Controller
                     $decodedPayload = json_decode($payloadRaw, true);
                     if (!is_array($decodedPayload)) {
                         return back()
-                            ->withErrors(['status' => 'Format penunjukan tim element tidak valid. Muat ulang halaman lalu coba lagi.'])
+                            ->withErrors(['status' => 'Format penunjukan tim elemen tidak valid. Muat ulang halaman lalu coba lagi.'])
                             ->withInput();
                     }
 
@@ -159,7 +159,7 @@ class AccountController extends Controller
 
                 $this->persistElementAssignmentDrafts($draftAssignments);
 
-                return back()->with('status', 'Penunjukan tim element berhasil disimpan.');
+                return back()->with('status', 'Penunjukan tim elemen berhasil disimpan.');
 
             case 'reset_password':
                 $data = $request->validate([
@@ -423,7 +423,7 @@ class AccountController extends Controller
     private function compactElementLabel(string $elementSlug): string
     {
         if (preg_match('/^element(\d+)$/', $elementSlug, $matches)) {
-            return 'Element '.($matches[1] ?? '');
+            return 'Elemen '.($matches[1] ?? '');
         }
 
         return self::ELEMENT_OPTIONS[$elementSlug] ?? $elementSlug;

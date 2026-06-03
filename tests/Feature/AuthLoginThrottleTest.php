@@ -47,7 +47,8 @@ class AuthLoginThrottleTest extends TestCase
         $response = $this->get('/login');
 
         $response->assertOk()
-            ->assertHeader('Pragma', 'no-cache');
+            ->assertHeader('Pragma', 'no-cache')
+            ->assertSee('Inspektorat Provinsi DKI Jakarta '.now('Asia/Jakarta')->year);
 
         $cacheControl = (string) $response->headers->get('Cache-Control', '');
         $this->assertStringContainsString('no-store', $cacheControl);

@@ -25,7 +25,7 @@ class ElementPreferenceController extends Controller
         $structure = $this->elementPreferenceService->structure();
 
         return view('element-preferences.index', [
-            'pageTitle' => 'Preferensi Element',
+            'pageTitle' => 'Preferensi Elemen',
             'structure' => $structure,
             'hasPreferencesTable' => $this->elementPreferenceService->hasPreferencesTable(),
             'hasProgressArchiveTable' => $this->elementPreferenceService->hasProgressArchiveTable(),
@@ -42,7 +42,7 @@ class ElementPreferenceController extends Controller
         }
 
         if (!$this->elementPreferenceService->hasPreferencesTable()) {
-            return back()->withErrors('Tabel preferensi element belum tersedia. Jalankan migrasi terlebih dahulu.');
+            return back()->withErrors('Tabel preferensi elemen belum tersedia. Jalankan migrasi terlebih dahulu.');
         }
 
         $inputElements = $request->input('elements', []);
@@ -58,7 +58,7 @@ class ElementPreferenceController extends Controller
             $username !== '' ? $username : null
         );
 
-        return back()->with('status', 'Preferensi element berhasil diperbarui.');
+        return back()->with('status', 'Preferensi elemen berhasil diperbarui.');
     }
 
     public function reset(): RedirectResponse
@@ -68,14 +68,14 @@ class ElementPreferenceController extends Controller
         }
 
         if (!$this->elementPreferenceService->hasPreferencesTable()) {
-            return back()->withErrors('Tabel preferensi element belum tersedia. Jalankan migrasi terlebih dahulu.');
+            return back()->withErrors('Tabel preferensi elemen belum tersedia. Jalankan migrasi terlebih dahulu.');
         }
 
         $username = trim((string) (Session::get('user.username') ?? Session::get('user')['username'] ?? ''));
 
         $this->elementPreferenceService->resetToDefaults($username !== '' ? $username : null);
 
-        return back()->with('status', 'Preferensi element telah dikembalikan ke konfigurasi default.');
+        return back()->with('status', 'Preferensi elemen telah dikembalikan ke konfigurasi default.');
     }
 
     public function resetData(): RedirectResponse
@@ -89,7 +89,7 @@ class ElementPreferenceController extends Controller
 
         return back()->with(
             'status',
-            'Seluruh isian Element beserta riwayatnya berhasil dihapus. Total data terhapus: '.$deletedTotal.'.'
+            'Seluruh isian elemen beserta riwayatnya berhasil dihapus. Total data terhapus: '.$deletedTotal.'.'
         );
     }
 

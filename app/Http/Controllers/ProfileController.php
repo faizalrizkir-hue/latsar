@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Account;
 use App\Models\ElementTeamAssignment;
 use App\Models\Notification;
+use App\Support\UserAgentSummary;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
@@ -14,11 +15,11 @@ use Illuminate\Support\Facades\Storage;
 class ProfileController extends Controller
 {
     private const ELEMENT_OPTIONS = [
-        'element1' => 'Element 1 : Kualitas Peran dan Layanan',
-        'element2' => 'Element 2 : Profesionalisme Penugasan',
-        'element3' => 'Element 3 : Manajemen Pengawasan',
-        'element4' => 'Element 4 : Pengelolaan Kinerja dan Sumber Daya Pengawasan',
-        'element5' => 'Element 5 : Budaya dan Hubungan Organisasi',
+        'element1' => 'Elemen 1 : Kualitas Peran dan Layanan',
+        'element2' => 'Elemen 2 : Profesionalisme Penugasan',
+        'element3' => 'Elemen 3 : Manajemen Pengawasan',
+        'element4' => 'Elemen 4 : Pengelolaan Kinerja dan Sumber Daya Pengawasan',
+        'element5' => 'Elemen 5 : Budaya dan Hubungan Organisasi',
     ];
 
     public function edit()
@@ -84,8 +85,13 @@ class ProfileController extends Controller
                                 ? ($displayNameMap[$coordinatorUsername] ?? $coordinatorUsername)
                                 : null;
 
+                            $elementLabel = self::ELEMENT_OPTIONS[$elementSlug] ?? ucfirst($elementSlug);
+                            if (preg_match('/^element(\d+)$/i', $elementSlug, $matches)) {
+                                $elementLabel = 'Elemen '.((string) ($matches[1] ?? ''));
+                            }
+
                             return [
-                                'element_label' => self::ELEMENT_OPTIONS[$elementSlug] ?? ucfirst($elementSlug),
+                                'element_label' => $elementLabel,
                                 'position_label' => $isCoordinator ? 'Koordinator' : 'Anggota Tim',
                                 'position_class' => $isCoordinator ? 'is-coordinator' : 'is-member',
                                 'summary_label' => $isCoordinator
@@ -105,6 +111,7 @@ class ProfileController extends Controller
             'pageTitle' => 'Edit Profil',
             'user' => $user,
             'account' => $account,
+            'lastLoginDevice' => UserAgentSummary::summarize($account?->last_login_device),
             'teamAssignmentSummary' => $teamAssignmentSummary,
             'notifications' => Notification::feedForUser((array) $user, null, 50),
         ]);

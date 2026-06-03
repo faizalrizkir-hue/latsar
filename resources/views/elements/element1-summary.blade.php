@@ -1,6 +1,6 @@
 @extends('layouts.dashboard-shell')
 @php
-    $pageTitle = $title ?? 'Rekap Element';
+    $pageTitle = $title ?? 'Rekap Elemen';
     $summaryStyles = collect($summaryStyles ?? [])->filter()->values();
     if ($summaryStyles->isEmpty()) {
         $summaryStyles = collect(['css/element1-kegiatan-asurans.css', 'css/element1-summary.css']);
@@ -25,11 +25,11 @@
         $overallLevelQaClass = $overallLevelQa !== null && $overallLevelQa >= 1 && $overallLevelQa <= 5 ? 'is-level-'.$overallLevelQa : 'pending';
         $summaryHeaderCode = (string) ($summaryHeaderCode ?? 'E1');
         $summaryHeaderSubtitle = (string) ($summaryHeaderSubtitle ?? 'Rekap skor dan level dari topik');
-        $summaryLevelLabel = (string) ($summaryLevelLabel ?? 'Level Element');
-        $summaryInfoModalTitle = (string) ($summaryInfoModalTitle ?? 'Informasi Level Element');
+        $summaryLevelLabel = (string) ($summaryLevelLabel ?? 'Level Elemen');
+        $summaryInfoModalTitle = (string) ($summaryInfoModalTitle ?? 'Informasi Level Elemen');
         $summaryInfoLevels = collect($summaryInfoLevels ?? [])->values();
         $mandiriPrefix = $qaFeatureEnabled ? 'Mandiri: ' : '';
-        $mandiriLevelTitle = $qaFeatureEnabled ? 'Informasi Level Element (Mandiri):' : 'Informasi Level Element:';
+        $mandiriLevelTitle = $qaFeatureEnabled ? 'Informasi Level Elemen (Mandiri):' : 'Informasi Level Elemen:';
         $levelInfoMap = $summaryInfoLevels
             ->filter(fn ($item) => is_array($item))
             ->keyBy(fn ($item) => (int) ($item['level'] ?? 0));
@@ -47,7 +47,7 @@
         $completionPercent = max(0, min(100, (int) $completion));
         $levelNarrativeFull = $overallLevelDescription !== ''
             ? $overallLevelDescription
-            : 'Belum ada narasi level element.';
+            : 'Belum ada narasi level elemen.';
         $completionToneClass = $completionPercent >= 80 ? 'is-good' : ($completionPercent >= 50 ? 'is-mid' : 'is-low');
         $predikatToneClass = $overallLevel !== null && $overallLevel >= 3 ? 'is-good' : ($overallLevel === 2 ? 'is-mid' : 'is-low');
         $elementInfoIconMap = [
@@ -58,7 +58,7 @@
         $summaryHeaderElementNumber = null;
         if (preg_match('/^E\s*(\d+)$/i', trim($summaryHeaderCode), $summaryHeaderCodeMatch)) {
             $summaryHeaderElementNumber = (int) ($summaryHeaderCodeMatch[1] ?? 0);
-        } elseif (preg_match('/element\s+(\d+)/i', (string) $title, $summaryTitleMatch)) {
+        } elseif (preg_match('/elem(?:ent|en)\s+(\d+)/i', (string) $title, $summaryTitleMatch)) {
             $summaryHeaderElementNumber = (int) ($summaryTitleMatch[1] ?? 0);
         }
         $summaryHeaderIconSvg = $elementInfoIconMap[$summaryHeaderElementNumber] ?? null;
@@ -66,7 +66,7 @@
     <div class="keg-page element1-summary-page qa-display-off" id="element1SummaryPage" data-element1-summary-level="{{ $overallLevel ?? '' }}">
         <div class="keg-head">
             <div class="keg-title">
-                <button type="button" class="keg-title-icon keg-info-trigger" data-element1-info-open aria-label="Lihat informasi level element">
+                <button type="button" class="keg-title-icon keg-info-trigger" data-element1-info-open aria-label="Lihat informasi level elemen">
                     @if($summaryHeaderIconSvg !== null)
                         <span class="keg-title-icon-glyph" aria-hidden="true">{!! $summaryHeaderIconSvg !!}</span>
                     @else
@@ -97,7 +97,7 @@
                         <span class="element1-overview-icon is-score" aria-hidden="true">
                             <svg viewBox="0 0 24 24"><path d="M4 18h16"/><path d="M7 18V9"/><path d="M12 18V6"/><path d="M17 18v-4"/></svg>
                         </span>
-                        <span class="element1-stat-split-label">Skor Element</span>
+                        <span class="element1-stat-split-label">Skor Elemen</span>
                         <div class="element1-overview-values">
                             <span class="element1-overview-value">{{ $mandiriPrefix }}<strong>{{ number_format((float) ($elementScore ?? 0), 2) }}</strong></span>
                             <span class="element1-overview-value qa-only">QA: <strong>{{ $hasQaData ? number_format((float) ($elementScoreQa ?? 0), 2) : '-' }}</strong></span>
@@ -131,7 +131,7 @@
                         <p class="element1-overview-highlight-text is-main">{{ $levelNarrativeFull }}</p>
                         <p class="element1-overview-highlight-text is-qa qa-only">
                             <strong>QA:</strong>
-                            {{ $overallLevelDescriptionQa !== '' ? $overallLevelDescriptionQa : 'Belum ada narasi level element QA.' }}
+                            {{ $overallLevelDescriptionQa !== '' ? $overallLevelDescriptionQa : 'Belum ada narasi level elemen QA.' }}
                         </p>
                     </div>
                 </div>
@@ -303,7 +303,7 @@
         <div class="keg-doc-dialog keg-info-dialog" role="dialog" aria-modal="true" aria-labelledby="element1InfoModalTitle">
             <div class="keg-doc-header keg-info-header">
                 <h5 id="element1InfoModalTitle">{{ $summaryInfoModalTitle }}</h5>
-                <button type="button" class="keg-doc-close" aria-label="Tutup modal informasi level element" data-element1-info-close>&times;</button>
+                <button type="button" class="keg-doc-close" aria-label="Tutup modal informasi level elemen" data-element1-info-close>&times;</button>
             </div>
             <div class="keg-doc-body keg-info-body">
                 <ol class="keg-info-list">

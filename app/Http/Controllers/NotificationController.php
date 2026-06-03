@@ -205,7 +205,7 @@ class NotificationController extends Controller
         $notifyActorPhotoUrl = $this->resolvePhotoUrl($notification->coordinatorAccount?->profile_photo ?? '');
         $notifyActorInitials = $this->avatarLabel($notifyActorName, 'U');
         $notifyTitle = trim((string) ($notification->subtopic_title ?? 'Notifikasi'));
-        $notifyTitle = preg_replace('/^\s*element\s*\d+\s*[-:]?\s*/i', '', $notifyTitle);
+        $notifyTitle = preg_replace('/^\s*elem(?:ent|en)\s*\d+\s*[-:]?\s*/i', '', $notifyTitle);
         $notifyTitle = is_string($notifyTitle) ? trim($notifyTitle) : 'Notifikasi';
         $notifyTitle = preg_replace('/^\s*sub\s*topik\s*\d+\s*[-:]?\s*/i', '', $notifyTitle);
         $notifyTitle = is_string($notifyTitle) ? trim($notifyTitle) : 'Notifikasi';
@@ -217,7 +217,7 @@ class NotificationController extends Controller
         if ($notifyStatement !== '' && !Str::contains($notifyStatement, '·')) {
             $normalized = preg_replace('/^.*?\bmelakukan\b\s*/iu', '', $notifyStatement);
             $normalized = is_string($normalized) ? $normalized : $notifyStatement;
-            $normalized = preg_replace('/\bpada\s+element\s+\d+.*?:\s*/iu', '', $normalized);
+            $normalized = preg_replace('/\bpada\s+elem(?:ent|en)\s+\d+.*?:\s*/iu', '', $normalized);
             $normalized = is_string($normalized) ? trim($normalized) : $notifyStatement;
 
             $legacyActionMap = [

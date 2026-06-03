@@ -97,7 +97,7 @@ class ElementPreferenceService
 
             $element = [
                 'slug' => $elementSlug,
-                'title' => trim((string) ($rawElement['title'] ?? ($baseElement['title'] ?? Str::headline($elementSlug)))),
+                'title' => trim((string) ($rawElement['title'] ?? ($baseElement['title'] ?? $this->defaultElementTitle($elementSlug)))),
                 'active' => $this->toBool($rawElement['active'] ?? ($baseElement['active'] ?? true)),
                 'weight' => $this->parsePercentWeight(
                     $rawElement['weight'] ?? ($this->asFloat($baseElement['weight'] ?? 0) * 100),
@@ -111,7 +111,7 @@ class ElementPreferenceService
             ];
 
             if ($element['title'] === '') {
-                $element['title'] = Str::headline($elementSlug);
+                $element['title'] = $this->defaultElementTitle($elementSlug);
             }
 
             $subtopicSequence = 1;
@@ -630,7 +630,7 @@ class ElementPreferenceService
 
             $elementTitle = trim((string) ($element['title'] ?? ''));
             if ($elementTitle === '') {
-                $elementTitle = Str::headline($elementSlug);
+                $elementTitle = $this->defaultElementTitle($elementSlug);
             }
 
             $baseSummaryModule = $this->arrayOrEmpty($summaryBase[$elementSlug] ?? null);
@@ -818,7 +818,7 @@ class ElementPreferenceService
                         : [];
                     $elementTitle = trim((string) ($firstSubtopicConfig['page_title'] ?? ''));
                     if ($elementTitle === '') {
-                        $elementTitle = Str::headline($elementSlug);
+                        $elementTitle = $this->defaultElementTitle($elementSlug);
                     }
 
                     $equalSubtopicWeight = 1 / count($subtopicSlugs);
@@ -906,7 +906,7 @@ class ElementPreferenceService
 
             $elements[] = [
                 'slug' => $elementSlug,
-                'title' => (string) ($summaryConfig['title'] ?? Str::headline($elementSlug)),
+                'title' => (string) ($summaryConfig['title'] ?? $this->defaultElementTitle($elementSlug)),
                 'active' => true,
                 'weight' => $this->normalizeWeight($summaryConfig['element_weight'] ?? 0),
                 'info_levels' => $this->normalizeLevelDescriptions($summaryConfig['info_levels'] ?? null),
@@ -992,7 +992,7 @@ class ElementPreferenceService
 
             $element = [
                 'slug' => $elementSlug,
-                'title' => trim((string) ($payloadElement['title'] ?? ($defaultElement['title'] ?? Str::headline($elementSlug)))),
+                'title' => trim((string) ($payloadElement['title'] ?? ($defaultElement['title'] ?? $this->defaultElementTitle($elementSlug)))),
                 'active' => $this->toBool($payloadElement['active'] ?? ($defaultElement['active'] ?? true)),
                 'weight' => $this->normalizeWeight($payloadElement['weight'] ?? ($defaultElement['weight'] ?? 0)),
                 'info_levels' => $this->normalizeLevelDescriptions(
@@ -1003,7 +1003,7 @@ class ElementPreferenceService
             ];
 
             if ($element['title'] === '') {
-                $element['title'] = Str::headline($elementSlug);
+                $element['title'] = $this->defaultElementTitle($elementSlug);
             }
 
             $payloadSubtopics = array_values(array_filter((array) ($payloadElement['subtopics'] ?? []), 'is_array'));
@@ -1235,6 +1235,24 @@ class ElementPreferenceService
         return $map;
     }
 
+    private function defaultElementTitle(string $elementSlug): string
+    {
+        if (preg_match('/^element(\d+)$/', $elementSlug, $matches)) {
+            return 'Elemen '.((string) ($matches[1] ?? ''));
+        }
+
+        return Str::headline($elementSlug);
+    }
+
+    private function normalizeElementDisplayText(string $value): string
+    {
+        $normalized = preg_replace('/\bElement\b/u', 'Elemen', $value);
+        $normalized = is_string($normalized) ? $normalized : $value;
+        $normalized = preg_replace('/\belement\b/u', 'elemen', $normalized);
+
+        return is_string($normalized) ? $normalized : $value;
+    }
+
     /**
      * @return array<int, array<string, mixed>>
      */
@@ -1243,7 +1261,7 @@ class ElementPreferenceService
         return [
             [
                 'slug' => 'element1',
-                'title' => 'Element 1',
+                'title' => 'Elemen 1',
                 'active' => true,
                 'weight' => 1.0,
                 'info_levels' => $this->normalizeLevelDescriptions(null),
@@ -1353,8 +1371,9 @@ class ElementPreferenceService
 
             $elementTitle = trim((string) ($element['title'] ?? ''));
             if ($elementTitle === '') {
-                $elementTitle = Str::headline($elementSlug);
+                $elementTitle = $this->defaultElementTitle($elementSlug);
             }
+            $elementTitle = $this->normalizeElementDisplayText($elementTitle);
 
             if ($this->toBool($element['active'] ?? true)) {
                 $this->ensureAtLeastOneActive($finalSubtopics);

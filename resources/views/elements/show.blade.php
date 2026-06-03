@@ -1,6 +1,6 @@
 @extends('layouts.dashboard-shell')
 @php
-    $pageTitle = $title ?? 'Element';
+    $pageTitle = $title ?? 'Elemen';
 @endphp
 
 @section('content')

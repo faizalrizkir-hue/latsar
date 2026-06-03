@@ -254,7 +254,7 @@ class ElementAssessmentFlowTest extends TestCase
             'year' => (int) date('Y'),
             'type' => 'Manajemen Pengawasan',
             'doc_no' => 'DOC-ELEM-001',
-            'title' => 'Dokumen Element',
+            'title' => 'Dokumen Elemen',
             'tag' => 'Surat Tugas',
             'status' => 'Aktif',
             'uploader' => 'Administrator',
@@ -264,7 +264,7 @@ class ElementAssessmentFlowTest extends TestCase
         return DmsFile::query()->create([
             'document_id' => $document->id,
             'doc_no' => 'DOC-ELEM-001',
-            'doc_name' => 'Lampiran Element',
+            'doc_name' => 'Lampiran Elemen',
             'file_name' => 'lampiran.pdf',
             'file_path' => 'dms/lampiran.pdf',
             'file_size' => 12000,
