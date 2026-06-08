@@ -52,11 +52,12 @@ class DashboardController extends Controller
 
         $sessionUser = (array) Session::get('user', []);
         $canManageRenstraTrend = $this->isAdminRole((string) ($sessionUser['role'] ?? ''));
+        $activeBudgetYear = $this->resolveActiveBudgetYear();
         $summaryPayload = $this->assessmentSummaryCache->remember(
             'dashboard-index',
             $sessionUser,
             [],
-            function () use ($sessionUser): array {
+            function () use ($sessionUser, $activeBudgetYear): array {
                 $summaryModules = $this->elementPreferenceService->summaryModules(true);
                 $subtopicModules = $this->elementPreferenceService->subtopicModules();
                 $elementWeights = collect($summaryModules)
@@ -104,7 +105,7 @@ class DashboardController extends Controller
                     ? $this->meterPercentFromScore($overallWeightedScoreQa)
                     : 0;
                 $meterNeedleDegQa = (float) number_format(-90 + (180 * ($meterPercentQa / 100)), 2, '.', '');
-                $renstraTrendSeries = $this->buildRenstraTrendSeries($summaryModules, $overallWeightedScore);
+                $renstraTrendSeries = $this->buildRenstraTrendSeries($summaryModules, $overallWeightedScore, $activeBudgetYear);
 
                 return [
                     'elementWeights' => $elementWeights,
@@ -165,6 +166,7 @@ class DashboardController extends Controller
             'meterNeedleDegQa' => $meterNeedleDegQa,
             'renstraTrendSeries' => $renstraTrendSeries,
             'canManageRenstraTrend' => $canManageRenstraTrend,
+            'activeBudgetYear' => $activeBudgetYear,
             'dashboardUi' => $dashboardUi,
             'notifications' => $notifications,
             'user' => Session::get('user'),
@@ -300,6 +302,22 @@ class DashboardController extends Controller
         return asset('uploads/'.$path);
     }
 
+    private function resolveActiveBudgetYear(): int
+    {
+        $fallbackYear = (int) now('Asia/Jakarta')->year;
+        if (!$this->elementPreferenceService->hasProgressArchiveTable()) {
+            return $fallbackYear;
+        }
+
+        $loadedYear = ElementProgressArchive::query()
+            ->whereNotNull('last_loaded_at')
+            ->orderByDesc('last_loaded_at')
+            ->orderByDesc('id')
+            ->value('budget_year');
+
+        return is_numeric($loadedYear) ? (int) $loadedYear : $fallbackYear;
+    }
+
     private function buildElementSummaries(array $summaryModules, array $subtopicModules, array $elementWeights): array
     {
         $elements = [];
@@ -394,7 +412,7 @@ class DashboardController extends Controller
      * @param array<string, array<string, mixed>> $summaryModules
      * @return array<int, array<string, mixed>>
      */
-    private function buildRenstraTrendSeries(array $summaryModules, float $currentOverallWeightedScore): array
+    private function buildRenstraTrendSeries(array $summaryModules, float $currentOverallWeightedScore, int $activeBudgetYear): array
     {
         $forcedNoAssessmentYears = [2019, 2020];
         $periodTargets = [
@@ -433,7 +451,7 @@ class DashboardController extends Controller
         ];
 
         $archiveScoresByYear = $this->archiveOverallScoresByBudgetYear($summaryModules);
-        $currentYear = (int) now()->format('Y');
+        $currentYear = $activeBudgetYear > 0 ? $activeBudgetYear : (int) now('Asia/Jakarta')->format('Y');
         $periodTargets = collect($periodTargets)
             ->sortByDesc(fn (array $item): int => (int) ($item['start'] ?? 0))
             ->values();
@@ -849,14 +867,25 @@ class DashboardController extends Controller
         $supportsQaVerification = $this->hasColumnCached($table, 'qa_verified')
             && $this->hasColumnCached($table, 'qa_level_validation_state');
         $selectColumns = ['id', 'level', 'skor', 'verified'];
+        if ($this->hasColumnCached($table, 'level_validation_state')) {
+            $selectColumns[] = 'level_validation_state';
+        }
         if ($supportsQaVerification) {
             $selectColumns[] = 'qa_verified';
             $selectColumns[] = 'qa_level_validation_state';
+            if ($this->hasColumnCached($table, 'qa_verify_note')) {
+                $selectColumns[] = 'qa_verify_note';
+            }
+            if ($this->hasColumnCached($table, 'qa_follow_up_recommendation')) {
+                $selectColumns[] = 'qa_follow_up_recommendation';
+            }
         }
 
-        $rows = $modelClass::query()
-            ->orderBy('id')
-            ->get($selectColumns);
+        $rows = $this->filterAoiOnlyRows(
+            $modelClass::query()
+                ->orderBy('id')
+                ->get(array_values(array_unique($selectColumns)))
+        );
 
         $score = 0.0;
         $hasData = false;
@@ -1239,6 +1268,26 @@ class DashboardController extends Controller
         }
 
         return (int) $validatedLevels->max();
+    }
+
+    private function filterAoiOnlyRows(Collection $rows): Collection
+    {
+        return $rows
+            ->reject(fn ($row) => $this->isAoiOnlyRow($row))
+            ->values();
+    }
+
+    private function isAoiOnlyRow(mixed $row): bool
+    {
+        $qaNote = trim((string) data_get($row, 'qa_verify_note', ''));
+        $qaFollowUp = trim((string) data_get($row, 'qa_follow_up_recommendation', ''));
+        if ($qaNote === '' && $qaFollowUp === '') {
+            return false;
+        }
+
+        return !is_numeric(data_get($row, 'level'))
+            && !is_numeric(data_get($row, 'skor'))
+            && $this->maxValidatedLevelFromState(data_get($row, 'level_validation_state')) === null;
     }
 
     private function hasTableCached(string $table): bool

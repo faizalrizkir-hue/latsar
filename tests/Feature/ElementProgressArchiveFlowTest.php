@@ -115,9 +115,14 @@ class ElementProgressArchiveFlowTest extends TestCase
 
         $response = $this
             ->from('/element-preferences')
-            ->withSession(['user' => $this->sessionUser, 'last_activity_at' => time()])
+            ->withSession([
+                'user' => $this->sessionUser,
+                'last_activity_at' => time(),
+                'archive_restore_captcha' => 'A7B2',
+            ])
             ->post('/element-preferences/load-archive', [
                 'archive_id' => (int) $archive->id,
+                'archive_captcha_answer' => 'A7B2',
             ]);
 
         $response->assertRedirect('/element-preferences');
@@ -154,9 +159,14 @@ class ElementProgressArchiveFlowTest extends TestCase
     {
         $response = $this
             ->from('/element-preferences')
-            ->withSession(['user' => $this->sessionUser, 'last_activity_at' => time()])
+            ->withSession([
+                'user' => $this->sessionUser,
+                'last_activity_at' => time(),
+                'archive_restore_captcha' => 'A7B2',
+            ])
             ->post('/element-preferences/load-archive', [
                 'archive_id' => 0,
+                'archive_captcha_answer' => 'A7B2',
             ]);
 
         $response->assertRedirect('/element-preferences');
@@ -222,4 +232,3 @@ class ElementProgressArchiveFlowTest extends TestCase
         }
     }
 }
-

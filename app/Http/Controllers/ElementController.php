@@ -12,6 +12,7 @@ use App\Services\AssessmentSummaryCache;
 use App\Services\ElementPreferenceService;
 use App\Services\SchemaMetadataCache;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Str;
@@ -475,11 +476,20 @@ class ElementController extends Controller
             function () use ($moduleModelClass, $moduleWeights, $moduleInfoLevels, $subtopicCode, $subtopicTitle, $slug, $table): array {
                 $supportsQaVerification = $this->moduleSupportsQaVerification($table);
                 $selectColumns = ['id', 'level', 'skor', 'verified'];
+                if ($this->hasColumnCached($table, 'level_validation_state')) {
+                    $selectColumns[] = 'level_validation_state';
+                }
                 if ($supportsQaVerification) {
                     $selectColumns[] = 'qa_verified';
                     $selectColumns[] = 'qa_level_validation_state';
+                    $selectColumns[] = 'qa_verify_note';
+                    if ($this->hasColumnCached($table, 'qa_follow_up_recommendation')) {
+                        $selectColumns[] = 'qa_follow_up_recommendation';
+                    }
                 }
-                $rows = $moduleModelClass::orderBy('id')->get($selectColumns);
+                $rows = $this->filterAoiOnlyRows(
+                    $moduleModelClass::orderBy('id')->get(array_values(array_unique($selectColumns)))
+                );
 
                 $summaryScore = 0.0;
                 foreach ($rows as $row) {
@@ -598,7 +608,9 @@ class ElementController extends Controller
         $moduleView = (string) ($moduleConfig['view'] ?? 'elements.element1-kegiatan-asurans');
         $statementLevelHintMap = collect((array) ($moduleConfig['statement_level_hints'] ?? []))
             ->mapWithKeys(function ($hints, $statement) {
-                return [$this->normalizeStatementKey((string) $statement) => (array) $hints];
+                $key = $this->normalizeStatementKey((string) $statement);
+
+                return $key !== '' ? [$key => (array) $hints] : [];
             })
             ->all();
 
@@ -628,7 +640,7 @@ class ElementController extends Controller
             (array) $user,
             ['slug' => $slug, 'table' => $moduleTable],
             function () use ($moduleModelClass, $moduleWeights, $supportsQaVerification, $dmsTypeOptions, $moduleEditLogModelClass): array {
-                $rows = $moduleModelClass::orderBy('id')->get();
+                $rows = $this->filterAoiOnlyRows($moduleModelClass::orderBy('id')->get());
 
                 $summaryScore = 0.0;
                 foreach ($rows as $row) {
@@ -711,10 +723,22 @@ class ElementController extends Controller
                 $editLogs = collect();
                 $editLogTable = (new $moduleEditLogModelClass())->getTable();
                 if ($this->hasTableCached($editLogTable)) {
-                    $editLogs = $moduleEditLogModelClass::query()
+                    $visibleRowIds = $rows
+                        ->pluck('id')
+                        ->map(fn ($id) => (int) $id)
+                        ->filter(fn ($id) => $id > 0)
+                        ->values()
+                        ->all();
+
+                    $editLogQuery = $moduleEditLogModelClass::query()
                         ->orderByDesc('created_at')
-                        ->limit(120)
-                        ->get(['row_id', 'pernyataan', 'username', 'display_name', 'action', 'created_at']);
+                        ->limit(120);
+
+                    if (count($visibleRowIds) > 0) {
+                        $editLogQuery->whereIn('row_id', $visibleRowIds);
+                    }
+
+                    $editLogs = $editLogQuery->get(['row_id', 'pernyataan', 'username', 'display_name', 'action', 'created_at']);
                 }
 
                 return [
@@ -789,6 +813,9 @@ class ElementController extends Controller
 
         $this->ensureKegiatanRows($slug, $moduleConfig);
         $row = $moduleModelClass::findOrFail($id);
+        if ($this->isAoiOnlyRow($row)) {
+            return back()->withErrors('Baris ini merupakan rekap AoI dan tidak termasuk pernyataan penilaian.');
+        }
         $canVerify = $this->canUserVerifySlug($user, $slug);
         $supportsQaVerification = $this->moduleSupportsQaVerification($moduleTable);
         $supportsQaFollowUpRecommendation = $supportsQaVerification
@@ -1262,6 +1289,8 @@ class ElementController extends Controller
             return;
         }
 
+        $defaultIds = array_map('intval', array_keys($defaults));
+
         foreach ($defaults as $id => $pernyataan) {
             DB::table($table)->updateOrInsert(
                 ['id' => (int) $id],
@@ -1269,7 +1298,19 @@ class ElementController extends Controller
             );
         }
 
-        DB::table($table)->whereNotIn('id', array_map('intval', array_keys($defaults)))->delete();
+        $deleteIds = DB::table($table)
+            ->whereNotIn('id', $defaultIds)
+            ->get()
+            ->reject(fn ($row) => $this->isAoiOnlyRow($row))
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->values()
+            ->all();
+
+        if (count($deleteIds) > 0) {
+            DB::table($table)->whereIn('id', $deleteIds)->delete();
+        }
     }
 
     private function scoreForKegiatanLevel(float $level, int $rowId, ?array $weights = null): float
@@ -1324,9 +1365,8 @@ class ElementController extends Controller
         $actorName = trim((string) ($user['display_name'] ?? $user['username'] ?? 'Pengguna'));
         $actionLabel = $this->notificationActionLabel($actionType);
         $statementLabel = trim($statementTitle) !== '' ? trim($statementTitle) : 'Pernyataan';
-        $statementShort = Str::limit($statementLabel, 42, 'â€¦');
         $notifyTitle = $this->compactNotificationTitle($moduleSubtopicTitle, $moduleNotificationTitle);
-        $body = trim($actionLabel.' Â· '.$statementShort);
+        $body = trim($actionLabel.' | '.$statementLabel);
 
         Notification::createScoped([
             'element_slug' => $elementSlug,
@@ -1371,7 +1411,7 @@ class ElementController extends Controller
             $value = is_string($value) ? trim($value) : $candidate;
             $value = trim((string) $value);
             if ($value !== '') {
-                return Str::limit($value, 36, 'â€¦');
+                return Str::limit($value, 36, '...');
             }
         }
 
@@ -1663,6 +1703,26 @@ class ElementController extends Controller
         return (int) $validatedLevels->max();
     }
 
+    private function filterAoiOnlyRows(Collection $rows): Collection
+    {
+        return $rows
+            ->reject(fn ($row) => $this->isAoiOnlyRow($row))
+            ->values();
+    }
+
+    private function isAoiOnlyRow(mixed $row): bool
+    {
+        $qaNote = trim((string) data_get($row, 'qa_verify_note', ''));
+        $qaFollowUp = trim((string) data_get($row, 'qa_follow_up_recommendation', ''));
+        if ($qaNote === '' && $qaFollowUp === '') {
+            return false;
+        }
+
+        return !is_numeric(data_get($row, 'level'))
+            && !is_numeric(data_get($row, 'skor'))
+            && $this->maxValidatedLevelFromState(data_get($row, 'level_validation_state')) === null;
+    }
+
     private function hasTableCached(string $table): bool
     {
         $normalizedTable = trim($table);
@@ -1716,7 +1776,11 @@ class ElementController extends Controller
 
     private function normalizeStatementKey(string $statement): string
     {
-        return Str::lower(trim($statement));
+        $normalized = str_replace("\u{00A0}", ' ', $statement);
+        $normalized = preg_replace('/\s+/u', ' ', trim($normalized));
+        $normalized = is_string($normalized) ? $normalized : trim($statement);
+
+        return Str::lower($normalized);
     }
 
     private function dmsTypeOptions(): array

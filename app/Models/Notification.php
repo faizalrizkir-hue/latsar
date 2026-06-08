@@ -115,6 +115,7 @@ class Notification extends Model
             'subtopic_slug',
             'subtopic_title',
             'statement',
+            'row_id',
             'coordinator_name',
             'coordinator_username',
             'created_at',

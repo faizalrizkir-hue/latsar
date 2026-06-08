@@ -14,13 +14,13 @@
 
 .guides-page {
     display: grid;
-    gap: 16px;
+    gap: 12px;
     color: var(--guide-text);
 }
 
 .guide-hero {
     display: block;
-    padding: 18px;
+    padding: 14px 16px;
     border: 1px solid rgba(148, 163, 184, 0.38);
     border-radius: 16px;
     background:
@@ -48,8 +48,8 @@
 }
 
 .guide-hero h1 {
-    margin: 10px 0 4px;
-    font-size: 1.8rem;
+    margin: 8px 0 3px;
+    font-size: 1.68rem;
     line-height: 1.12;
     font-weight: 850;
 }
@@ -65,7 +65,7 @@
 .guide-picker {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
+    gap: 10px;
 }
 
 .guide-process-panel {
@@ -255,8 +255,8 @@
     gap: 14px;
     align-items: start;
     width: 100%;
-    min-height: 150px;
-    padding: 18px;
+    min-height: 132px;
+    padding: 15px;
     border: 1px solid var(--guide-border);
     border-radius: 14px;
     background:
@@ -520,10 +520,20 @@
     font-weight: 850;
 }
 
-.guide-open-link {
+.guide-reader__actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex: 0 0 auto;
+}
+
+.guide-action-link {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 6px;
     min-height: 31px;
     padding: 0 12px;
     border: 1px solid rgba(37, 99, 235, 0.45);
@@ -536,9 +546,53 @@
     white-space: nowrap;
 }
 
-.guide-open-link:hover {
+.guide-action-link svg {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.guide-action-link:hover {
     background: #dbeafe;
     color: #1e40af;
+}
+
+.guide-download-link {
+    border-color: rgba(13, 148, 136, 0.42);
+    background: #f0fdfa;
+    color: #0f766e;
+}
+
+.guide-download-link:hover {
+    background: #ccfbf1;
+    color: #115e59;
+}
+
+:root[data-theme="dark"] .guide-action-link {
+    border-color: rgba(96, 165, 250, 0.48);
+    background: rgba(30, 64, 175, 0.34);
+    color: #dbeafe;
+}
+
+:root[data-theme="dark"] .guide-action-link:hover {
+    background: rgba(37, 99, 235, 0.48);
+    color: #eff6ff;
+}
+
+:root[data-theme="dark"] .guide-download-link {
+    border-color: rgba(45, 212, 191, 0.42);
+    background: rgba(15, 118, 110, 0.28);
+    color: #ccfbf1;
+}
+
+:root[data-theme="dark"] .guide-download-link:hover {
+    background: rgba(13, 148, 136, 0.42);
+    color: #f0fdfa;
 }
 
 .guide-toolbar {
@@ -787,8 +841,8 @@
 .guide-embed-aspect {
     position: relative;
     width: 100%;
-    height: 0;
-    padding-top: max(60%, 324px);
+    height: clamp(460px, calc((100vh / var(--scale, 1)) - 590px), 760px);
+    min-height: 0;
 }
 
 .guide-embed-frame {
@@ -907,7 +961,11 @@
         display: grid;
     }
 
-    .guide-open-link {
+    .guide-reader__actions {
+        justify-content: flex-start;
+    }
+
+    .guide-action-link {
         justify-self: start;
     }
 
@@ -922,6 +980,10 @@
 
     .guide-embed-preview {
         padding: 8px;
+    }
+
+    .guide-embed-aspect {
+        height: clamp(360px, calc(100dvh - 320px), 560px);
     }
 
     .guide-book {
@@ -993,6 +1055,10 @@
 
     .guide-embed-preview {
         padding: 6px;
+    }
+
+    .guide-embed-aspect {
+        height: clamp(300px, calc(100dvh - 300px), 460px);
     }
 
     .guide-book,

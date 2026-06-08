@@ -67,6 +67,59 @@
     $toastQueue = \App\Support\DashboardShellPayloadNormalizer::sanitizeToastQueue($toastQueue ?? []);
     $idleTimeoutMs = max(60_000, (int) ($idleTimeoutMs ?? (int) config('session.idle_timeout', 60) * 60 * 1000));
     $unreadNavBadge = $notificationUnreadCount > 99 ? '99+' : (string) $notificationUnreadCount;
+    $normalizeNotificationText = static function (string $value): string {
+        $normalized = trim($value);
+        if ($normalized === '') {
+            return '';
+        }
+
+        $normalized = str_replace(
+            ["\u{00C3}\u{201A}\u{00C2}\u{00B7}", "\u{00C2}\u{00B7}", "\u{00B7}", "\u{2022}", '|'],
+            ' | ',
+            $normalized
+        );
+        $normalized = str_replace(
+            ["\u{00E2}\u{20AC}\u{00A6}", "\u{2026}", "\u{00A0}"],
+            ['...', '...', ' '],
+            $normalized
+        );
+        $normalized = str_replace("\u{00C2}", ' ', $normalized);
+        $normalized = preg_replace('/\s*\|\s*/', ' | ', $normalized);
+        $normalized = preg_replace('/\s+/', ' ', (string) $normalized);
+
+        return trim((string) $normalized);
+    };
+    $resolveNotificationDetailText = static function ($notif, string $detailText) use ($normalizeNotificationText): string {
+        $detailText = trim($detailText);
+        if ($detailText === '' || !Str::endsWith($detailText, '...')) {
+            return $detailText;
+        }
+
+        $subtopicSlug = trim((string) data_get($notif, 'subtopic_slug', ''));
+        $rowId = (int) data_get($notif, 'row_id', 0);
+        if ($subtopicSlug === '' || $rowId <= 0 || !preg_match('/^element\d+_[a-z0-9_]+$/i', $subtopicSlug)) {
+            return $detailText;
+        }
+
+        try {
+            if (
+                !\Illuminate\Support\Facades\Schema::hasTable($subtopicSlug)
+                || !\Illuminate\Support\Facades\Schema::hasColumn($subtopicSlug, 'pernyataan')
+            ) {
+                return $detailText;
+            }
+
+            $fullStatement = \Illuminate\Support\Facades\DB::table($subtopicSlug)
+                ->where('id', $rowId)
+                ->value('pernyataan');
+        } catch (\Throwable) {
+            return $detailText;
+        }
+
+        $fullStatement = $normalizeNotificationText((string) $fullStatement);
+
+        return $fullStatement !== '' ? $fullStatement : $detailText;
+    };
     $appVersionTag = trim((string) config('app.asset_version', ''));
     if ($appVersionTag === '') {
         $appVersionTag = 'local';
@@ -183,7 +236,7 @@
                 <span class="logout-text">Logout</span>
             </button>
         </form>
-        <div class="sidenav-footer-meta">&copy; Inspektorat Provinsi DKI Jakarta 2025</div>
+        <div class="sidenav-footer-meta">&copy; Inspektorat Provinsi DKI Jakarta 2026</div>
     </aside>
     <button type="button" class="sidenav-backdrop" id="sidenavBackdrop" aria-label="Tutup menu samping"></button>
 
@@ -274,7 +327,7 @@
                                     $notifyActorRole = trim((string) (data_get($notif, 'coordinator_role_label') ?? 'Pengguna'));
                                     $notifyActorPhotoUrl = $resolvePhotoUrl((string) data_get($notif, 'coordinatorAccount.profile_photo', ''));
                                     $notifyActorInitials = $avatarLabel($notifyActorName, 'U');
-                                    $notifyTitle = trim((string) data_get($notif, 'subtopic_title', 'Notifikasi'));
+                                    $notifyTitle = $normalizeNotificationText((string) data_get($notif, 'subtopic_title', 'Notifikasi'));
                                     $notifyTitle = preg_replace('/^\s*elem(?:ent|en)\s*\d+\s*[-:]?\s*/i', '', $notifyTitle);
                                     $notifyTitle = is_string($notifyTitle) ? trim($notifyTitle) : 'Notifikasi';
                                     $notifyTitle = preg_replace('/^\s*sub\s*topik\s*\d+\s*[-:]?\s*/i', '', $notifyTitle);
@@ -283,12 +336,12 @@
                                         $notifyTitle = 'Notifikasi';
                                     }
 
-                                    $notifyStatement = trim((string) data_get($notif, 'statement', ''));
+                                    $notifyStatement = $normalizeNotificationText((string) data_get($notif, 'statement', ''));
                                     if ($notifyStatement !== '' && !Str::contains($notifyStatement, '|')) {
                                         $normalized = preg_replace('/^.*?\bmelakukan\b\s*/iu', '', $notifyStatement);
                                         $normalized = is_string($normalized) ? $normalized : $notifyStatement;
                                         $normalized = preg_replace('/\bpada\s+elem(?:ent|en)\s+\d+.*?:\s*/iu', '', $normalized);
-                                        $normalized = is_string($normalized) ? trim($normalized) : $notifyStatement;
+                                        $normalized = $normalizeNotificationText(is_string($normalized) ? $normalized : $notifyStatement);
 
                                         $legacyActionMap = [
                                             'reset verifikasi final qa' => 'Reset QA',
@@ -307,23 +360,22 @@
 
                                         foreach ($legacyActionMap as $legacyAction => $compactAction) {
                                             if (Str::startsWith(Str::lower($normalized), $legacyAction)) {
-                                                $rest = trim((string) Str::substr($normalized, Str::length($legacyAction)));
+                                                $rest = $normalizeNotificationText((string) Str::substr($normalized, Str::length($legacyAction)));
                                                 $normalized = $compactAction.' | '.($rest !== '' ? $rest : '');
                                                 break;
                                             }
                                         }
 
-                                        $notifyStatement = $normalized;
+                                        $notifyStatement = $normalizeNotificationText($normalized);
                                     }
-                                    $notifyStatement = Str::limit($notifyStatement, 64, '...');
-
                                     $notifyActionText = '';
                                     $notifyDetailText = $notifyStatement;
                                     if (Str::contains($notifyStatement, '|')) {
                                         [$notifyActionText, $notifyDetailText] = array_pad(explode('|', $notifyStatement, 2), 2, '');
-                                        $notifyActionText = trim((string) $notifyActionText);
-                                        $notifyDetailText = trim((string) $notifyDetailText);
+                                        $notifyActionText = $normalizeNotificationText((string) $notifyActionText);
+                                        $notifyDetailText = $normalizeNotificationText((string) $notifyDetailText);
                                     }
+                                    $notifyDetailText = $resolveNotificationDetailText($notif, $notifyDetailText);
 
                                     $notifyCreatedAtRaw = data_get($notif, 'created_at');
                                     $notifyCreatedAt = null;
@@ -1689,5 +1741,3 @@
 @stack('scripts')
 </body>
 </html>
-
-

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Notification;
 use App\Services\ElementPreferenceService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
@@ -12,6 +13,10 @@ use Throwable;
 
 class ElementPreferenceController extends Controller
 {
+    private const ARCHIVE_CAPTCHA_SESSION_KEY = 'archive_restore_captcha';
+
+    private const RESET_DATA_CAPTCHA_SESSION_KEY = 'element_reset_data_captcha';
+
     public function __construct(private readonly ElementPreferenceService $elementPreferenceService)
     {
     }
@@ -78,10 +83,25 @@ class ElementPreferenceController extends Controller
         return back()->with('status', 'Preferensi elemen telah dikembalikan ke konfigurasi default.');
     }
 
-    public function resetData(): RedirectResponse
+    public function resetData(Request $request): RedirectResponse
     {
         if (!Session::has('user')) {
             return redirect()->route('login.form');
+        }
+
+        $validated = $request->validate([
+            'reset_captcha_answer' => ['required', 'string', 'regex:/^[A-Za-z0-9]{4}$/'],
+        ], [
+            'reset_captcha_answer.required' => 'Captcha reset data wajib diisi.',
+            'reset_captcha_answer.regex' => 'Captcha reset data harus berisi 4 karakter huruf dan angka.',
+        ]);
+
+        $expectedCaptcha = strtoupper((string) Session::pull(self::RESET_DATA_CAPTCHA_SESSION_KEY, ''));
+        $submittedCaptcha = strtoupper(trim((string) $validated['reset_captcha_answer']));
+        if ($expectedCaptcha === '' || !hash_equals($expectedCaptcha, $submittedCaptcha)) {
+            return back()->withErrors([
+                'reset_captcha_answer' => 'Captcha reset data tidak sesuai. Silakan coba lagi.',
+            ]);
         }
 
         $result = $this->elementPreferenceService->resetElementDataAndHistory();
@@ -91,6 +111,17 @@ class ElementPreferenceController extends Controller
             'status',
             'Seluruh isian elemen beserta riwayatnya berhasil dihapus. Total data terhapus: '.$deletedTotal.'.'
         );
+    }
+
+    public function resetDataRedirect(): RedirectResponse
+    {
+        if (!Session::has('user')) {
+            return redirect()->route('login.form');
+        }
+
+        return redirect()
+            ->route('element-preferences.index')
+            ->withErrors('Reset data harus dijalankan melalui tombol konfirmasi agar token keamanan valid.');
     }
 
     public function archiveProgress(Request $request): RedirectResponse
@@ -143,7 +174,19 @@ class ElementPreferenceController extends Controller
 
         $validated = $request->validate([
             'archive_id' => ['required', 'integer', 'min:1'],
+            'archive_captcha_answer' => ['required', 'string', 'regex:/^[A-Za-z0-9]{4}$/'],
+        ], [
+            'archive_captcha_answer.required' => 'Captcha pemulihan arsip wajib diisi.',
+            'archive_captcha_answer.regex' => 'Captcha pemulihan arsip harus berisi 4 karakter huruf dan angka.',
         ]);
+
+        $expectedCaptcha = strtoupper((string) Session::pull(self::ARCHIVE_CAPTCHA_SESSION_KEY, ''));
+        $submittedCaptcha = strtoupper(trim((string) $validated['archive_captcha_answer']));
+        if ($expectedCaptcha === '' || !hash_equals($expectedCaptcha, $submittedCaptcha)) {
+            return back()->withErrors([
+                'archive_captcha_answer' => 'Captcha pemulihan arsip tidak sesuai. Silakan coba lagi.',
+            ]);
+        }
 
         $username = trim((string) (Session::get('user.username') ?? Session::get('user')['username'] ?? ''));
 
@@ -165,5 +208,52 @@ class ElementPreferenceController extends Controller
             .$restoredTotal
             .' baris. Catatan: notifikasi aktivitas tidak diubah saat pemulihan arsip.'
         );
+    }
+
+    public function archiveCaptcha(): JsonResponse|RedirectResponse
+    {
+        if (!Session::has('user')) {
+            return redirect()->route('login.form');
+        }
+
+        $captcha = $this->generateActionCaptcha();
+        Session::put(self::ARCHIVE_CAPTCHA_SESSION_KEY, $captcha);
+
+        return response()->json([
+            'captcha' => $captcha,
+        ]);
+    }
+
+    public function resetDataCaptcha(): JsonResponse|RedirectResponse
+    {
+        if (!Session::has('user')) {
+            return redirect()->route('login.form');
+        }
+
+        $captcha = $this->generateActionCaptcha();
+        Session::put(self::RESET_DATA_CAPTCHA_SESSION_KEY, $captcha);
+
+        return response()->json([
+            'captcha' => $captcha,
+        ]);
+    }
+
+    private function generateActionCaptcha(): string
+    {
+        $letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+        $numbers = '23456789';
+        $pool = $letters.$numbers;
+        $chars = [
+            $letters[random_int(0, strlen($letters) - 1)],
+            $numbers[random_int(0, strlen($numbers) - 1)],
+        ];
+
+        while (count($chars) < 4) {
+            $chars[] = $pool[random_int(0, strlen($pool) - 1)];
+        }
+
+        shuffle($chars);
+
+        return implode('', $chars);
     }
 }

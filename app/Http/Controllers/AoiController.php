@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\ElementProgressArchive;
 use App\Models\Notification;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
@@ -25,9 +26,26 @@ class AoiController extends Controller
             'pageTitle' => 'Area Of Improvement (AoI)',
             'items' => $items,
             'totalItems' => $items->count(),
+            'activeBudgetYear' => $this->resolveActiveBudgetYear(),
             'user' => Session::get('user'),
             'notifications' => Notification::feedForUser((array) Session::get('user', []), null, 50),
         ]);
+    }
+
+    private function resolveActiveBudgetYear(): int
+    {
+        $fallbackYear = (int) now('Asia/Jakarta')->year;
+        if (!Schema::hasTable('element_progress_archives')) {
+            return $fallbackYear;
+        }
+
+        $loadedYear = ElementProgressArchive::query()
+            ->whereNotNull('last_loaded_at')
+            ->orderByDesc('last_loaded_at')
+            ->orderByDesc('id')
+            ->value('budget_year');
+
+        return is_numeric($loadedYear) ? (int) $loadedYear : $fallbackYear;
     }
 
     private function collectAoiItems(): Collection
@@ -97,6 +115,7 @@ class AoiController extends Controller
                     'rekomendasi_tindak_lanjut' => $rekomendasiTindakLanjut,
                     'qa_verified_by' => trim((string) ($row->qa_verified_by ?? '')),
                     'qa_verified_at' => $verifiedAt?->copy()->timezone('Asia/Jakarta')->format('d/m/Y H:i:s').' WIB',
+                    'qa_verified_at_print' => $this->formatPrintDate($verifiedAt),
                     'qa_verified_at_ts' => $verifiedAt?->getTimestamp() ?? 0,
                 ]);
             }
@@ -122,5 +141,32 @@ class AoiController extends Controller
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    private function formatPrintDate(?Carbon $value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+
+        $months = [
+            1 => 'Januari',
+            2 => 'Februari',
+            3 => 'Maret',
+            4 => 'April',
+            5 => 'Mei',
+            6 => 'Juni',
+            7 => 'Juli',
+            8 => 'Agustus',
+            9 => 'September',
+            10 => 'Oktober',
+            11 => 'November',
+            12 => 'Desember',
+        ];
+
+        $date = $value->copy()->timezone('Asia/Jakarta');
+        $month = $months[(int) $date->format('n')] ?? $date->format('F');
+
+        return $date->format('d').' '.$month.' '.$date->format('Y');
     }
 }

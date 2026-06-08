@@ -176,7 +176,10 @@
                                 $savedQaLevelValidationState = is_array($savedQaLevelValidationStateRaw)
                                     ? $savedQaLevelValidationStateRaw
                                     : [];
-                                $statementKey = \Illuminate\Support\Str::lower(trim((string) ($row->pernyataan ?? '')));
+                                $statementRaw = (string) ($row->pernyataan ?? '');
+                                $statementKeyText = str_replace("\u{00A0}", ' ', $statementRaw);
+                                $statementKeyText = preg_replace('/\s+/u', ' ', trim($statementKeyText));
+                                $statementKey = \Illuminate\Support\Str::lower(is_string($statementKeyText) ? $statementKeyText : trim($statementRaw));
                                 $levelHints = is_array(data_get($statementLevelHintMap, $statementKey))
                                     ? data_get($statementLevelHintMap, $statementKey)
                                     : [];
@@ -228,6 +231,10 @@
                                     || trim((string) ($row->analisis_nilai ?? '')) !== '';
                                 $isChecklistComplete = $statusPickedDocCount > 0
                                     && $hasAnyLevelNote;
+                                $hasVerifiedLevelScore = is_numeric($row->level ?? null)
+                                    && is_numeric($row->skor ?? null)
+                                    && $validatedLevelCount > 0;
+                                $hasInconsistentVerification = $isVerified && !$hasVerifiedLevelScore;
                                 $hasAnyDataDraft = is_numeric($row->level ?? null)
                                     || is_numeric($row->skor ?? null)
                                     || $statusPickedDocCount > 0
@@ -236,7 +243,15 @@
                                 $rowStatusLabel = 'Belum Diisi';
                                 $rowStatusClass = 'is-empty';
                                 $rowStatusKey = 'empty';
-                                if ($isVerified || $isChecklistComplete) {
+                                if ($isVerified && $hasVerifiedLevelScore) {
+                                    $rowStatusLabel = 'Lengkap';
+                                    $rowStatusClass = 'is-complete';
+                                    $rowStatusKey = 'complete';
+                                } elseif ($hasInconsistentVerification) {
+                                    $rowStatusLabel = 'Perlu Verifikasi Ulang';
+                                    $rowStatusClass = 'is-warning';
+                                    $rowStatusKey = 'draft';
+                                } elseif ($isChecklistComplete) {
                                     $rowStatusLabel = 'Lengkap';
                                     $rowStatusClass = 'is-complete';
                                     $rowStatusKey = 'complete';

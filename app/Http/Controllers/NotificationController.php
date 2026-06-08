@@ -8,6 +8,7 @@ use App\Models\ElementTeamAssignment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Str;
@@ -204,7 +205,7 @@ class NotificationController extends Controller
         $notifyActorRole = trim((string) ($notification->coordinator_role_label ?? 'Pengguna'));
         $notifyActorPhotoUrl = $this->resolvePhotoUrl($notification->coordinatorAccount?->profile_photo ?? '');
         $notifyActorInitials = $this->avatarLabel($notifyActorName, 'U');
-        $notifyTitle = trim((string) ($notification->subtopic_title ?? 'Notifikasi'));
+        $notifyTitle = $this->normalizeNotificationPlainText((string) ($notification->subtopic_title ?? 'Notifikasi'));
         $notifyTitle = preg_replace('/^\s*elem(?:ent|en)\s*\d+\s*[-:]?\s*/i', '', $notifyTitle);
         $notifyTitle = is_string($notifyTitle) ? trim($notifyTitle) : 'Notifikasi';
         $notifyTitle = preg_replace('/^\s*sub\s*topik\s*\d+\s*[-:]?\s*/i', '', $notifyTitle);
@@ -214,7 +215,7 @@ class NotificationController extends Controller
         }
 
         $notifyStatement = $this->normalizeNotificationStatement((string) ($notification->statement ?? ''));
-        if ($notifyStatement !== '' && !Str::contains($notifyStatement, '·')) {
+        if ($notifyStatement !== '' && !Str::contains($notifyStatement, '|')) {
             $normalized = preg_replace('/^.*?\bmelakukan\b\s*/iu', '', $notifyStatement);
             $normalized = is_string($normalized) ? $normalized : $notifyStatement;
             $normalized = preg_replace('/\bpada\s+elem(?:ent|en)\s+\d+.*?:\s*/iu', '', $normalized);
@@ -238,22 +239,21 @@ class NotificationController extends Controller
             foreach ($legacyActionMap as $legacyAction => $compactAction) {
                 if (Str::startsWith(Str::lower($normalized), $legacyAction)) {
                     $rest = trim((string) Str::substr($normalized, Str::length($legacyAction)));
-                    $normalized = $compactAction.' · '.($rest !== '' ? $rest : '');
+                    $normalized = $compactAction.' | '.($rest !== '' ? $rest : '');
                     break;
                 }
             }
 
             $notifyStatement = $this->normalizeNotificationStatement($normalized);
         }
-        $notifyStatement = Str::limit($notifyStatement, 64, '...');
-
         $notifyActionText = '';
         $notifyDetailText = $notifyStatement;
-        if (Str::contains($notifyStatement, '·')) {
-            [$notifyActionText, $notifyDetailText] = array_pad(explode('·', $notifyStatement, 2), 2, '');
+        if (Str::contains($notifyStatement, '|')) {
+            [$notifyActionText, $notifyDetailText] = array_pad(explode('|', $notifyStatement, 2), 2, '');
             $notifyActionText = trim((string) $notifyActionText);
             $notifyDetailText = trim((string) $notifyDetailText);
         }
+        $notifyDetailText = $this->resolveFullStatementDetail($notification, $notifyDetailText);
 
         $notifyActionClass = match (Str::lower($notifyActionText)) {
             'isi data', 'isi/ubah data' => 'is-fill',
@@ -310,6 +310,53 @@ class NotificationController extends Controller
         return Str::upper(Str::substr($compact, 0, 2));
     }
 
+    private function normalizeNotificationPlainText(string $text): string
+    {
+        $normalized = trim($text);
+        if ($normalized === '') {
+            return '';
+        }
+
+        $normalized = str_replace(
+            ["\u{00E2}\u{20AC}\u{00A6}", "\u{2026}", "\u{00A0}", "\u{00C2}"],
+            ['...', '...', ' ', ' '],
+            $normalized
+        );
+        $normalized = preg_replace('/\s+/', ' ', (string) $normalized);
+
+        return trim((string) $normalized);
+    }
+
+    private function resolveFullStatementDetail(Notification $notification, string $detailText): string
+    {
+        $detailText = trim($detailText);
+        if ($detailText === '' || !Str::endsWith($detailText, '...')) {
+            return $detailText;
+        }
+
+        $subtopicSlug = trim((string) ($notification->subtopic_slug ?? ''));
+        $rowId = (int) ($notification->row_id ?? 0);
+        if ($subtopicSlug === '' || $rowId <= 0 || !preg_match('/^element\d+_[a-z0-9_]+$/i', $subtopicSlug)) {
+            return $detailText;
+        }
+
+        if (!Schema::hasTable($subtopicSlug) || !Schema::hasColumn($subtopicSlug, 'pernyataan')) {
+            return $detailText;
+        }
+
+        try {
+            $fullStatement = DB::table($subtopicSlug)
+                ->where('id', $rowId)
+                ->value('pernyataan');
+        } catch (\Throwable) {
+            return $detailText;
+        }
+
+        $fullStatement = $this->normalizeNotificationPlainText((string) $fullStatement);
+
+        return $fullStatement !== '' ? $fullStatement : $detailText;
+    }
+
     private function normalizeNotificationStatement(string $statement): string
     {
         $normalized = trim($statement);
@@ -318,11 +365,17 @@ class NotificationController extends Controller
         }
 
         $normalized = str_replace(
-            ['Ã‚Â·', 'Â·', '•', '|', 'â€¦', '…', "\u{00A0}"],
-            [' · ', ' · ', ' · ', ' · ', '...', '...', ' '],
+            ["\u{00C3}\u{201A}\u{00C2}\u{00B7}", "\u{00C2}\u{00B7}", "\u{00B7}", "\u{2022}", '|'],
+            ' | ',
             $normalized
         );
-        $normalized = preg_replace('/\s*·\s*/u', ' · ', $normalized);
+        $normalized = str_replace(
+            ["\u{00E2}\u{20AC}\u{00A6}", "\u{2026}", "\u{00A0}"],
+            ['...', '...', ' '],
+            $normalized
+        );
+        $normalized = str_replace("\u{00C2}", ' ', $normalized);
+        $normalized = preg_replace('/\s*\|\s*/', ' | ', $normalized);
         $normalized = preg_replace('/\s+/', ' ', (string) $normalized);
 
         return trim((string) $normalized);

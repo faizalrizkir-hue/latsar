@@ -1087,16 +1087,16 @@ a{text-decoration:none;color:inherit;}
         .notify-body{
             color:var(--text-muted);
             line-height:1.28;
-            display:-webkit-box;
-            -webkit-line-clamp:1;
-            -webkit-box-orient:vertical;
-            overflow:hidden;
-            text-overflow:ellipsis;
+            display:block;
+            min-width:0;
+            overflow-wrap:anywhere;
+            word-break:normal;
             font-size:0.9rem;
+            flex:1;
         }
         .notify-action-row{
             display:flex;
-            align-items:center;
+            align-items:flex-start;
             gap:6px;
             min-width:0;
         }
@@ -1397,7 +1397,7 @@ a{text-decoration:none;color:inherit;}
             transform:translateY(6px);
             visibility:hidden;
             pointer-events:none;
-            z-index:2100;
+            z-index:3200;
             transition:opacity 0.16s ease,transform 0.18s cubic-bezier(0.22,1,0.36,1),visibility 0.16s ease;
             --hint-arrow-x: 24px;
         }

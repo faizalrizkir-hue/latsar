@@ -121,7 +121,6 @@
                 action="{{ route('element-preferences.update') }}"
                 class="pref-form mt-3"
                 id="elementPreferenceForm"
-                data-reset-data-action="{{ route('element-preferences.reset-data') }}"
             >
                 @csrf
                     <div class="pref-archive-panel card shadow-sm pref-lift">
@@ -496,6 +495,11 @@
                     </div>
             </form>
 
+            <form id="resetDataForm" method="POST" action="{{ route('element-preferences.reset-data') }}" class="d-none">
+                @csrf
+                <input type="hidden" name="reset_captcha_answer" value="">
+            </form>
+
             <form id="archiveProgressForm" method="POST" action="{{ route('element-preferences.archive-progress') }}" class="d-none">
                 @csrf
                 <input type="hidden" name="budget_year" value="">
@@ -504,6 +508,7 @@
             <form id="loadArchiveForm" method="POST" action="{{ route('element-preferences.load-archive') }}" class="d-none">
                 @csrf
                 <input type="hidden" name="archive_id" value="">
+                <input type="hidden" name="archive_captcha_answer" value="">
             </form>
         @endif
     </div>
@@ -518,11 +523,22 @@
         <p class="dms-confirm-modal__body" id="prefActionConfirmModalMessage">Lanjutkan tindakan ini?</p>
         <div class="dms-confirm-modal__verify" id="prefActionConfirmModalVerify" hidden>
             <div class="dms-confirm-modal__verify-label" id="prefActionConfirmModalVerifyLabel">Ketik kata kunci untuk melanjutkan.</div>
+            <div class="dms-confirm-modal__captcha" id="prefActionConfirmCaptcha" hidden>
+                <canvas
+                    class="dms-confirm-modal__captcha-canvas"
+                    id="prefActionConfirmCaptchaCanvas"
+                    width="184"
+                    height="58"
+                    role="img"
+                    aria-label="Gambar captcha konfirmasi tindakan"></canvas>
+                <button type="button" class="dms-confirm-modal__captcha-refresh" id="prefActionConfirmCaptchaRefresh" data-pref-captcha-refresh>Ulang</button>
+            </div>
             <input
                 type="text"
                 class="form-control dms-confirm-modal__verify-input"
                 id="prefActionConfirmModalVerifyInput"
                 autocomplete="off"
+                autocapitalize="characters"
                 spellcheck="false"
                 placeholder="">
             <div class="dms-confirm-modal__verify-hint" id="prefActionConfirmModalVerifyHint"></div>
@@ -544,17 +560,21 @@
     const preferenceForm = document.getElementById('elementPreferenceForm');
     if (!preferenceForm) return;
 
+    const resetDataForm = document.getElementById('resetDataForm');
+    const resetDataCaptchaField = resetDataForm?.querySelector('input[name="reset_captcha_answer"]') || null;
     const archiveProgressForm = document.getElementById('archiveProgressForm');
     const archiveProgressYearField = archiveProgressForm?.querySelector('input[name="budget_year"]') || null;
     const loadArchiveForm = document.getElementById('loadArchiveForm');
     const loadArchiveIdField = loadArchiveForm?.querySelector('input[name="archive_id"]') || null;
+    const loadArchiveCaptchaField = loadArchiveForm?.querySelector('input[name="archive_captcha_answer"]') || null;
     const archiveYearInput = page.querySelector('[data-archive-year-input]');
     const loadArchiveSelect = page.querySelector('[data-load-archive-select]');
 
     const elementsContainer = page.querySelector('[data-elements-container]');
     if (!elementsContainer) return;
     const updateActionUrl = preferenceForm.getAttribute('action') || '';
-    const resetDataActionUrl = preferenceForm.dataset.resetDataAction || updateActionUrl;
+    const resetDataCaptchaUrl = @json(route('element-preferences.reset-data-captcha'));
+    const archiveCaptchaUrl = @json(route('element-preferences.archive-captcha'));
 
     const confirmModal = document.getElementById('prefActionConfirmModal');
     const confirmTitle = document.getElementById('prefActionConfirmModalTitle');
@@ -562,6 +582,9 @@
     const confirmSubmit = document.getElementById('prefActionConfirmModalConfirm');
     const confirmVerifyWrap = document.getElementById('prefActionConfirmModalVerify');
     const confirmVerifyLabel = document.getElementById('prefActionConfirmModalVerifyLabel');
+    const confirmCaptchaWrap = document.getElementById('prefActionConfirmCaptcha');
+    const confirmCaptchaCanvas = document.getElementById('prefActionConfirmCaptchaCanvas');
+    const confirmCaptchaRefresh = document.getElementById('prefActionConfirmCaptchaRefresh');
     const confirmVerifyInput = document.getElementById('prefActionConfirmModalVerifyInput');
     const confirmVerifyHint = document.getElementById('prefActionConfirmModalVerifyHint');
 
@@ -572,8 +595,10 @@
     const elementSpotlightDurationMs = 1700;
     let closeTimer = null;
     let pendingAction = null;
+    let pendingCaptchaRefresh = null;
     let lastTrigger = null;
     let confirmRequiredPhrase = '';
+    let confirmUsesGraphicCaptcha = false;
     const reducedMotionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
 
     const getViewportUiScale = () => {
@@ -944,8 +969,141 @@
         return String(value || '').trim().toLowerCase();
     };
 
+    const fetchActionCaptcha = async (url, form) => {
+        const csrfToken = form?.querySelector('input[name="_token"]')?.value || '';
+        const response = await fetch(url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Gagal membuat captcha.');
+        }
+
+        const payload = await response.json();
+        const captcha = String(payload?.captcha || '').trim().toUpperCase();
+        if (!/^(?=.*[A-Z])(?=.*\d)[A-Z0-9]{4}$/.test(captcha)) {
+            throw new Error('Format captcha tidak valid.');
+        }
+
+        return captcha;
+    };
+
+    const fetchArchiveCaptcha = () => fetchActionCaptcha(archiveCaptchaUrl, loadArchiveForm);
+    const fetchResetDataCaptcha = () => fetchActionCaptcha(resetDataCaptchaUrl, resetDataForm);
+
+    const clearConfirmCaptchaGraphic = () => {
+        confirmUsesGraphicCaptcha = false;
+        pendingCaptchaRefresh = null;
+
+        if (confirmCaptchaWrap) {
+            confirmCaptchaWrap.setAttribute('hidden', 'hidden');
+        }
+
+        if (confirmCaptchaCanvas) {
+            const context = confirmCaptchaCanvas.getContext('2d');
+            context?.clearRect(0, 0, confirmCaptchaCanvas.width, confirmCaptchaCanvas.height);
+        }
+
+        if (confirmCaptchaRefresh) {
+            confirmCaptchaRefresh.disabled = false;
+            confirmCaptchaRefresh.removeAttribute('aria-busy');
+        }
+    };
+
+    const drawConfirmCaptchaGraphic = (value) => {
+        if (!confirmCaptchaWrap || !confirmCaptchaCanvas) return;
+
+        const captcha = String(value || '').trim().toUpperCase();
+        if (captcha === '') {
+            clearConfirmCaptchaGraphic();
+            return;
+        }
+
+        const cssWidth = 184;
+        const cssHeight = 58;
+        const pixelRatio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+        confirmCaptchaCanvas.width = Math.round(cssWidth * pixelRatio);
+        confirmCaptchaCanvas.height = Math.round(cssHeight * pixelRatio);
+        confirmCaptchaCanvas.style.width = `${cssWidth}px`;
+        confirmCaptchaCanvas.style.height = `${cssHeight}px`;
+
+        const context = confirmCaptchaCanvas.getContext('2d');
+        if (!context) return;
+
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        context.clearRect(0, 0, cssWidth, cssHeight);
+
+        const background = context.createLinearGradient(0, 0, cssWidth, cssHeight);
+        background.addColorStop(0, '#f8fafc');
+        background.addColorStop(0.42, '#dbeafe');
+        background.addColorStop(1, '#fef3c7');
+        context.fillStyle = background;
+        context.fillRect(0, 0, cssWidth, cssHeight);
+
+        for (let index = 0; index < 48; index += 1) {
+            context.fillStyle = index % 3 === 0 ? 'rgba(14, 116, 144, 0.28)' : 'rgba(51, 65, 85, 0.18)';
+            context.beginPath();
+            context.arc(
+                Math.random() * cssWidth,
+                Math.random() * cssHeight,
+                Math.random() * 1.7 + 0.5,
+                0,
+                Math.PI * 2
+            );
+            context.fill();
+        }
+
+        for (let index = 0; index < 5; index += 1) {
+            context.strokeStyle = index % 2 === 0 ? 'rgba(5, 150, 105, 0.32)' : 'rgba(37, 99, 235, 0.26)';
+            context.lineWidth = Math.random() * 1.4 + 0.8;
+            context.beginPath();
+            context.moveTo(-8, Math.random() * cssHeight);
+            context.bezierCurveTo(
+                cssWidth * 0.28,
+                Math.random() * cssHeight,
+                cssWidth * 0.72,
+                Math.random() * cssHeight,
+                cssWidth + 8,
+                Math.random() * cssHeight
+            );
+            context.stroke();
+        }
+
+        const colors = ['#0f172a', '#0e7490', '#7c2d12', '#166534'];
+        const spacing = cssWidth / (captcha.length + 1);
+        captcha.split('').forEach((char, index) => {
+            const x = spacing * (index + 1);
+            const y = 34 + (Math.random() * 8 - 4);
+            const angle = (Math.random() * 18 - 9) * Math.PI / 180;
+
+            context.save();
+            context.translate(x, y);
+            context.rotate(angle);
+            context.font = '800 28px "Segoe UI", Arial, sans-serif';
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillStyle = colors[index % colors.length];
+            context.shadowColor = 'rgba(255, 255, 255, 0.85)';
+            context.shadowBlur = 3;
+            context.fillText(char, 0, 0);
+            context.restore();
+        });
+
+        context.strokeStyle = 'rgba(15, 23, 42, 0.16)';
+        context.lineWidth = 1;
+        context.strokeRect(0.5, 0.5, cssWidth - 1, cssHeight - 1);
+
+        confirmCaptchaWrap.removeAttribute('hidden');
+    };
+
     const resetConfirmVerificationState = () => {
         confirmRequiredPhrase = '';
+        clearConfirmCaptchaGraphic();
         if (confirmVerifyWrap) {
             confirmVerifyWrap.setAttribute('hidden', 'hidden');
         }
@@ -955,6 +1113,7 @@
         if (confirmVerifyInput) {
             confirmVerifyInput.value = '';
             confirmVerifyInput.placeholder = '';
+            confirmVerifyInput.removeAttribute('maxlength');
             confirmVerifyInput.classList.remove('is-valid', 'is-invalid');
             confirmVerifyInput.removeAttribute('aria-invalid');
         }
@@ -1035,6 +1194,9 @@
         requiredPhrase = '',
         requiredPhraseLabel = '',
         requiredPhraseHint = '',
+        requiredPhrasePlaceholder = '',
+        requiredPhraseGraphic = false,
+        onRefreshPhrase = null,
         onConfirm = null,
         trigger = null,
     }) => {
@@ -1049,8 +1211,10 @@
         }
 
         pendingAction = onConfirm;
+        pendingCaptchaRefresh = typeof onRefreshPhrase === 'function' ? onRefreshPhrase : null;
         lastTrigger = trigger;
         confirmRequiredPhrase = String(requiredPhrase || '').trim();
+        confirmUsesGraphicCaptcha = Boolean(requiredPhraseGraphic && confirmRequiredPhrase !== '');
 
         confirmTitle.textContent = title;
         confirmMessage.textContent = message;
@@ -1064,8 +1228,15 @@
                 confirmVerifyWrap.removeAttribute('hidden');
                 confirmVerifyLabel.textContent = requiredPhraseLabel || 'Ketik kata kunci untuk melanjutkan.';
                 confirmVerifyInput.value = '';
-                confirmVerifyInput.placeholder = requiredPhraseHint || `Ketik: ${confirmRequiredPhrase}`;
-                confirmVerifyHint.textContent = `Kata kunci: ${confirmRequiredPhrase}`;
+                if (confirmUsesGraphicCaptcha) {
+                    confirmVerifyInput.setAttribute('maxlength', '4');
+                    drawConfirmCaptchaGraphic(confirmRequiredPhrase);
+                } else {
+                    confirmVerifyInput.removeAttribute('maxlength');
+                    clearConfirmCaptchaGraphic();
+                }
+                confirmVerifyInput.placeholder = requiredPhrasePlaceholder || `Ketik: ${confirmRequiredPhrase}`;
+                confirmVerifyHint.textContent = requiredPhraseHint || `Ketik: ${confirmRequiredPhrase}`;
                 confirmVerifyHint.classList.remove('is-danger');
                 confirmVerifyInput.classList.remove('is-valid', 'is-invalid');
                 confirmVerifyInput.removeAttribute('aria-invalid');
@@ -1113,6 +1284,16 @@
     };
 
     confirmVerifyInput?.addEventListener('input', () => {
+        if (confirmUsesGraphicCaptcha) {
+            const normalized = String(confirmVerifyInput.value || '')
+                .toUpperCase()
+                .replace(/[^A-Z0-9]/g, '')
+                .slice(0, 4);
+            if (confirmVerifyInput.value !== normalized) {
+                confirmVerifyInput.value = normalized;
+            }
+        }
+
         syncConfirmVerificationState();
     });
 
@@ -1673,19 +1854,40 @@
         if (resetDataTrigger) {
             event.preventDefault();
 
-            openConfirmModal({
-                title: 'Reset Data Elemen',
-                message: 'Semua isian elemen dan riwayat edit akan dihapus permanen. Tindakan ini tidak bisa dibatalkan. Lanjutkan?',
-                label: 'Reset Data',
-                kind: 'danger',
-                trigger: resetDataTrigger,
-                onConfirm: () => {
-                    if (resetDataActionUrl !== '') {
-                        preferenceForm.setAttribute('action', resetDataActionUrl);
-                    }
-                    preferenceForm.submit();
-                },
-            });
+            if (!resetDataForm) {
+                window.alert('Form reset data tidak tersedia. Muat ulang halaman lalu coba lagi.');
+                return;
+            }
+
+            resetDataTrigger.disabled = true;
+            fetchResetDataCaptcha()
+                .then((captcha) => {
+                    openConfirmModal({
+                        title: 'Reset Data Elemen',
+                        message: 'Semua isian elemen dan riwayat edit akan dihapus permanen. Tindakan ini tidak bisa dibatalkan. Lanjutkan?',
+                        label: 'Reset Data',
+                        kind: 'danger',
+                        requiredPhrase: captcha,
+                        requiredPhraseLabel: 'Masukkan captcha 4 karakter berikut untuk reset data elemen.',
+                        requiredPhraseHint: 'Masukkan 4 karakter yang terlihat pada gambar.',
+                        requiredPhrasePlaceholder: 'Ketik captcha di sini',
+                        requiredPhraseGraphic: true,
+                        onRefreshPhrase: fetchResetDataCaptcha,
+                        trigger: resetDataTrigger,
+                        onConfirm: (verificationValue = '') => {
+                            if (resetDataCaptchaField) {
+                                resetDataCaptchaField.value = String(verificationValue || '').trim();
+                            }
+                            resetDataForm.submit();
+                        },
+                    });
+                })
+                .catch(() => {
+                    window.alert('Captcha reset data gagal dibuat. Silakan coba lagi.');
+                })
+                .finally(() => {
+                    resetDataTrigger.disabled = false;
+                });
             return;
         }
 
@@ -1735,20 +1937,36 @@
             const selectedOption = loadArchiveSelect.options[loadArchiveSelect.selectedIndex];
             const archiveLabel = selectedOption ? selectedOption.textContent?.trim() || `ID ${archiveId}` : `ID ${archiveId}`;
 
-            openConfirmModal({
-                title: 'Pulihkan Arsip Progress',
-                message: `Isian progress aktif akan diganti dengan arsip "${archiveLabel}". Notifikasi aktivitas tidak diubah. Tindakan ini tidak menghapus arsip. Lanjutkan?`,
-                label: 'Pulihkan Arsip',
-                kind: 'default',
-                requiredPhrase: 'Inspektorat PPK',
-                requiredPhraseLabel: 'Ketik kata kunci berikut untuk melanjutkan aksi ini:',
-                requiredPhraseHint: 'Ketik: Inspektorat PPK',
-                trigger: loadArchiveTrigger,
-                onConfirm: () => {
-                    loadArchiveIdField.value = String(archiveId);
-                    loadArchiveForm.submit();
-                },
-            });
+            loadArchiveTrigger.disabled = true;
+            fetchArchiveCaptcha()
+                .then((captcha) => {
+                    openConfirmModal({
+                        title: 'Pulihkan Arsip Progress',
+                        message: `Isian progress aktif akan diganti dengan arsip "${archiveLabel}". Notifikasi aktivitas tidak diubah. Tindakan ini tidak menghapus arsip. Lanjutkan?`,
+                        label: 'Pulihkan Arsip',
+                        kind: 'default',
+                        requiredPhrase: captcha,
+                        requiredPhraseLabel: 'Masukkan captcha 4 karakter berikut untuk memulihkan arsip.',
+                        requiredPhraseHint: 'Masukkan 4 karakter yang terlihat pada gambar.',
+                        requiredPhrasePlaceholder: 'Ketik captcha di sini',
+                        requiredPhraseGraphic: true,
+                        onRefreshPhrase: fetchArchiveCaptcha,
+                        trigger: loadArchiveTrigger,
+                        onConfirm: (verificationValue = '') => {
+                            loadArchiveIdField.value = String(archiveId);
+                            if (loadArchiveCaptchaField) {
+                                loadArchiveCaptchaField.value = String(verificationValue || '').trim();
+                            }
+                            loadArchiveForm.submit();
+                        },
+                    });
+                })
+                .catch(() => {
+                    window.alert('Captcha pemulihan arsip gagal dibuat. Silakan coba lagi.');
+                })
+                .finally(() => {
+                    loadArchiveTrigger.disabled = false;
+                });
             return;
         }
 
@@ -1904,6 +2122,40 @@
     });
 
     document.addEventListener('click', (event) => {
+        const captchaRefreshTrigger = event.target.closest('[data-pref-captcha-refresh]');
+        if (captchaRefreshTrigger) {
+            event.preventDefault();
+            if (typeof pendingCaptchaRefresh !== 'function') return;
+
+            captchaRefreshTrigger.disabled = true;
+            captchaRefreshTrigger.setAttribute('aria-busy', 'true');
+
+            pendingCaptchaRefresh()
+                .then((captcha) => {
+                    confirmRequiredPhrase = String(captcha || '').trim();
+                    if (confirmVerifyInput) {
+                        confirmVerifyInput.value = '';
+                        confirmVerifyInput.classList.remove('is-valid', 'is-invalid');
+                        confirmVerifyInput.removeAttribute('aria-invalid');
+                    }
+                    if (confirmVerifyHint) {
+                        confirmVerifyHint.textContent = 'Masukkan 4 karakter yang terlihat pada gambar.';
+                        confirmVerifyHint.classList.remove('is-danger');
+                    }
+                    drawConfirmCaptchaGraphic(confirmRequiredPhrase);
+                    syncConfirmVerificationState();
+                    confirmVerifyInput?.focus({ preventScroll: true });
+                })
+                .catch(() => {
+                    window.alert('Captcha pemulihan arsip gagal dibuat. Silakan coba lagi.');
+                })
+                .finally(() => {
+                    captchaRefreshTrigger.disabled = false;
+                    captchaRefreshTrigger.removeAttribute('aria-busy');
+                });
+            return;
+        }
+
         if (event.target.closest('[data-pref-confirm-close]')) {
             event.preventDefault();
             closeConfirmModal();
@@ -1913,8 +2165,9 @@
         if (event.target.closest('#prefActionConfirmModalConfirm')) {
             event.preventDefault();
             const action = pendingAction;
+            const verificationValue = String(confirmVerifyInput?.value || '').trim();
             closeConfirmModal();
-            action?.();
+            action?.(verificationValue);
         }
     });
 
@@ -1950,12 +2203,6 @@
     });
 
     preferenceForm.addEventListener('submit', (event) => {
-        const isResetDataSubmission = preferenceForm.getAttribute('action') === resetDataActionUrl;
-
-        if (isResetDataSubmission) {
-            return;
-        }
-
         if (updateActionUrl !== '') {
             preferenceForm.setAttribute('action', updateActionUrl);
         }

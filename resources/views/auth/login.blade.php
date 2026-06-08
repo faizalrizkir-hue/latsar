@@ -22,6 +22,13 @@
     @endif
 </head>
 <body>
+    <div class="theme-backdrop" aria-hidden="true">
+        <span class="theme-backdrop__image theme-backdrop__image--light"></span>
+        <span class="theme-backdrop__image theme-backdrop__image--dark"></span>
+        <span class="theme-backdrop__wash"></span>
+        <span class="theme-backdrop__atmosphere theme-backdrop__atmosphere--day"></span>
+        <span class="theme-backdrop__atmosphere theme-backdrop__atmosphere--night"></span>
+    </div>
     <div class="loading-overlay" id="loadingOverlay" aria-live="polite" aria-label="Memproses login">
         <div class="loading-bubble" role="status">
             <div class="loading-content" id="loadingContent" aria-hidden="false">
@@ -243,6 +250,7 @@
             let overlayTimer = null;
             let redirectTimer = null;
             let logoutToastTimer = null;
+            let themeTransitionTimer = null;
 
             if (loginCard && window.matchMedia('(pointer: fine)').matches && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
                 loginCard.addEventListener('pointermove', (event) => {
@@ -269,7 +277,14 @@
                 return 'light';
             })();
 
-            function applyTheme(theme, persist = true) {
+            function applyTheme(theme, persist = true, animate = false) {
+                if (animate && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                    clearTimeout(themeTransitionTimer);
+                    root.classList.add('is-theme-transitioning');
+                    themeTransitionTimer = setTimeout(() => {
+                        root.classList.remove('is-theme-transitioning');
+                    }, 1000);
+                }
                 root.setAttribute('data-theme', theme);
                 toggleBtn.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
                 label.textContent = theme === 'dark' ? 'Gelap' : 'Terang';
@@ -278,7 +293,7 @@
             applyTheme(initialTheme, false);
             toggleBtn.addEventListener('click', () => {
                 const nextTheme = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-                applyTheme(nextTheme);
+                applyTheme(nextTheme, true, true);
             });
 
             passwordToggle.addEventListener('click', () => {

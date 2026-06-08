@@ -1399,6 +1399,12 @@
     color: #f8dc9d;
 }
 
+:root[data-theme="dark"] .keg-page:not(.element1-summary-page) .row-fill-status.is-warning {
+    border-color: rgba(248, 113, 113, 0.58);
+    background: rgba(153, 27, 27, 0.34);
+    color: #fecaca;
+}
+
 :root[data-theme="dark"] .keg-page:not(.element1-summary-page) .row-fill-status.is-complete {
     border-color: rgba(74, 222, 128, 0.56);
     background: rgba(21, 128, 61, 0.34);

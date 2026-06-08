@@ -6,6 +6,7 @@ use App\Http\Middleware\EnsureDatabaseServerLock;
 use App\Models\Account;
 use App\Models\Notification;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 use Tests\Concerns\BootstrapsCoreTables;
 use Tests\TestCase;
 
@@ -48,11 +49,13 @@ class NotificationFlowTest extends TestCase
 
     public function test_notification_feed_and_mark_read_flow(): void
     {
+        $legacySeparator = "\u{00C3}\u{201A}\u{00C2}\u{00B7}";
+
         Notification::query()->create([
             'element_slug' => 'element1',
             'subtopic_slug' => 'element1_kegiatan_asurans',
             'subtopic_title' => 'Topik 1 - Kegiatan Asurans',
-            'statement' => 'Isi Data Ã‚Â· Pernyataan A',
+            'statement' => 'Isi Data '.$legacySeparator.' Pernyataan A',
             'row_id' => 1,
             'coordinator_name' => 'Koordinator 1',
             'coordinator_username' => 'koor1',
@@ -62,7 +65,7 @@ class NotificationFlowTest extends TestCase
             'element_slug' => 'element1',
             'subtopic_slug' => 'element1_kegiatan_asurans',
             'subtopic_title' => 'Topik 1 - Kegiatan Asurans',
-            'statement' => 'Verifikasi Ã‚Â· Pernyataan B',
+            'statement' => 'Verifikasi '.$legacySeparator.' Pernyataan B',
             'row_id' => 2,
             'coordinator_name' => 'Koordinator 1',
             'coordinator_username' => 'koor1',
@@ -117,6 +120,57 @@ class NotificationFlowTest extends TestCase
             ->assertJsonPath('count', 1)
             ->assertJsonPath('items.0.action_text', 'Verifikasi QA')
             ->assertJsonPath('items.0.detail_text', 'Pernyataan C');
+    }
+
+    public function test_notification_feed_keeps_full_statement_detail(): void
+    {
+        $statementDetail = 'Melaksanakan Reviu Berjenjang pada Setiap Tahapan Penugasan Pengawasan';
+
+        Notification::query()->create([
+            'element_slug' => 'element1',
+            'subtopic_slug' => 'element1_kegiatan_asurans',
+            'subtopic_title' => 'Topik 1 - Kegiatan Asurans',
+            'statement' => 'Isi Data | '.$statementDetail,
+            'row_id' => 4,
+            'coordinator_name' => 'Koordinator 1',
+            'coordinator_username' => 'koor1',
+            'created_at' => now(),
+        ]);
+
+        $this
+            ->withSession(['user' => $this->sessionUser, 'last_activity_at' => time()])
+            ->getJson('/notifications/feed?scope=element1')
+            ->assertOk()
+            ->assertJsonPath('items.0.action_text', 'Isi Data')
+            ->assertJsonPath('items.0.detail_text', $statementDetail);
+    }
+
+    public function test_notification_feed_recovers_truncated_legacy_statement_detail(): void
+    {
+        $statementDetail = 'Pelaksanaan Pengembangan Informasi Awal Penugasan Pengawasan Secara Lengkap';
+
+        DB::table('element1_kegiatan_asurans')->insert([
+            'id' => 4,
+            'pernyataan' => $statementDetail,
+        ]);
+
+        Notification::query()->create([
+            'element_slug' => 'element1',
+            'subtopic_slug' => 'element1_kegiatan_asurans',
+            'subtopic_title' => 'Topik 1 - Kegiatan Asurans',
+            'statement' => 'Isi Data | Pelaksanaan Pengembangan Informasi Awal P...',
+            'row_id' => 4,
+            'coordinator_name' => 'Koordinator 1',
+            'coordinator_username' => 'koor1',
+            'created_at' => now(),
+        ]);
+
+        $this
+            ->withSession(['user' => $this->sessionUser, 'last_activity_at' => time()])
+            ->getJson('/notifications/feed?scope=element1')
+            ->assertOk()
+            ->assertJsonPath('items.0.action_text', 'Isi Data')
+            ->assertJsonPath('items.0.detail_text', $statementDetail);
     }
 
     public function test_notification_feed_rejects_invalid_scope_payload(): void

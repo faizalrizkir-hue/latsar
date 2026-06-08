@@ -1567,6 +1567,12 @@ body.keg-modal-open {
     color: #8a6011;
 }
 
+.row-fill-status.is-warning {
+    border-color: #f5b7b1;
+    background: #fde8e7;
+    color: #9f2f28;
+}
+
 .row-fill-status.is-complete {
     border-color: #9ad4b4;
     background: #dcf5e7;

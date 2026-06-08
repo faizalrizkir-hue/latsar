@@ -2,6 +2,7 @@
 @php
     $pageTitle = $pageTitle ?? 'Area Of Improvement (AoI)';
     $items = collect($items ?? []);
+    $activeBudgetYear = is_numeric($activeBudgetYear ?? null) ? (int) $activeBudgetYear : (int) now('Asia/Jakarta')->year;
 @endphp
 
 @push('head')
@@ -14,15 +15,17 @@
             <div class="aoi-hero-main">
                 <h3 class="aoi-title">Area Of Improvement (AoI)</h3>
                 <p class="aoi-subtitle">Daftar hasil verifikasi final QA dan rekomendasi tindak lanjut dari seluruh topik.</p>
+                <span class="aoi-year-chip">Tahun Anggaran {{ $activeBudgetYear }}</span>
             </div>
             <div class="aoi-hero-actions">
-                <button type="button" class="aoi-print-btn" data-aoi-print-btn aria-label="Print Rekap AoI" title="Print Rekap AoI">
+                <button type="button" class="aoi-print-btn" data-aoi-print-btn aria-label="Buka print preview rekap AoI" title="Print Preview Rekap AoI">
                     <svg class="aoi-print-btn-icon" viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M7 9V4h10v5"></path>
                         <rect x="5" y="14" width="14" height="6" rx="1.5"></rect>
                         <rect x="4" y="9" width="16" height="7" rx="2"></rect>
                         <path d="M17 12h.01"></path>
                     </svg>
+                    <span class="aoi-print-btn-text">Print Preview</span>
                 </button>
             </div>
             <div class="aoi-total-chip">
@@ -35,8 +38,9 @@
             <header class="aoi-print-header" aria-hidden="true">
                 <h2>Area Of Improvement Penilaian Kapabilitas APIP</h2>
                 <div class="aoi-print-meta">
-                    <span>Tanggal Cetak: <strong data-aoi-print-date>-</strong></span>
-                    <span>Jumlah Cetak: <strong data-aoi-print-count>0x</strong></span>
+                    <span>Tahun Anggaran <strong>{{ $activeBudgetYear }}</strong></span>
+                    <span>Total AoI <strong>{{ (int) ($totalItems ?? $items->count()) }}</strong></span>
+                    <span>Tanggal Cetak <strong data-aoi-print-date>-</strong></span>
                 </div>
             </header>
             @if ($items->isEmpty())
@@ -44,6 +48,44 @@
                     Belum ada data AoI dari verifikasi final QA.
                 </div>
             @else
+                <div class="aoi-print-list" aria-hidden="true">
+                    @foreach ($items as $index => $item)
+                        <article class="aoi-print-item">
+                            <div class="aoi-print-item-head">
+                                <div class="aoi-print-number">{{ $index + 1 }}</div>
+                                <div class="aoi-print-context">
+                                    <div class="aoi-print-context-row">
+                                        <span>Elemen</span>
+                                        <strong>{{ $item['element_title'] ?: '-' }}</strong>
+                                    </div>
+                                    <div class="aoi-print-context-row">
+                                        <span>Topik</span>
+                                        <strong>{{ $item['subtopic_title'] ?: '-' }}</strong>
+                                    </div>
+                                    <div class="aoi-print-context-row">
+                                        <span>Pernyataan</span>
+                                        <strong>{{ $item['pernyataan'] ?: '-' }}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="aoi-print-body">
+                                <section class="aoi-print-section">
+                                    <h3>Hasil Verifikasi QA</h3>
+                                    <p>{{ $item['hasil_verifikasi_qa'] !== '' ? $item['hasil_verifikasi_qa'] : '-' }}</p>
+                                </section>
+                                <section class="aoi-print-section">
+                                    <h3>Rekomendasi Tindak Lanjut</h3>
+                                    <p>{{ $item['rekomendasi_tindak_lanjut'] !== '' ? $item['rekomendasi_tindak_lanjut'] : '-' }}</p>
+                                </section>
+                            </div>
+                            <footer class="aoi-print-item-foot">
+                                <span>Verifikator QA: <strong>{{ $item['qa_verified_by'] !== '' ? $item['qa_verified_by'] : '-' }}</strong></span>
+                                <span>Tanggal Verifikasi: <strong>{{ ($item['qa_verified_at_print'] ?? '') ?: ($item['qa_verified_at'] ?: '-') }}</strong></span>
+                            </footer>
+                        </article>
+                    @endforeach
+                </div>
+
                 <div class="table-wrapper aoi-table-wrap">
                     <table class="aoi-table">
                         <thead>
@@ -99,8 +141,6 @@
         (function () {
             const printButton = document.querySelector('[data-aoi-print-btn]');
             const printDateEl = document.querySelector('[data-aoi-print-date]');
-            const printCountEl = document.querySelector('[data-aoi-print-count]');
-            const storageKey = 'aoi_print_count_v1';
 
             const toLocalePrintDate = (date) => {
                 try {
@@ -117,43 +157,20 @@
                 }
             };
 
-            const readCount = () => {
-                try {
-                    const raw = window.localStorage.getItem(storageKey);
-                    const parsed = Number.parseInt(raw || '0', 10);
-                    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-                } catch (error) {
-                    return 0;
-                }
-            };
-
-            const writeCount = (value) => {
-                try {
-                    window.localStorage.setItem(storageKey, String(value));
-                } catch (error) {
-                    // ignore localStorage write issues
-                }
-            };
-
-            const updatePrintMeta = (count) => {
+            const updatePrintMeta = () => {
                 if (printDateEl) {
                     printDateEl.textContent = toLocalePrintDate(new Date());
                 }
-                if (printCountEl) {
-                    printCountEl.textContent = String(count) + 'x';
-                }
             };
 
-            updatePrintMeta(readCount());
+            updatePrintMeta();
 
             if (!printButton) {
                 return;
             }
 
             printButton.addEventListener('click', () => {
-                const nextCount = readCount() + 1;
-                writeCount(nextCount);
-                updatePrintMeta(nextCount);
+                updatePrintMeta();
                 window.print();
             });
         })();

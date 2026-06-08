@@ -1116,6 +1116,13 @@ return [
                     4 => 'Penerapan integritas dan etika organisasi dievaluasi secara sistematis dan berkala, dan hasil evaluasi digunakan untuk memperbaiki proses bisnis serta sistem pengawasan secara berkelanjutan.',
                     5 => 'Budaya integritas dan etika organisasi sudah melembaga dan menjadi contoh bagi organisasi lain. APIP secara adaptif menyesuaikan penerapan nilai integritas terhadap perubahan lingkungan dan teknologi.',
                 ],
+                'Mekanisme Pengaduan, Pemantauan, dan Tindak Lanjut Pelanggaran Integritas' => [
+                    1 => 'Mekanisme pengaduan belum tersedia atau belum dapat digunakan secara memadai oleh stakeholders. Pemantauan dan tindak lanjut pelanggaran integritas belum berjalan.',
+                    2 => 'Mekanisme pengaduan sudah tersedia, namun belum tersosialisasi dan belum dimanfaatkan secara optimal oleh stakeholders. Pemantauan serta tindak lanjut masih bersifat dasar.',
+                    3 => 'Mekanisme pengaduan sudah tersosialisasi kepada stakeholders internal/eksternal dan terdapat mekanisme untuk memantau serta menindaklanjuti pengaduan pelanggaran integritas.',
+                    4 => 'Mekanisme pengaduan berfungsi sistematis dan konsisten. Pemantauan serta tindak lanjut terdokumentasi dan dapat dipertanggungjawabkan kepada publik.',
+                    5 => 'Mekanisme pengaduan, pemantauan, dan tindak lanjut pelanggaran integritas berfungsi transparan, adaptif, dan didukung TI untuk menjaga budaya integritas secara berkelanjutan.',
+                ],
             ],
         ],
         'element5_hubungan_apip_manajemen' => [

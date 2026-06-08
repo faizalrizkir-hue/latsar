@@ -35,6 +35,12 @@
             ->keyBy(fn ($item) => (int) ($item['level'] ?? 0));
         $scoreComponents = collect($scoreComponents ?? [])->values();
         $scoreComponentsQa = collect($scoreComponentsQa ?? [])->values();
+        $scoreComponentsBySlug = $scoreComponents->keyBy(fn ($item) => (string) ($item['slug'] ?? ''));
+        $formatSummaryPercent = static function (float $value): string {
+            $formatted = number_format(round($value, 2), 2, '.', '');
+
+            return rtrim(rtrim($formatted, '0'), '.');
+        };
         $hasQaData = is_numeric($elementScoreQa ?? null) && is_numeric($weightedTotalQa ?? null) && $overallLevelQa !== null;
         $overallLevelInfo = is_int($overallLevel) ? (array) ($levelInfoMap->get($overallLevel, [])) : [];
         $overallLevelDescription = trim((string) ($overallLevelInfo['description'] ?? ''));
@@ -120,8 +126,10 @@
                         <span class="element1-stat-split-label">Topik & Verifikasi</span>
                         <div class="element1-overview-values">
                             <span class="element1-overview-value">{{ (int) $subtopicCount }} topik</span>
-                            <span class="element1-overview-value">{{ $mandiriPrefix }}<strong>{{ (int) $totalVerifiedRows }}/{{ (int) $totalRows }}</strong> ({{ (int) $completion }}%)</span>
-                            <span class="element1-overview-value qa-only">QA: <strong>{{ (int) ($totalQaVerifiedRows ?? 0) }}/{{ (int) $totalRows }}</strong> ({{ (int) ($completionQa ?? 0) }}%)</span>
+                            <span class="element1-overview-value">{{ $mandiriPrefix }}<strong>{{ (int) $totalVerifiedRows }}/{{ (int) $totalRows }}</strong> pernyataan</span>
+                            <span class="element1-overview-value element1-overview-value-muted">{{ (int) $completion }}% terverifikasi</span>
+                            <span class="element1-overview-value qa-only">QA: <strong>{{ (int) ($totalQaVerifiedRows ?? 0) }}/{{ (int) $totalRows }}</strong> pernyataan</span>
+                            <span class="element1-overview-value element1-overview-value-muted qa-only">QA: {{ (int) ($completionQa ?? 0) }}% terverifikasi</span>
                         </div>
                     </div>
                 </div>
@@ -173,12 +181,23 @@
                                 $rowLevelQaClass = $rowLevelQa >= 1 && $rowLevelQa <= 5 ? 'is-level-'.$rowLevelQa : 'pending';
                                 $summaryDescId = 'summary-level-desc-'.$index;
                                 $summaryQaDescId = 'summary-qa-level-desc-'.$index;
+                                $rowScoreComponent = (array) ($scoreComponentsBySlug->get((string) ($item['slug'] ?? '')) ?? []);
+                                $rowWeight = is_numeric($rowScoreComponent['weight'] ?? null) ? (float) $rowScoreComponent['weight'] : 0.0;
+                                $rowWeightLabel = $formatSummaryPercent($rowWeight * 100).'%';
                             @endphp
                             <tr>
                                 <td class="text-center fw-semibold">{{ $index + 1 }}</td>
                                 <td>
                                     <div class="pernyataan-record">
-                                        <div class="pernyataan">{{ $item['title'] }}</div>
+                                        <div class="pernyataan pernyataan-line">
+                                            <span class="pernyataan-title">{{ $item['title'] }}</span>
+                                            <span
+                                                class="hint-bubble-trigger pernyataan-weight-hint"
+                                                tabindex="0"
+                                                role="button"
+                                                aria-label="Info bobot topik"
+                                                data-hint="Bobot topik: {{ $rowWeightLabel }}">?</span>
+                                        </div>
                                         <div class="pernyataan-labels">
                                             <span class="bobot subtopic-predikat {{ $rowLevelClass !== 'pending' ? 'predikat-'.$rowLevelClass : 'predikat-pending' }}">
                                                 @if($qaFeatureEnabled)<span class="qa-mandiri-prefix">Mandiri: </span>@endif{{ $item['predikat'] ?? '-' }}

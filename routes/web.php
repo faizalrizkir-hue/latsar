@@ -91,8 +91,11 @@ Route::middleware(['auth.session', 'db.lock'])->group(function () {
         Route::get('/element-preferences', [ElementPreferenceController::class, 'index'])->name('element-preferences.index');
         Route::post('/element-preferences', [ElementPreferenceController::class, 'update'])->name('element-preferences.update');
         Route::post('/element-preferences/reset', [ElementPreferenceController::class, 'reset'])->name('element-preferences.reset');
+        Route::get('/element-preferences/reset-data', [ElementPreferenceController::class, 'resetDataRedirect'])->name('element-preferences.reset-data.redirect');
+        Route::post('/element-preferences/reset-data-captcha', [ElementPreferenceController::class, 'resetDataCaptcha'])->name('element-preferences.reset-data-captcha');
         Route::post('/element-preferences/reset-data', [ElementPreferenceController::class, 'resetData'])->name('element-preferences.reset-data');
         Route::post('/element-preferences/archive-progress', [ElementPreferenceController::class, 'archiveProgress'])->name('element-preferences.archive-progress');
+        Route::post('/element-preferences/archive-captcha', [ElementPreferenceController::class, 'archiveCaptcha'])->name('element-preferences.archive-captcha');
         Route::post('/element-preferences/load-archive', [ElementPreferenceController::class, 'loadArchive'])->name('element-preferences.load-archive');
         Route::post('/informasi-umum', [GeneralInformationController::class, 'update'])->name('informasi-umum.update');
         Route::post('/dashboard/renstra-trend', [DashboardController::class, 'updateRenstraTrend'])->name('dashboard.renstra-trend.update');

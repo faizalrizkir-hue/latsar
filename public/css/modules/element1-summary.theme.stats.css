@@ -32,6 +32,10 @@
     color:#b7c7de;
 }
 
+:root[data-theme="dark"] .element1-summary-page .element1-overview-value-muted{
+    color:#94a3b8;
+}
+
 :root[data-theme="dark"] .element1-summary-page .element1-overview-value strong{
     color:#ecf4ff;
 }

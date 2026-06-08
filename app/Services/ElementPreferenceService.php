@@ -13,7 +13,8 @@ use RuntimeException;
 class ElementPreferenceService
 {
     public function __construct(
-        private readonly SchemaMetadataCache $schemaMetadataCache
+        private readonly SchemaMetadataCache $schemaMetadataCache,
+        private readonly AssessmentSummaryCache $assessmentSummaryCache
     ) {
     }
 
@@ -221,6 +222,7 @@ class ElementPreferenceService
         }
 
         $this->clearCache();
+        $this->assessmentSummaryCache->bumpVersion();
     }
 
     public function resetToDefaults(?string $updatedBy = null): array
@@ -299,6 +301,7 @@ class ElementPreferenceService
         });
 
         $this->seedDefaultSubtopicRows();
+        $this->assessmentSummaryCache->bumpVersion();
 
         return [
             'tables' => array_keys($deletedByTable),
@@ -444,10 +447,11 @@ class ElementPreferenceService
             $this->progressArchiveTargetTables(),
             $snapshotTableNames
         )));
+        $rowIdMaps = $this->progressArchiveRowIdMaps($snapshotTables);
 
         $restoredByTable = [];
 
-        DB::transaction(function () use ($tablesToClear, $snapshotTables, $excludedTables, &$restoredByTable): void {
+        DB::transaction(function () use ($tablesToClear, $snapshotTables, $excludedTables, $loadedBy, $rowIdMaps, &$restoredByTable): void {
             foreach ($tablesToClear as $table) {
                 $tableName = trim((string) $table);
                 if ($tableName === '' || isset($excludedTables[$tableName]) || !$this->schemaMetadataCache->hasTable($tableName)) {
@@ -474,15 +478,33 @@ class ElementPreferenceService
                     continue;
                 }
 
+                $insertColumnKeys = [];
+                if (is_array($tableSnapshot)) {
+                    foreach ((array) ($tableSnapshot['columns'] ?? []) as $column) {
+                        $columnName = trim((string) $column);
+                        if ($columnName !== '' && isset($allowedColumns[$columnName])) {
+                            $insertColumnKeys[$columnName] = true;
+                        }
+                    }
+                }
+
                 $insertRows = [];
                 foreach ($rows as $row) {
                     if (!is_array($row) || count($row) === 0) {
                         continue;
                     }
 
-                    $normalizedRow = array_intersect_key($row, $allowedColumns);
+                    $normalizedRow = $this->normalizeRestoredRowIds(
+                        $tableName,
+                        array_intersect_key($row, $allowedColumns),
+                        $rowIdMaps
+                    );
                     if (count($normalizedRow) === 0) {
                         continue;
+                    }
+
+                    foreach (array_keys($normalizedRow) as $column) {
+                        $insertColumnKeys[$column] = true;
                     }
 
                     $insertRows[] = $normalizedRow;
@@ -492,12 +514,20 @@ class ElementPreferenceService
                     continue;
                 }
 
+                $emptyInsertRow = array_fill_keys(array_keys($insertColumnKeys), null);
+                $insertRows = array_map(
+                    static fn (array $row): array => array_replace($emptyInsertRow, array_intersect_key($row, $insertColumnKeys)),
+                    $insertRows
+                );
+
                 foreach (array_chunk($insertRows, 250) as $chunk) {
                     DB::table($tableName)->insert($chunk);
                 }
 
                 $restoredByTable[$tableName] = count($insertRows);
             }
+
+            $this->syncStructureFromSnapshotTables($snapshotTables, $loadedBy);
         });
 
         $archive->loaded_by = $this->normalizeUpdatedBy($loadedBy);
@@ -519,6 +549,7 @@ class ElementPreferenceService
         }
 
         $this->clearCache();
+        $this->assessmentSummaryCache->bumpVersion();
 
         return [
             'archive_id' => (int) $archive->id,
@@ -686,6 +717,10 @@ class ElementPreferenceService
                     $this->defaultSubtopicModule($elementTitle, $subtopicTitle, $subtopicIndex + 1),
                     $baseSubtopicModule
                 );
+                $baseStatementLevelHints = is_array($baseSubtopicModule['statement_level_hints'] ?? null)
+                    ? (array) ($baseSubtopicModule['statement_level_hints'] ?? [])
+                    : [];
+                $normalizedBaseStatementLevelHints = $this->normalizedStatementLevelHintMap($baseStatementLevelHints);
 
                 $subtopicMode = trim((string) ($subtopicModule['mode'] ?? ''));
                 if ($subtopicMode === '') {
@@ -732,15 +767,25 @@ class ElementPreferenceService
                 $subtopicModule['is_active'] = $isElementActive && (bool) ($subtopic['active'] ?? false);
                 $subtopicModule['statement_level_hints'] = [];
 
+                $rowId = 1;
                 foreach ($activeRows as $activeRow) {
                     $rowLabel = trim((string) ($activeRow['label'] ?? ''));
                     if ($rowLabel === '') {
+                        $rowId++;
                         continue;
                     }
 
-                    $subtopicModule['statement_level_hints'][$rowLabel] = $this->normalizeLevelDescriptions(
-                        $activeRow['level_hints'] ?? null
+                    $baseRowLabel = trim((string) ($baseSubtopicModule['rows'][$rowId] ?? ''));
+                    $fallbackLevelHints = $this->levelHintsForStatement(
+                        $normalizedBaseStatementLevelHints,
+                        $rowLabel,
+                        $baseRowLabel
                     );
+                    $subtopicModule['statement_level_hints'][$rowLabel] = $this->withFallbackLevelHints(
+                        $activeRow['level_hints'] ?? null,
+                        $fallbackLevelHints
+                    );
+                    $rowId++;
                 }
 
                 $subtopicModules[$subtopicSlug] = $subtopicModule;
@@ -867,6 +912,7 @@ class ElementPreferenceService
                 $statementLevelHints = is_array($subtopicConfig['statement_level_hints'] ?? null)
                     ? (array) ($subtopicConfig['statement_level_hints'] ?? [])
                     : [];
+                $normalizedStatementLevelHints = $this->normalizedStatementLevelHintMap($statementLevelHints);
 
                 $rowIds = array_values(array_map('intval', array_keys($rowsMap)));
                 if (count($rowIds) === 0) {
@@ -890,7 +936,7 @@ class ElementPreferenceService
                         'label' => $rowLabel,
                         'active' => true,
                         'weight' => $this->normalizeWeight($rowWeightMap[$rowId] ?? 0),
-                        'level_hints' => $this->normalizeLevelDescriptions($statementLevelHints[$rowLabel] ?? null),
+                        'level_hints' => $this->levelHintsForStatement($normalizedStatementLevelHints, $rowLabel),
                     ];
                 }
 
@@ -1104,11 +1150,13 @@ class ElementPreferenceService
                 continue;
             }
 
+            $baseRow = $baseRows[count($rows)] ?? [];
+            $fallbackLevelHints = $this->normalizeLevelDescriptions($baseRow['level_hints'] ?? null);
             $rows[] = [
                 'label' => $label,
                 'active' => $this->toBool($rawRow['active'] ?? true),
                 'weight' => $this->parsePercentWeight($rawRow['weight'] ?? 0, 0),
-                'level_hints' => $this->normalizeLevelDescriptions($rawRow['level_hints'] ?? null),
+                'level_hints' => $this->withFallbackLevelHints($rawRow['level_hints'] ?? null, $fallbackLevelHints),
             ];
         }
 
@@ -1157,11 +1205,13 @@ class ElementPreferenceService
                 continue;
             }
 
+            $defaultRow = $defaultRows[count($rows)] ?? [];
+            $fallbackLevelHints = $this->normalizeLevelDescriptions($defaultRow['level_hints'] ?? null);
             $rows[] = [
                 'label' => $label,
                 'active' => $this->toBool($payloadRow['active'] ?? true),
                 'weight' => $this->normalizeWeight($payloadRow['weight'] ?? 0),
-                'level_hints' => $this->normalizeLevelDescriptions($payloadRow['level_hints'] ?? null),
+                'level_hints' => $this->withFallbackLevelHints($payloadRow['level_hints'] ?? null, $fallbackLevelHints),
             ];
         }
 
@@ -1694,6 +1744,80 @@ class ElementPreferenceService
         return $normalized;
     }
 
+    private function normalizeStatementKey(string $statement): string
+    {
+        $normalized = str_replace("\u{00A0}", ' ', $statement);
+        $normalized = preg_replace('/\s+/u', ' ', trim($normalized));
+        $normalized = is_string($normalized) ? $normalized : trim($statement);
+
+        return Str::lower($normalized);
+    }
+
+    /**
+     * @return array<string, array<int, string>>
+     */
+    private function normalizedStatementLevelHintMap(array $statementLevelHints): array
+    {
+        $normalized = [];
+
+        foreach ($statementLevelHints as $statement => $levelHints) {
+            $key = $this->normalizeStatementKey((string) $statement);
+            if ($key === '') {
+                continue;
+            }
+
+            $normalized[$key] = $this->normalizeLevelDescriptions($levelHints);
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param array<string, array<int, string>> $normalizedStatementLevelHints
+     * @return array<int, string>
+     */
+    private function levelHintsForStatement(array $normalizedStatementLevelHints, string ...$labels): array
+    {
+        foreach ($labels as $label) {
+            $key = $this->normalizeStatementKey($label);
+            if ($key === '' || !isset($normalizedStatementLevelHints[$key])) {
+                continue;
+            }
+
+            return $this->normalizeLevelDescriptions($normalizedStatementLevelHints[$key]);
+        }
+
+        return $this->normalizeLevelDescriptions(null);
+    }
+
+    /**
+     * @param array<int, string>|null $fallback
+     * @return array<int, string>
+     */
+    private function withFallbackLevelHints(mixed $value, ?array $fallback = null): array
+    {
+        $normalized = $this->normalizeLevelDescriptions($value);
+        if ($this->hasAnyLevelDescription($normalized)) {
+            return $normalized;
+        }
+
+        return $this->normalizeLevelDescriptions($fallback);
+    }
+
+    /**
+     * @param array<int, string> $descriptions
+     */
+    private function hasAnyLevelDescription(array $descriptions): bool
+    {
+        foreach ($descriptions as $description) {
+            if (trim((string) $description) !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * @param array<int, array<string, mixed>> $infoLevels
      * @return array<int, string>
@@ -2033,6 +2157,326 @@ class ElementPreferenceService
             'tables' => $snapshotTables,
             'total_rows' => $totalRows,
         ];
+    }
+
+    /**
+     * @return array<string, array<string, array<int, int>>>
+     */
+    private function progressArchiveRowIdMaps(array $snapshotTables): array
+    {
+        $maps = [];
+        $subtopicConfigs = $this->subtopicModulesConfig();
+
+        foreach ($subtopicConfigs as $subtopicConfig) {
+            if (!is_array($subtopicConfig)) {
+                continue;
+            }
+
+            $modelTable = $this->tableFromModelClass((string) ($subtopicConfig['model'] ?? ''));
+            if ($modelTable === null || !isset($snapshotTables[$modelTable])) {
+                continue;
+            }
+
+            $tableSnapshot = is_array($snapshotTables[$modelTable] ?? null)
+                ? (array) $snapshotTables[$modelTable]
+                : [];
+            $rows = is_array($tableSnapshot['rows'] ?? null)
+                ? array_values(array_filter((array) $tableSnapshot['rows'], 'is_array'))
+                : [];
+            if (count($rows) === 0) {
+                continue;
+            }
+
+            usort($rows, static function (array $left, array $right): int {
+                $leftId = is_numeric($left['id'] ?? null) ? (int) $left['id'] : PHP_INT_MAX;
+                $rightId = is_numeric($right['id'] ?? null) ? (int) $right['id'] : PHP_INT_MAX;
+
+                return $leftId <=> $rightId;
+            });
+
+            $idMap = [];
+            foreach ($rows as $index => $row) {
+                if (!is_numeric($row['id'] ?? null)) {
+                    continue;
+                }
+
+                $oldId = (int) $row['id'];
+                $newId = $index + 1;
+                $idMap[$oldId] = $newId;
+            }
+
+            if (count($idMap) === 0) {
+                continue;
+            }
+
+            $maps[$modelTable]['id'] = $idMap;
+
+            $editLogTable = $this->tableFromModelClass((string) ($subtopicConfig['edit_log_model'] ?? ''));
+            if ($editLogTable !== null) {
+                $maps[$editLogTable]['row_id'] = $idMap;
+            }
+        }
+
+        if (isset($maps['element1_kegiatan_asurans'])) {
+            $maps['element1_kegiatan_asurans_row_doc_selections']['row_id'] = $maps['element1_kegiatan_asurans']['id'];
+        }
+
+        return $maps;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @param array<string, array<string, array<int, int>>> $rowIdMaps
+     * @return array<string, mixed>
+     */
+    private function normalizeRestoredRowIds(string $tableName, array $row, array $rowIdMaps): array
+    {
+        $columnMaps = $rowIdMaps[$tableName] ?? null;
+        if (!is_array($columnMaps)) {
+            return $row;
+        }
+
+        foreach ($columnMaps as $column => $idMap) {
+            if (!array_key_exists($column, $row) || !is_numeric($row[$column] ?? null)) {
+                continue;
+            }
+
+            $oldId = (int) $row[$column];
+            if (array_key_exists($oldId, $idMap)) {
+                $row[$column] = $idMap[$oldId];
+            }
+        }
+
+        return $row;
+    }
+
+    private function syncStructureFromSnapshotTables(array $snapshotTables, ?string $updatedBy = null): bool
+    {
+        if (!$this->hasPreferencesTable()) {
+            return false;
+        }
+
+        $preferenceSnapshot = is_array($snapshotTables['element_preferences'] ?? null)
+            ? (array) $snapshotTables['element_preferences']
+            : [];
+        $preferenceRows = is_array($preferenceSnapshot['rows'] ?? null)
+            ? (array) $preferenceSnapshot['rows']
+            : [];
+        if (count($preferenceRows) > 0) {
+            return false;
+        }
+
+        $subtopicConfigs = $this->subtopicModulesConfig();
+        if (count($subtopicConfigs) === 0) {
+            return false;
+        }
+
+        $baseStructure = $this->buildDefaultStructure();
+        $baseElements = array_values(array_filter((array) ($baseStructure['elements'] ?? []), 'is_array'));
+        $baseElementsBySlug = $this->elementsBySlug($baseElements);
+        $baseSubtopicsBySlug = [];
+
+        foreach ($baseElements as $baseElement) {
+            foreach (array_values(array_filter((array) ($baseElement['subtopics'] ?? []), 'is_array')) as $baseSubtopic) {
+                $baseSubtopicSlug = (string) ($baseSubtopic['slug'] ?? '');
+                if ($baseSubtopicSlug !== '') {
+                    $baseSubtopicsBySlug[$baseSubtopicSlug] = $baseSubtopic;
+                }
+            }
+        }
+
+        $elementsBySlug = [];
+
+        foreach ($subtopicConfigs as $subtopicSlug => $subtopicConfig) {
+            if (!is_array($subtopicConfig)) {
+                continue;
+            }
+
+            $resolvedSubtopicSlug = trim((string) $subtopicSlug);
+            $table = $this->tableFromModelClass((string) ($subtopicConfig['model'] ?? ''));
+            if ($resolvedSubtopicSlug === '' || $table === null || !isset($snapshotTables[$table])) {
+                continue;
+            }
+
+            $tableSnapshot = is_array($snapshotTables[$table] ?? null)
+                ? (array) $snapshotTables[$table]
+                : [];
+            $snapshotRows = is_array($tableSnapshot['rows'] ?? null)
+                ? array_values(array_filter((array) $tableSnapshot['rows'], 'is_array'))
+                : [];
+            if (count($snapshotRows) === 0) {
+                continue;
+            }
+
+            $elementSlug = $this->topLevelElementSlug($resolvedSubtopicSlug);
+            if ($elementSlug === '') {
+                continue;
+            }
+
+            $baseElement = $this->arrayOrEmpty($baseElementsBySlug[$elementSlug] ?? null);
+            if (!isset($elementsBySlug[$elementSlug])) {
+                $elementTitle = trim((string) ($baseElement['title'] ?? ''));
+                if ($elementTitle === '') {
+                    $elementTitle = trim((string) ($subtopicConfig['page_title'] ?? ''));
+                }
+                if ($elementTitle === '') {
+                    $elementTitle = $this->defaultElementTitle($elementSlug);
+                }
+
+                $elementsBySlug[$elementSlug] = [
+                    'slug' => $elementSlug,
+                    'title' => $elementTitle,
+                    'active' => true,
+                    'weight' => $this->normalizeWeight($baseElement['weight'] ?? 0),
+                    'info_levels' => $this->normalizeLevelDescriptions($baseElement['info_levels'] ?? null),
+                    'subtopics' => [],
+                ];
+            }
+
+            $baseSubtopic = $this->arrayOrEmpty($baseSubtopicsBySlug[$resolvedSubtopicSlug] ?? null);
+            $subtopicTitle = trim((string) ($baseSubtopic['title'] ?? ''));
+            if ($subtopicTitle === '') {
+                $subtopicTitle = trim((string) ($subtopicConfig['subtopic_title'] ?? ''));
+            }
+            if ($subtopicTitle === '') {
+                $subtopicTitle = Str::headline($resolvedSubtopicSlug);
+            }
+
+            $elementsBySlug[$elementSlug]['subtopics'][] = [
+                'slug' => $resolvedSubtopicSlug,
+                'title' => $subtopicTitle,
+                'active' => true,
+                'weight' => $this->normalizeWeight($baseSubtopic['weight'] ?? 0),
+                'info_levels' => $this->normalizeLevelDescriptions($baseSubtopic['info_levels'] ?? null),
+                'rows' => $this->preferenceRowsFromSnapshotRows(
+                    $snapshotRows,
+                    (array) ($subtopicConfig['rows'] ?? []),
+                    (array) ($subtopicConfig['weights'] ?? []),
+                    (array) ($subtopicConfig['statement_level_hints'] ?? [])
+                ),
+            ];
+        }
+
+        if (count($elementsBySlug) === 0) {
+            return false;
+        }
+
+        $this->saveStructure([
+            'elements' => array_values($elementsBySlug),
+        ], $updatedBy);
+
+        return true;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $snapshotRows
+     * @param array<int|string, string> $baseRows
+     * @param array<int|string, mixed> $baseWeights
+     * @return array<int, array<string, mixed>>
+     */
+    private function preferenceRowsFromSnapshotRows(
+        array $snapshotRows,
+        array $baseRows,
+        array $baseWeights,
+        array $baseStatementLevelHints = []
+    ): array
+    {
+        $snapshotRows = array_values(array_filter(
+            $snapshotRows,
+            fn (array $snapshotRow): bool => !$this->isAoiOnlySnapshotRow($snapshotRow)
+        ));
+
+        usort($snapshotRows, static function (array $left, array $right): int {
+            $leftId = is_numeric($left['id'] ?? null) ? (int) $left['id'] : PHP_INT_MAX;
+            $rightId = is_numeric($right['id'] ?? null) ? (int) $right['id'] : PHP_INT_MAX;
+
+            return $leftId <=> $rightId;
+        });
+
+        if (count($snapshotRows) === 0 && count($baseRows) > 0) {
+            $snapshotRows = [];
+            foreach ($baseRows as $rowId => $label) {
+                $snapshotRows[] = [
+                    'id' => is_numeric($rowId) ? (int) $rowId : count($snapshotRows) + 1,
+                    'pernyataan' => (string) $label,
+                ];
+            }
+        }
+
+        $snapshotIds = [];
+        foreach ($snapshotRows as $snapshotRow) {
+            if (is_numeric($snapshotRow['id'] ?? null)) {
+                $snapshotIds[] = (int) $snapshotRow['id'];
+            }
+        }
+
+        $baseWeightIds = array_values(array_map('intval', array_keys($baseWeights)));
+        sort($snapshotIds);
+        sort($baseWeightIds);
+        $canUseBaseWeights = $snapshotIds === $baseWeightIds;
+        $equalWeight = count($snapshotRows) > 0 ? round(1 / count($snapshotRows), 6) : 1.0;
+        $normalizedBaseStatementLevelHints = $this->normalizedStatementLevelHintMap($baseStatementLevelHints);
+
+        $rows = [];
+        foreach ($snapshotRows as $index => $snapshotRow) {
+            $rowId = is_numeric($snapshotRow['id'] ?? null) ? (int) $snapshotRow['id'] : ($index + 1);
+            $label = trim((string) ($snapshotRow['pernyataan'] ?? ''));
+            if ($label === '') {
+                $label = trim((string) ($baseRows[$rowId] ?? ''));
+            }
+            if ($label === '') {
+                $label = 'Pernyataan '.$rowId;
+            }
+            $baseLabel = trim((string) ($baseRows[$rowId] ?? ''));
+
+            $rows[] = [
+                'label' => $label,
+                'active' => true,
+                'weight' => $canUseBaseWeights
+                    ? $this->normalizeWeight($baseWeights[$rowId] ?? 0)
+                    : $equalWeight,
+                'level_hints' => $this->levelHintsForStatement(
+                    $normalizedBaseStatementLevelHints,
+                    $label,
+                    $baseLabel
+                ),
+            ];
+        }
+
+        return $rows;
+    }
+
+    private function isAoiOnlySnapshotRow(array $row): bool
+    {
+        $qaNote = trim((string) ($row['qa_verify_note'] ?? ''));
+        $qaFollowUp = trim((string) ($row['qa_follow_up_recommendation'] ?? ''));
+        if ($qaNote === '' && $qaFollowUp === '') {
+            return false;
+        }
+
+        return !is_numeric($row['level'] ?? null)
+            && !is_numeric($row['skor'] ?? null)
+            && !$this->snapshotRowHasValidatedLevels($row['level_validation_state'] ?? null);
+    }
+
+    private function snapshotRowHasValidatedLevels(mixed $state): bool
+    {
+        if (is_string($state)) {
+            $decoded = json_decode($state, true);
+            $state = is_array($decoded) ? $decoded : [];
+        }
+
+        if (!is_array($state)) {
+            return false;
+        }
+
+        foreach (range(1, 5) as $level) {
+            if ((int) ($state[(string) $level] ?? $state[$level] ?? 0) === 1) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function seedDefaultSubtopicRows(): void

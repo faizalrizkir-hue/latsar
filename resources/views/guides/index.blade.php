@@ -171,16 +171,31 @@
                     <h2 data-guide-current-title>Panduan</h2>
                     <p data-guide-current-description>Pilih salah satu panduan untuk mulai membaca.</p>
                 </div>
-                <a
-                    href="#"
-                    class="guide-open-link"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    data-guide-open-link
-                    hidden
-                >
-                    Buka PDF
-                </a>
+                <div class="guide-reader__actions">
+                    <a
+                        href="#"
+                        class="guide-action-link guide-open-link"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        data-guide-open-link
+                        hidden
+                    >
+                        Buka PDF
+                    </a>
+                    <a
+                        href="#"
+                        class="guide-action-link guide-download-link"
+                        data-guide-download-link
+                        hidden
+                    >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 4v10"></path>
+                            <path d="m8 10 4 4 4-4"></path>
+                            <path d="M5 20h14"></path>
+                        </svg>
+                        <span>Download PDF</span>
+                    </a>
+                </div>
             </div>
 
             <div class="guide-toolbar" data-guide-toolbar>

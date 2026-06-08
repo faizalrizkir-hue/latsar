@@ -24,6 +24,7 @@
         const audienceNode = page.querySelector('[data-guide-current-audience]');
         const descriptionNode = page.querySelector('[data-guide-current-description]');
         const openLink = page.querySelector('[data-guide-open-link]');
+        const downloadLink = page.querySelector('[data-guide-download-link]');
         const currentPageNode = page.querySelector('[data-guide-page-current]');
         const totalPageNode = page.querySelector('[data-guide-page-total]');
         const zoomLabel = page.querySelector('[data-guide-zoom-label]');
@@ -217,7 +218,9 @@
             const audience = button.dataset.guideAudience || 'Panduan';
             const description = button.dataset.guideDescription || '';
             const embedUrl = button.dataset.guideEmbedUrl || '';
-            const url = embedUrl || button.dataset.guideUrl || '';
+            const fileUrl = button.dataset.guideUrl || '';
+            const fileName = button.dataset.guideFile || '';
+            const url = embedUrl || fileUrl;
             const mode = button.dataset.guideMode || 'guide';
             const readerMode = mode === 'process' ? audience : (embedUrl ? (button.dataset.guideEmbedProvider || 'Online Flipbook') : audience);
 
@@ -233,6 +236,18 @@
                 } else {
                     openLink.hidden = true;
                     openLink.removeAttribute('href');
+                }
+            }
+
+            if (downloadLink) {
+                if (mode === 'guide' && fileUrl) {
+                    downloadLink.href = fileUrl;
+                    downloadLink.download = fileName || 'panduan.pdf';
+                    downloadLink.hidden = false;
+                } else {
+                    downloadLink.hidden = true;
+                    downloadLink.removeAttribute('href');
+                    downloadLink.removeAttribute('download');
                 }
             }
         };

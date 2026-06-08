@@ -297,6 +297,12 @@
     line-height:1.35;
 }
 
+.element1-summary-page .element1-overview-value-muted{
+    color:#5f7492;
+    font-size:0.8rem;
+    font-weight:700;
+}
+
 .element1-summary-page .element1-overview-value strong{
     color:#1c3354;
     font-size:1.02rem;

@@ -19,11 +19,11 @@
             --accent-strong: #38bdf8;
             --overlay: rgba(15, 23, 42, 0.55);
             --overlay-glow: rgba(59, 130, 246, 0.18);
-            --login-bg-image: url("../static/monas-light.jpg");
-            --login-bg-position: center 50%;
-            --login-bg-overlay:
-                linear-gradient(90deg, rgba(238, 242, 255, 0.94) 0%, rgba(238, 242, 255, 0.72) 44%, rgba(238, 242, 255, 0.28) 100%),
-                linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(219, 234, 254, 0.36));
+            --theme-night-opacity: 0;
+            --theme-day-atmosphere-opacity: 0.9;
+            --theme-night-atmosphere-opacity: 0;
+            --theme-light-filter: saturate(1.04) contrast(1.02) brightness(1);
+            --theme-dark-filter: saturate(0.95) contrast(1.08) brightness(0.82);
         }
         :root[data-theme="dark"] {
             color-scheme: dark;
@@ -44,11 +44,9 @@
             --accent-strong: #22d3ee;
             --overlay: rgba(2, 6, 23, 0.72);
             --overlay-glow: rgba(56, 189, 248, 0.18);
-            --login-bg-image: url("../static/monas-dark.png");
-            --login-bg-position: center 44%;
-            --login-bg-overlay:
-                linear-gradient(90deg, rgba(2, 6, 23, 0.9) 0%, rgba(15, 23, 42, 0.78) 44%, rgba(15, 23, 42, 0.42) 100%),
-                linear-gradient(180deg, rgba(15, 23, 42, 0.1), rgba(15, 23, 42, 0.56));
+            --theme-night-opacity: 1;
+            --theme-day-atmosphere-opacity: 0;
+            --theme-night-atmosphere-opacity: 0.9;
         }
         * {
             box-sizing: border-box;
@@ -63,7 +61,7 @@
             align-items: center;
             justify-content: center;
             padding: 16px;
-            transition: color 0.35s ease;
+            transition: color 0.45s ease, background-color 0.45s ease;
             zoom: 0.75;
             line-height: 1.45;
         }
@@ -73,29 +71,131 @@
         textarea {
             font-family: inherit;
         }
-        body::before,
-        body::after {
-            content: "";
+        .theme-backdrop {
             position: fixed;
             inset: 0;
+            z-index: 0;
+            overflow: hidden;
             pointer-events: none;
         }
-        body::before {
-            z-index: 0;
-            background-image: var(--login-bg-image);
+
+        .theme-backdrop::before {
+            content: "";
+            position: absolute;
+            inset: -18% -28%;
+            z-index: 3;
+            background: linear-gradient(115deg, transparent 0%, rgba(255, 255, 255, 0.18) 42%, rgba(56, 189, 248, 0.16) 50%, transparent 62%);
+            opacity: 0;
+            transform: translateX(-72%);
+            pointer-events: none;
+        }
+
+        :root[data-theme="dark"] .theme-backdrop::before {
+            background: linear-gradient(115deg, transparent 0%, rgba(56, 189, 248, 0.08) 42%, rgba(14, 165, 233, 0.18) 50%, transparent 62%);
+        }
+
+        :root.is-theme-transitioning .theme-backdrop::before {
+            animation: theme-sweep 0.95s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .theme-backdrop__image,
+        .theme-backdrop__wash,
+        .theme-backdrop__atmosphere {
+            position: absolute;
+            inset: 0;
+        }
+
+        .theme-backdrop__image {
+            inset: -1.5%;
             background-size: cover;
-            background-position: var(--login-bg-position);
             background-repeat: no-repeat;
             transform: scale(1.02);
-            filter: saturate(1.04) contrast(1.02);
+            transition: opacity 0.95s cubic-bezier(0.22, 1, 0.36, 1), transform 1.25s cubic-bezier(0.22, 1, 0.36, 1), filter 0.95s ease;
+            will-change: opacity, transform, filter;
         }
-        body::after {
+
+        .theme-backdrop__image--light {
+            background-image: url("../static/monas-light.jpg");
+            background-position: center 50%;
+            opacity: calc(1 - var(--theme-night-opacity));
+            filter: var(--theme-light-filter);
+        }
+
+        .theme-backdrop__image--dark {
+            background-image: url("../static/monas-dark.png");
+            background-position: center 44%;
+            opacity: var(--theme-night-opacity);
+            filter: var(--theme-dark-filter);
+        }
+
+        :root[data-theme="dark"] .theme-backdrop__image--light {
+            transform: scale(1.045) translateY(0.8%);
+            filter: saturate(0.92) contrast(1.04) brightness(0.76);
+        }
+
+        :root[data-theme="dark"] .theme-backdrop__image--dark {
+            transform: scale(1.02) translateY(-0.6%);
+        }
+
+        .theme-backdrop__wash {
+            z-index: 2;
+        }
+
+        .theme-backdrop__wash::before,
+        .theme-backdrop__wash::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            transition: opacity 0.85s cubic-bezier(0.22, 1, 0.36, 1);
+            will-change: opacity;
+        }
+
+        .theme-backdrop__wash::before {
+            opacity: calc(1 - var(--theme-night-opacity));
+            background:
+                linear-gradient(90deg, rgba(238, 242, 255, 0.94) 0%, rgba(238, 242, 255, 0.72) 44%, rgba(238, 242, 255, 0.28) 100%),
+                linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(219, 234, 254, 0.36));
+        }
+
+        .theme-backdrop__wash::after {
+            opacity: var(--theme-night-opacity);
+            background:
+                linear-gradient(90deg, rgba(2, 6, 23, 0.9) 0%, rgba(15, 23, 42, 0.78) 44%, rgba(15, 23, 42, 0.42) 100%),
+                linear-gradient(180deg, rgba(15, 23, 42, 0.1), rgba(15, 23, 42, 0.56));
+        }
+
+        .theme-backdrop__atmosphere {
             z-index: 1;
-            background: var(--login-bg-overlay);
+            background-repeat: no-repeat;
+            mix-blend-mode: screen;
+            transition: opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1), transform 1.15s cubic-bezier(0.22, 1, 0.36, 1);
+            will-change: opacity, transform;
         }
-        :root[data-theme="dark"] body::before {
-            filter: saturate(0.95) contrast(1.08) brightness(0.82);
+
+        .theme-backdrop__atmosphere--day {
+            background:
+                linear-gradient(115deg, rgba(255, 255, 255, 0.62) 0%, rgba(186, 230, 253, 0.26) 38%, transparent 72%),
+                linear-gradient(180deg, rgba(250, 204, 21, 0.14), transparent 54%);
+            opacity: var(--theme-day-atmosphere-opacity);
+            transform: translateX(0);
         }
+
+        .theme-backdrop__atmosphere--night {
+            background:
+                linear-gradient(115deg, transparent 0%, rgba(14, 165, 233, 0.16) 42%, rgba(59, 130, 246, 0.22) 100%),
+                linear-gradient(180deg, rgba(2, 6, 23, 0.12), rgba(14, 116, 144, 0.16));
+            opacity: var(--theme-night-atmosphere-opacity);
+            transform: translateX(3%);
+        }
+
+        :root[data-theme="dark"] .theme-backdrop__atmosphere--day {
+            transform: translateX(-3%);
+        }
+
+        :root[data-theme="dark"] .theme-backdrop__atmosphere--night {
+            transform: translateX(0);
+        }
+
         .layout {
             width: min(480px, 100%);
             position: relative;
@@ -702,6 +802,11 @@
         @keyframes fade-in{from{opacity:0;}to{opacity:1;}}
         @keyframes shake-bubble{0%,100%{transform:translateX(0);}25%{transform:translateX(-6px);}75%{transform:translateX(6px);}}
         @keyframes login-bar-flow{0%,100%{background-position:0% 50%;}50%{background-position:100% 50%;}}
+        @keyframes theme-sweep{
+            0%{opacity:0;transform:translateX(-72%);}
+            18%{opacity:1;}
+            100%{opacity:0;transform:translateX(72%);}
+        }
         @keyframes check-circle{to{stroke-dashoffset:0;}}
         @keyframes check-path{to{stroke-dashoffset:0;}}
         @keyframes error-circle{to{stroke-dashoffset:0;}}
@@ -715,6 +820,11 @@
             .btn-primary svg,
             .quick-link-logo,
             .quick-link-logo::before,
+            .theme-backdrop::before,
+            .theme-backdrop__image,
+            .theme-backdrop__wash::before,
+            .theme-backdrop__wash::after,
+            .theme-backdrop__atmosphere,
             input,
             .field label{
                 animation:none !important;

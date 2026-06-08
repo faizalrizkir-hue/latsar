@@ -48,6 +48,7 @@ class ElementAssessmentFlowTest extends TestCase
     public function test_element_row_save_updates_data_and_creates_notification(): void
     {
         $file = $this->createActiveDmsFile();
+        $statementTitle = 'Melaksanakan Reviu Berjenjang pada Setiap Tahapan Penugasan Pengawasan';
 
         $response = $this
             ->from('/elements/element1_kegiatan_asurans')
@@ -55,7 +56,7 @@ class ElementAssessmentFlowTest extends TestCase
             ->post('/elements/element1_kegiatan_asurans', [
                 'action' => 'save',
                 'row_id' => 1,
-                'pernyataan' => 'Ruang Lingkup dan Fokus',
+                'pernyataan' => $statementTitle,
                 'analisis_bukti' => 'Bukti cukup',
                 'analisis_nilai' => 'Nilai memadai',
                 'evidence' => 'Lampiran pengujian',
@@ -79,7 +80,19 @@ class ElementAssessmentFlowTest extends TestCase
             'element_slug' => 'element1',
             'subtopic_slug' => 'element1_kegiatan_asurans',
             'coordinator_username' => 'koor1',
+            'statement' => 'Isi Data | '.$statementTitle,
         ]);
+    }
+
+    public function test_statement_level_hints_render_on_element_page(): void
+    {
+        $response = $this
+            ->withSession(['user' => $this->sessionUser('koor1', 'koordinator'), 'last_activity_at' => time()])
+            ->get('/elements/element1_kegiatan_asurans');
+
+        $response->assertOk();
+        $response->assertSee('Hint Level 1', false);
+        $response->assertSee('Kegiatan pengawasan belum memiliki ruang lingkup yang jelas.', false);
     }
 
     public function test_verifier_can_set_level_chain_and_score_is_calculated(): void
