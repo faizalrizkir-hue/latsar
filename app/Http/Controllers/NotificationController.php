@@ -222,6 +222,10 @@ class NotificationController extends Controller
             $normalized = is_string($normalized) ? trim($normalized) : $notifyStatement;
 
             $legacyActionMap = [
+                'verifikasi + catatan' => 'Verifikasi + Catatan',
+                'isi data + catatan' => 'Isi Data + Catatan',
+                'catatan koordinator' => 'Catatan Koordinator',
+                'catatan anggota' => 'Catatan Anggota',
                 'reset verifikasi final qa' => 'Reset QA',
                 'verifikasi final qa' => 'Verifikasi QA',
                 'reset verifikasi qa' => 'Reset QA',
@@ -254,10 +258,12 @@ class NotificationController extends Controller
             $notifyDetailText = trim((string) $notifyDetailText);
         }
         $notifyDetailText = $this->resolveFullStatementDetail($notification, $notifyDetailText);
+        [$notifyDetailText, $notifyNoteText] = $this->splitNotificationNoteDetail($notifyDetailText);
 
         $notifyActionClass = match (Str::lower($notifyActionText)) {
-            'isi data', 'isi/ubah data' => 'is-fill',
+            'isi data', 'isi/ubah data', 'isi data + catatan' => 'is-fill',
             'hapus isian', 'bersihkan' => 'is-clear',
+            'catatan anggota', 'catatan koordinator', 'verifikasi + catatan' => 'is-note',
             'verifikasi', 'verifikasi qa', 'verifikasi final qa' => 'is-verify',
             'reset verifikasi', 'reset qa', 'reset final qa', 'reset verifikasi qa' => 'is-verify-reset',
             default => 'is-save',
@@ -272,9 +278,27 @@ class NotificationController extends Controller
             'action_text' => $notifyActionText,
             'action_class' => $notifyActionClass,
             'detail_text' => $notifyDetailText,
+            'note_text' => $notifyNoteText,
             'time_label' => $notification->created_at?->timezone('Asia/Jakarta')->format('d M Y H:i') ?? '-',
             'is_read' => $isRead,
         ];
+    }
+
+    private function splitNotificationNoteDetail(string $detailText): array
+    {
+        $detailText = trim($detailText);
+        if ($detailText === '') {
+            return ['', ''];
+        }
+
+        $marker = ' - Catatan: ';
+        if (!Str::contains($detailText, $marker)) {
+            return [$detailText, ''];
+        }
+
+        [$statementText, $noteText] = array_pad(explode($marker, $detailText, 2), 2, '');
+
+        return [trim((string) $statementText), trim((string) $noteText)];
     }
 
     private function resolvePhotoUrl(?string $path): string

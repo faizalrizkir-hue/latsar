@@ -258,21 +258,32 @@
     position: sticky;
     top: 0;
     z-index: 8;
-    display: flex;
-    align-items: center;
+    display: grid;
     gap: 0.5rem;
     margin: 0 0 0.52rem;
     background: linear-gradient(180deg, #ffffff, #f4f8ff);
     box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
     border-radius: 10px;
-    padding: 0.1rem;
+    padding: 0.42rem;
+}
+
+.keg-doc-dd-toolrow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.keg-doc-dd-search-wrap {
+    position: relative;
+    min-width: 0;
 }
 
 .keg-doc-dd-search {
     position: static;
     display: block;
     margin: 0;
-    flex: 1 1 auto;
+    width: 100%;
     min-width: 0;
     background: linear-gradient(180deg, #ffffff, #f4f8ff);
     box-shadow: none;
@@ -300,6 +311,111 @@
 .keg-doc-dd-total-value {
     font-size: 0.84rem;
     font-weight: 900;
+}
+
+.keg-doc-dd-total-separator,
+.keg-doc-dd-total-max {
+    color: #587293;
+    font-size: 0.78rem;
+    font-weight: 850;
+}
+
+.keg-doc-dd-filterbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(104px, 0.65fr) auto;
+    gap: 0.42rem;
+    align-items: end;
+    border: 1px solid #d8e4f5;
+    border-radius: 10px;
+    background: rgba(241, 247, 255, 0.78);
+    padding: 0.5rem;
+}
+
+.keg-doc-dd-filter {
+    display: grid;
+    gap: 0.24rem;
+    min-width: 0;
+    margin: 0;
+}
+
+.keg-doc-dd-filter span {
+    color: #3f5f86;
+    font-size: 0.68rem;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+.keg-doc-dd-filter-select {
+    width: 100%;
+    min-height: 2.16rem;
+    border: 1px solid #c6d8f1;
+    border-radius: 9px;
+    background:
+        linear-gradient(180deg, #ffffff, #f4f8ff),
+        url("data:image/svg+xml,%3Csvg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2361748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 10px center;
+    color: #263f63;
+    appearance: none;
+    font-size: 0.78rem;
+    font-weight: 750;
+    line-height: 1.15;
+    padding: 0.44rem 1.85rem 0.44rem 0.58rem;
+    box-shadow: 0 6px 12px rgba(15, 23, 42, 0.05);
+    transition: border-color 0.16s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.keg-doc-dd-filter-select:hover:not(:disabled) {
+    border-color: #9fbfeb;
+    box-shadow: 0 8px 14px rgba(37, 99, 235, 0.1);
+}
+
+.keg-doc-dd-filter-select:focus {
+    outline: none;
+    border-color: #83ace8;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
+}
+
+.keg-doc-dd-filter-select:disabled {
+    cursor: not-allowed;
+    color: #8295af;
+    background: #eef3fb;
+    box-shadow: none;
+}
+
+.keg-doc-dd-reset {
+    min-height: 2.16rem;
+    border: 1px solid #bcd0eb;
+    border-radius: 9px;
+    background: linear-gradient(180deg, #ffffff, #edf4ff);
+    color: #31547f;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 850;
+    line-height: 1;
+    padding: 0.45rem 0.72rem;
+    transition: transform 0.16s ease, border-color 0.18s ease, box-shadow 0.2s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.keg-doc-dd-reset:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: #8fb3e4;
+    background: linear-gradient(180deg, #f8fbff, #e0edff);
+    box-shadow: 0 9px 16px rgba(37, 99, 235, 0.12);
+}
+
+.keg-doc-dd-reset:focus-visible {
+    outline: 2px solid rgba(59, 130, 246, 0.46);
+    outline-offset: 2px;
+}
+
+.keg-doc-dd-reset:disabled {
+    cursor: not-allowed;
+    border-color: #d3deee;
+    background: #edf2f9;
+    color: #8ca0ba;
+    box-shadow: none;
+    transform: none;
 }
 
 .keg-doc-dd-group + .keg-doc-dd-group {
@@ -468,6 +584,27 @@
     transition: color 0.16s ease;
 }
 
+.keg-doc-dd-option-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.24rem;
+}
+
+.keg-doc-dd-option-meta span {
+    max-width: 100%;
+    border: 1px solid #d4e1f4;
+    border-radius: 999px;
+    background: #eef5ff;
+    color: #4d6687;
+    font-size: 0.68rem;
+    font-weight: 800;
+    line-height: 1;
+    overflow: hidden;
+    padding: 0.22rem 0.4rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .keg-doc-dd-selected-mark {
     flex: 0 0 auto;
     z-index: 1;
@@ -620,13 +757,19 @@
         padding: 0.5rem;
     }
 
-    .keg-doc-dd-topbar {
+    .keg-doc-dd-toolrow,
+    .keg-doc-dd-filterbar {
         display: grid;
         gap: 0.42rem;
+        grid-template-columns: 1fr;
     }
 
     .keg-doc-dd-total {
         width: max-content;
+    }
+
+    .keg-doc-dd-reset {
+        width: 100%;
     }
 
     .keg-doc-dd-option {

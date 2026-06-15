@@ -344,6 +344,10 @@
                                         $normalized = $normalizeNotificationText(is_string($normalized) ? $normalized : $notifyStatement);
 
                                         $legacyActionMap = [
+                                            'verifikasi + catatan' => 'Verifikasi + Catatan',
+                                            'isi data + catatan' => 'Isi Data + Catatan',
+                                            'catatan koordinator' => 'Catatan Koordinator',
+                                            'catatan anggota' => 'Catatan Anggota',
                                             'reset verifikasi final qa' => 'Reset QA',
                                             'verifikasi final qa' => 'Verifikasi QA',
                                             'reset verifikasi qa' => 'Reset QA',
@@ -376,6 +380,13 @@
                                         $notifyDetailText = $normalizeNotificationText((string) $notifyDetailText);
                                     }
                                     $notifyDetailText = $resolveNotificationDetailText($notif, $notifyDetailText);
+                                    $notifyNoteText = '';
+                                    $notifyNoteMarker = ' - Catatan: ';
+                                    if (Str::contains($notifyDetailText, $notifyNoteMarker)) {
+                                        [$notifyDetailText, $notifyNoteText] = array_pad(explode($notifyNoteMarker, $notifyDetailText, 2), 2, '');
+                                        $notifyDetailText = $normalizeNotificationText((string) $notifyDetailText);
+                                        $notifyNoteText = $normalizeNotificationText((string) $notifyNoteText);
+                                    }
 
                                     $notifyCreatedAtRaw = data_get($notif, 'created_at');
                                     $notifyCreatedAt = null;
@@ -392,8 +403,9 @@
                                     }
 
                                     $notifyActionClass = match (Str::lower($notifyActionText)) {
-                                        'isi data', 'isi/ubah data' => 'is-fill',
+                                        'isi data', 'isi/ubah data', 'isi data + catatan' => 'is-fill',
                                         'hapus isian', 'bersihkan' => 'is-clear',
+                                        'catatan anggota', 'catatan koordinator', 'verifikasi + catatan' => 'is-note',
                                         'verifikasi', 'verifikasi qa', 'verifikasi final qa' => 'is-verify',
                                         'reset verifikasi', 'reset qa', 'reset final qa', 'reset verifikasi qa' => 'is-verify-reset',
                                         default => 'is-save',
@@ -424,6 +436,12 @@
                                             @if($notifyDetailText !== '')
                                                 <span class="notify-body">{{ $notifyDetailText }}</span>
                                             @endif
+                                        </div>
+                                    @endif
+                                    @if($notifyNoteText !== '')
+                                        <div class="notify-note">
+                                            <span class="notify-note-label">Catatan</span>
+                                            <span class="notify-note-text">{{ $notifyNoteText }}</span>
                                         </div>
                                     @endif
                                     <div class="meta">{{ $notifyCreatedAt?->timezone('Asia/Jakarta')->format('d M Y H:i') ?? '-' }}</div>
@@ -972,8 +990,9 @@
         const title = escapeHtml(item?.title || 'Notifikasi');
         const actionText = String(item?.action_text || '').trim();
         const detailText = String(item?.detail_text || '').trim();
+        const noteText = String(item?.note_text || '').trim();
         const actionClass = String(item?.action_class || 'is-save').trim();
-        const actionClassSafe = /^is-(save|fill|clear|verify|verify-reset)$/.test(actionClass) ? actionClass : 'is-save';
+        const actionClassSafe = /^is-(save|fill|clear|note|verify|verify-reset)$/.test(actionClass) ? actionClass : 'is-save';
         const timeLabel = escapeHtml(item?.time_label || '-');
         const isRead = Boolean(item?.is_read);
 
@@ -989,6 +1008,9 @@
         const actionRowHtml = (actionHtml !== '' || detailHtml !== '')
             ? `<div class="notify-action-row">${actionHtml}${detailHtml}</div>`
             : '';
+        const noteHtml = noteText !== ''
+            ? `<div class="notify-note"><span class="notify-note-label">Catatan</span><span class="notify-note-text">${escapeHtml(noteText)}</span></div>`
+            : '';
 
         return `
             <div class="notify-item${isRead ? '' : ' is-unread'}" style="--notify-order:${toNonNegativeInt(index, 0)};">
@@ -1003,6 +1025,7 @@
                 </div>
                 <div class="title">${title}</div>
                 ${actionRowHtml}
+                ${noteHtml}
                 <div class="meta">${timeLabel}</div>
             </div>
         `;

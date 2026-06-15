@@ -145,6 +145,77 @@ class NotificationFlowTest extends TestCase
             ->assertJsonPath('items.0.detail_text', $statementDetail);
     }
 
+    public function test_notification_feed_formats_combined_note_actions(): void
+    {
+        Notification::query()->create([
+            'element_slug' => 'element1',
+            'subtopic_slug' => 'element1_kegiatan_asurans',
+            'subtopic_title' => 'Topik 1 - Kegiatan Asurans',
+            'statement' => 'Isi Data + Catatan | Ruang Lingkup dan Fokus - Catatan: Mohon cek bukti utama.',
+            'row_id' => 1,
+            'coordinator_name' => 'Koordinator 1',
+            'coordinator_username' => 'koor1',
+            'created_at' => now()->subSecond(),
+        ]);
+        Notification::query()->create([
+            'element_slug' => 'element1',
+            'subtopic_slug' => 'element1_kegiatan_asurans',
+            'subtopic_title' => 'Topik 1 - Kegiatan Asurans',
+            'statement' => 'Verifikasi + Catatan | Ruang Lingkup dan Fokus - Catatan: Sudah diverifikasi.',
+            'row_id' => 1,
+            'coordinator_name' => 'Koordinator 1',
+            'coordinator_username' => 'koor1',
+            'created_at' => now(),
+        ]);
+
+        $this
+            ->withSession(['user' => $this->sessionUser, 'last_activity_at' => time()])
+            ->getJson('/notifications/feed?scope=element1')
+            ->assertOk()
+            ->assertJsonPath('count', 2)
+            ->assertJsonPath('items.0.action_text', 'Verifikasi + Catatan')
+            ->assertJsonPath('items.0.action_class', 'is-note')
+            ->assertJsonPath('items.0.detail_text', 'Ruang Lingkup dan Fokus')
+            ->assertJsonPath('items.0.note_text', 'Sudah diverifikasi.')
+            ->assertJsonPath('items.1.action_text', 'Isi Data + Catatan')
+            ->assertJsonPath('items.1.action_class', 'is-fill')
+            ->assertJsonPath('items.1.detail_text', 'Ruang Lingkup dan Fokus')
+            ->assertJsonPath('items.1.note_text', 'Mohon cek bukti utama.');
+    }
+
+    public function test_notification_feed_collapses_legacy_split_note_pairs(): void
+    {
+        Notification::query()->create([
+            'element_slug' => 'element1',
+            'subtopic_slug' => 'element1_kegiatan_asurans',
+            'subtopic_title' => 'Topik 1 - Kegiatan Asurans',
+            'statement' => 'Isi Data | Ruang Lingkup dan Fokus',
+            'row_id' => 1,
+            'coordinator_name' => 'Koordinator 1',
+            'coordinator_username' => 'koor1',
+            'created_at' => now()->subSecond(),
+        ]);
+        Notification::query()->create([
+            'element_slug' => 'element1',
+            'subtopic_slug' => 'element1_kegiatan_asurans',
+            'subtopic_title' => 'Topik 1 - Kegiatan Asurans',
+            'statement' => 'Catatan Anggota | Ruang Lingkup dan Fokus - Catatan: Mohon cek bukti utama.',
+            'row_id' => 1,
+            'coordinator_name' => 'Koordinator 1',
+            'coordinator_username' => 'koor1',
+            'created_at' => now(),
+        ]);
+
+        $this
+            ->withSession(['user' => $this->sessionUser, 'last_activity_at' => time()])
+            ->getJson('/notifications/feed?scope=element1')
+            ->assertOk()
+            ->assertJsonPath('count', 1)
+            ->assertJsonPath('items.0.action_text', 'Isi Data + Catatan')
+            ->assertJsonPath('items.0.detail_text', 'Ruang Lingkup dan Fokus')
+            ->assertJsonPath('items.0.note_text', 'Mohon cek bukti utama.');
+    }
+
     public function test_notification_feed_recovers_truncated_legacy_statement_detail(): void
     {
         $statementDetail = 'Pelaksanaan Pengembangan Informasi Awal Penugasan Pengawasan Secara Lengkap';

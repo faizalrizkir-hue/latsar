@@ -10,6 +10,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Throwable;
 
 class Notification extends Model
@@ -128,11 +129,102 @@ class Notification extends Model
             return collect();
         }
 
-        return self::queryForUser($sessionUser, $scopeSlug)
+        $notifications = self::queryForUser($sessionUser, $scopeSlug)
             ->select($feedColumns)
             ->with(['coordinatorAccount'])
             ->limit($limit)
             ->get();
+
+        return self::collapsePairedNoteNotifications($notifications);
+    }
+
+    private static function collapsePairedNoteNotifications(Collection $notifications): Collection
+    {
+        if ($notifications->isEmpty()) {
+            return $notifications;
+        }
+
+        $noteNotifications = $notifications
+            ->map(function (self $notification): ?array {
+                [$action, $detail] = self::splitStatementActionDetail((string) ($notification->statement ?? ''));
+                $genericAction = self::genericActionForNoteAction($action);
+                $combinedAction = self::combinedActionForNoteAction($action);
+                if ($genericAction === null || $combinedAction === null) {
+                    return null;
+                }
+
+                $notification->statement = trim($combinedAction.' | '.$detail);
+
+                return [
+                    'notification' => $notification,
+                    'generic_action' => $genericAction,
+                    'timestamp' => $notification->created_at?->timestamp ?? 0,
+                ];
+            })
+            ->filter(fn ($item): bool => is_array($item))
+            ->values();
+
+        if ($noteNotifications->isEmpty()) {
+            return $notifications;
+        }
+
+        return $notifications
+            ->reject(function (self $notification) use ($noteNotifications): bool {
+                [$action] = self::splitStatementActionDetail((string) ($notification->statement ?? ''));
+                if (!in_array($action, ['Isi Data', 'Verifikasi'], true)) {
+                    return false;
+                }
+
+                $timestamp = $notification->created_at?->timestamp ?? 0;
+
+                return $noteNotifications->contains(function (array $noteItem) use ($notification, $action, $timestamp): bool {
+                    /** @var self $noteNotification */
+                    $noteNotification = $noteItem['notification'];
+                    $noteTimestamp = (int) ($noteItem['timestamp'] ?? 0);
+
+                    return ($noteItem['generic_action'] ?? '') === $action
+                        && (string) ($noteNotification->element_slug ?? '') === (string) ($notification->element_slug ?? '')
+                        && (string) ($noteNotification->subtopic_slug ?? '') === (string) ($notification->subtopic_slug ?? '')
+                        && (int) ($noteNotification->row_id ?? 0) === (int) ($notification->row_id ?? 0)
+                        && (string) ($noteNotification->coordinator_username ?? '') === (string) ($notification->coordinator_username ?? '')
+                        && ($timestamp <= 0 || $noteTimestamp <= 0 || abs($noteTimestamp - $timestamp) <= 120);
+                });
+            })
+            ->values();
+    }
+
+    private static function splitStatementActionDetail(string $statement): array
+    {
+        $statement = trim($statement);
+        if ($statement === '') {
+            return ['', ''];
+        }
+
+        if (!Str::contains($statement, '|')) {
+            return [$statement, ''];
+        }
+
+        [$action, $detail] = array_pad(explode('|', $statement, 2), 2, '');
+
+        return [trim((string) $action), trim((string) $detail)];
+    }
+
+    private static function genericActionForNoteAction(string $action): ?string
+    {
+        return match (Str::lower(trim($action))) {
+            'catatan anggota' => 'Isi Data',
+            'catatan koordinator' => 'Verifikasi',
+            default => null,
+        };
+    }
+
+    private static function combinedActionForNoteAction(string $action): ?string
+    {
+        return match (Str::lower(trim($action))) {
+            'catatan anggota' => 'Isi Data + Catatan',
+            'catatan koordinator' => 'Verifikasi + Catatan',
+            default => null,
+        };
     }
 
     public static function createScoped(array $attributes): ?self

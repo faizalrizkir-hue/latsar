@@ -27,6 +27,7 @@ class ElementAssessmentFlowTest extends TestCase
         foreach ([
             ['username' => 'admin', 'display_name' => 'Administrator', 'role' => 'administrator'],
             ['username' => 'koor1', 'display_name' => 'Koordinator 1', 'role' => 'koordinator'],
+            ['username' => 'auditor1', 'display_name' => 'Auditor 1', 'role' => 'auditor'],
             ['username' => 'qa1', 'display_name' => 'QA BPKP 1', 'role' => 'qa'],
         ] as $account) {
             Account::query()->create([
@@ -41,7 +42,7 @@ class ElementAssessmentFlowTest extends TestCase
         ElementTeamAssignment::query()->create([
             'element_slug' => 'element1',
             'coordinator_username' => 'koor1',
-            'member_usernames' => ['qa1'],
+            'member_usernames' => ['auditor1'],
         ]);
     }
 
@@ -49,6 +50,7 @@ class ElementAssessmentFlowTest extends TestCase
     {
         $file = $this->createActiveDmsFile();
         $statementTitle = 'Melaksanakan Reviu Berjenjang pada Setiap Tahapan Penugasan Pengawasan';
+        $memberNote = 'Mohon cek kesesuaian bukti utama pada lampiran sebelum validasi.';
 
         $response = $this
             ->from('/elements/element1_kegiatan_asurans')
@@ -66,6 +68,7 @@ class ElementAssessmentFlowTest extends TestCase
                 'grad_l4_catatan' => '',
                 'grad_l5_catatan' => '',
                 'doc_file_ids' => [(int) $file->id],
+                'member_note_to_coordinator' => $memberNote,
             ]);
 
         $response->assertRedirect('/elements/element1_kegiatan_asurans');
@@ -74,14 +77,37 @@ class ElementAssessmentFlowTest extends TestCase
         $this->assertDatabaseHas('element1_kegiatan_asurans', [
             'id' => 1,
             'dokumen_path' => '/uploads/dms/lampiran.pdf',
+            'member_note_to_coordinator' => $memberNote,
         ]);
 
         $this->assertDatabaseHas('notifications', [
             'element_slug' => 'element1',
             'subtopic_slug' => 'element1_kegiatan_asurans',
             'coordinator_username' => 'koor1',
+            'statement' => 'Isi Data + Catatan | '.$statementTitle.' - Catatan: '.$memberNote,
+        ]);
+
+        $this->assertDatabaseMissing('notifications', [
+            'element_slug' => 'element1',
+            'subtopic_slug' => 'element1_kegiatan_asurans',
+            'coordinator_username' => 'koor1',
             'statement' => 'Isi Data | '.$statementTitle,
         ]);
+
+        $this->assertDatabaseMissing('notifications', [
+            'element_slug' => 'element1',
+            'subtopic_slug' => 'element1_kegiatan_asurans',
+            'coordinator_username' => 'koor1',
+            'statement' => 'Catatan Anggota | '.$statementTitle.' - Catatan: '.$memberNote,
+        ]);
+
+        $this
+            ->withSession(['user' => $this->sessionUser('koor1', 'koordinator'), 'last_activity_at' => time()])
+            ->get('/elements/element1_kegiatan_asurans')
+            ->assertOk()
+            ->assertSee('Catatan (Opsional) kepada Koordinator Tim', false)
+            ->assertSee('Catatan Anggota kepada Koordinator Tim', false)
+            ->assertSee($memberNote, false);
     }
 
     public function test_statement_level_hints_render_on_element_page(): void
@@ -93,6 +119,68 @@ class ElementAssessmentFlowTest extends TestCase
         $response->assertOk();
         $response->assertSee('Hint Level 1', false);
         $response->assertSee('Kegiatan pengawasan belum memiliki ruang lingkup yang jelas.', false);
+    }
+
+    public function test_member_note_from_auditor_appears_in_coordinator_notification_feed(): void
+    {
+        $file = $this->createActiveDmsFile();
+        $statementTitle = 'Ruang Lingkup dan Fokus';
+        $memberLevelNote = 'Catatan L1 dari anggota tim untuk koordinator.';
+
+        $this
+            ->from('/elements/element1_kegiatan_asurans')
+            ->withSession(['user' => $this->sessionUser('auditor1', 'auditor'), 'last_activity_at' => time()])
+            ->post('/elements/element1_kegiatan_asurans', [
+                'action' => 'save',
+                'row_id' => 1,
+                'pernyataan' => $statementTitle,
+                'analisis_bukti' => 'Bukti cukup',
+                'analisis_nilai' => 'Nilai memadai',
+                'evidence' => 'Lampiran pengujian',
+                'grad_l1_catatan' => $memberLevelNote,
+                'grad_l2_catatan' => '',
+                'grad_l3_catatan' => '',
+                'grad_l4_catatan' => '',
+                'grad_l5_catatan' => '',
+                'doc_file_ids' => [(int) $file->id],
+            ])
+            ->assertRedirect('/elements/element1_kegiatan_asurans');
+
+        $this->assertDatabaseHas('notifications', [
+            'element_slug' => 'element1',
+            'subtopic_slug' => 'element1_kegiatan_asurans',
+            'coordinator_username' => 'auditor1',
+            'statement' => 'Isi Data + Catatan | '.$statementTitle.' - Catatan: Level 1: '.$memberLevelNote,
+        ]);
+
+        $this
+            ->withSession(['user' => $this->sessionUser('koor1', 'koordinator'), 'last_activity_at' => time()])
+            ->getJson('/notifications/feed?scope=element1')
+            ->assertOk()
+            ->assertJsonPath('items.0.action_text', 'Isi Data + Catatan')
+            ->assertJsonPath('items.0.action_class', 'is-fill')
+            ->assertJsonPath('items.0.detail_text', $statementTitle)
+            ->assertJsonPath('items.0.note_text', 'Level 1: '.$memberLevelNote);
+    }
+
+    public function test_supporting_document_picker_renders_dms_like_filters(): void
+    {
+        $file = $this->createActiveDmsFile();
+        $year = (string) $file->document()->value('year');
+
+        $response = $this
+            ->withSession(['user' => $this->sessionUser('koor1', 'koordinator'), 'last_activity_at' => time()])
+            ->get('/elements/element1_kegiatan_asurans');
+
+        $response->assertOk();
+        $response->assertSee('data-doc-dd-search', false);
+        $response->assertSee('data-doc-dd-type-filter', false);
+        $response->assertSee('data-doc-dd-tag-filter', false);
+        $response->assertSee('data-doc-dd-year-filter', false);
+        $response->assertSee('data-doc-dd-visible-count', false);
+        $response->assertSee('Manajemen Pengawasan', false);
+        $response->assertSee('Surat Tugas', false);
+        $response->assertSee('value="'.$year.'"', false);
     }
 
     public function test_verifier_can_set_level_chain_and_score_is_calculated(): void
@@ -146,6 +234,20 @@ class ElementAssessmentFlowTest extends TestCase
         $this->assertEqualsWithDelta(0.60, (float) ($row->skor ?? 0), 0.001);
         $this->assertSame('Sudah diverifikasi koordinator.', (string) ($row->verify_note ?? ''));
         $this->assertStringContainsString('"3":1', (string) ($row->level_validation_state ?? ''));
+
+        $this->assertDatabaseHas('notifications', [
+            'element_slug' => 'element1',
+            'subtopic_slug' => 'element1_kegiatan_asurans',
+            'coordinator_username' => 'koor1',
+            'statement' => 'Verifikasi + Catatan | Ruang Lingkup dan Fokus - Catatan: Sudah diverifikasi koordinator.',
+        ]);
+
+        $this->assertDatabaseMissing('notifications', [
+            'element_slug' => 'element1',
+            'subtopic_slug' => 'element1_kegiatan_asurans',
+            'coordinator_username' => 'koor1',
+            'statement' => 'Verifikasi | Ruang Lingkup dan Fokus',
+        ]);
     }
 
     public function test_qa_final_verification_requires_verifier_status_first(): void

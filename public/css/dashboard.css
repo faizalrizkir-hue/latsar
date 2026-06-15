@@ -1094,9 +1094,32 @@ a{text-decoration:none;color:inherit;}
             font-size:0.9rem;
             flex:1;
         }
+        .notify-note{
+            border-left:3px solid rgba(59,130,246,0.32);
+            background:rgba(59,130,246,0.07);
+            border-radius:5px;
+            color:#334155;
+            display:grid;
+            gap:2px;
+            line-height:1.25;
+            margin-top:2px;
+            padding:0.36rem 0.48rem;
+        }
+        .notify-note-label{
+            color:#35618f;
+            font-size:0.66rem;
+            font-weight:800;
+            letter-spacing:0;
+            text-transform:uppercase;
+        }
+        .notify-note-text{
+            font-size:0.84rem;
+            font-weight:700;
+            overflow-wrap:anywhere;
+        }
         .notify-action-row{
             display:flex;
-            align-items:flex-start;
+            align-items:center;
             gap:6px;
             min-width:0;
         }
@@ -1125,6 +1148,11 @@ a{text-decoration:none;color:inherit;}
             background:#edf9f3;
             color:#397153;
         }
+        .notify-action-badge.is-note{
+            border-color:#b7dedb;
+            background:#eaf9f7;
+            color:#2f6f68;
+        }
         .notify-action-badge.is-verify-reset{
             border-color:#e8d6b0;
             background:#fff6e7;
@@ -1150,6 +1178,11 @@ a{text-decoration:none;color:inherit;}
             background:rgba(21,128,61,0.18);
             color:#beeccc;
         }
+        :root[data-theme="dark"] .notify-action-badge.is-note{
+            border-color:rgba(45,212,191,0.32);
+            background:rgba(20,184,166,0.16);
+            color:#bff4ec;
+        }
         :root[data-theme="dark"] .notify-action-badge.is-verify-reset{
             border-color:rgba(251,191,36,0.3);
             background:rgba(146,64,14,0.18);
@@ -1159,6 +1192,14 @@ a{text-decoration:none;color:inherit;}
             border-color:rgba(248,113,113,0.3);
             background:rgba(127,29,29,0.18);
             color:#efc5c5;
+        }
+        :root[data-theme="dark"] .notify-note{
+            border-left-color:rgba(96,165,250,0.42);
+            background:rgba(59,130,246,0.12);
+            color:#dbeafe;
+        }
+        :root[data-theme="dark"] .notify-note-label{
+            color:#bfdbfe;
         }
         .notify-item .meta{
             color:var(--text-muted);

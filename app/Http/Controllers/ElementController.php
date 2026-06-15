@@ -631,6 +631,7 @@ class ElementController extends Controller
                 ->with('error', 'Tabel modul belum tersedia. Jalankan migrasi terlebih dahulu.');
         }
         $supportsQaVerification = $this->moduleSupportsQaVerification($moduleTable);
+        $supportsMemberNoteToCoordinator = $this->hasColumnCached($moduleTable, 'member_note_to_coordinator');
         $canQaVerify = $supportsQaVerification && $this->canUserQaVerifySlug($user, $slug);
 
         $this->ensureKegiatanRows($slug, $moduleConfig);
@@ -717,6 +718,7 @@ class ElementController extends Controller
                             'url' => $path ? '/uploads/'.$path : '',
                             'type' => $typeAndTag['type'],
                             'tag' => $typeAndTag['tag'],
+                            'year' => $doc?->year,
                         ];
                     });
 
@@ -770,6 +772,7 @@ class ElementController extends Controller
             'summaryQaHasData' => (bool) ($modulePayload['summaryQaHasData'] ?? false),
             'canVerify' => $canVerify,
             'canQaVerify' => $canQaVerify,
+            'supportsMemberNoteToCoordinator' => $supportsMemberNoteToCoordinator,
             'weights' => $moduleWeights,
             'verifyNotes' => $modulePayload['verifyNotes'] ?? collect(),
             'dmsFiles' => $modulePayload['dmsFiles'] ?? collect(),
@@ -820,6 +823,7 @@ class ElementController extends Controller
         $supportsQaVerification = $this->moduleSupportsQaVerification($moduleTable);
         $supportsQaFollowUpRecommendation = $supportsQaVerification
             && $this->hasColumnCached($moduleTable, 'qa_follow_up_recommendation');
+        $supportsMemberNoteToCoordinator = $this->hasColumnCached($moduleTable, 'member_note_to_coordinator');
         $canQaVerify = $supportsQaVerification && $this->canUserQaVerifySlug($user, $slug);
         $qaFeatureEnabled = (bool) config('app.features.qa_enabled', false);
         $userRole = strtolower(trim((string) ($user['role'] ?? '')));
@@ -834,6 +838,10 @@ class ElementController extends Controller
         }
 
         if ($action === 'save') {
+            if (!$supportsMemberNoteToCoordinator && $request->has('member_note_to_coordinator')) {
+                return back()->withErrors('Kolom catatan anggota belum tersedia. Jalankan migrasi terlebih dahulu.');
+            }
+
             $isVerifiedRow = (int) $row->verified === 1;
             $savedLevelValidationState = collect($row->level_validation_state ?? [])
                 ->mapWithKeys(function ($value, $key) {
@@ -857,6 +865,9 @@ class ElementController extends Controller
                 'grad_l4_catatan' => 'nullable|string',
                 'grad_l5_catatan' => 'nullable|string',
             ];
+            if ($supportsMemberNoteToCoordinator) {
+                $rules['member_note_to_coordinator'] = 'nullable|string|max:1000';
+            }
 
             if ($isVerifiedRow) {
                 $rules['doc_file_ids'] = 'nullable|array';
@@ -954,10 +965,34 @@ class ElementController extends Controller
             }
 
             $row->fill($payload);
+            if ($supportsMemberNoteToCoordinator) {
+                $row->member_note_to_coordinator = $isVerifiedRow
+                    ? ($row->member_note_to_coordinator ?? null)
+                    : ($data['member_note_to_coordinator'] ?? null);
+            }
             if (!$isVerifiedRow) {
                 $row->verified = 0;
             }
 
+            $memberNoteNotificationDetail = null;
+            if (
+                $supportsMemberNoteToCoordinator
+                && $row->isDirty('member_note_to_coordinator')
+                && trim((string) ($row->member_note_to_coordinator ?? '')) !== ''
+            ) {
+                $memberNoteNotificationDetail = $this->notificationNoteDetail(
+                    (string) ($row->pernyataan ?? ''),
+                    (string) ($row->member_note_to_coordinator ?? '')
+                );
+            } elseif ($this->shouldEmitMemberLevelNoteNotification($user)) {
+                $memberLevelNoteSummary = $this->changedMemberLevelNoteSummary($row);
+                if ($memberLevelNoteSummary !== '') {
+                    $memberNoteNotificationDetail = $this->notificationNoteDetail(
+                        (string) ($row->pernyataan ?? ''),
+                        $memberLevelNoteSummary
+                    );
+                }
+            }
             $hasDataChanges = $row->isDirty();
             if ($supportsQaVerification && $hasDataChanges) {
                 $this->resetQaVerificationOnRow($row);
@@ -975,7 +1010,8 @@ class ElementController extends Controller
                 $user,
                 $slug,
                 $moduleNotificationTitle,
-                $moduleSubtopicTitle
+                $moduleSubtopicTitle,
+                $memberNoteNotificationDetail
             ): void {
                 $row->save();
 
@@ -994,8 +1030,8 @@ class ElementController extends Controller
                     $slug,
                     $moduleNotificationTitle,
                     $moduleSubtopicTitle,
-                    (string) ($row->pernyataan ?? ''),
-                    'save',
+                    $memberNoteNotificationDetail ?? (string) ($row->pernyataan ?? ''),
+                    $memberNoteNotificationDetail !== null ? 'save_with_member_note' : 'save',
                     (int) $row->id
                 );
             });
@@ -1023,6 +1059,9 @@ class ElementController extends Controller
                 'level_validation_state' => null,
                 'verify_note' => null,
             ]);
+            if ($supportsMemberNoteToCoordinator) {
+                $row->member_note_to_coordinator = null;
+            }
             $row->verified = 0;
             $row->level = '-';
             $row->skor = null;
@@ -1114,6 +1153,9 @@ class ElementController extends Controller
             $row->skor = $isVerified ? $this->scoreForKegiatanLevel($levelVal, (int)$row->id, $moduleWeights) : null;
             $row->level_validation_state = $isVerified ? $levelValidationState : null;
             $row->verify_note = $isVerified ? ($validated['verify_note'] ?? null) : null;
+            $coordinatorNoteChanged = $isVerified
+                && $row->isDirty('verify_note')
+                && trim((string) ($row->verify_note ?? '')) !== '';
             $hasVerificationChanges = $row->isDirty();
             if ($supportsQaVerification && $hasVerificationChanges) {
                 $this->resetQaVerificationOnRow($row);
@@ -1132,7 +1174,8 @@ class ElementController extends Controller
                 $slug,
                 $moduleNotificationTitle,
                 $moduleSubtopicTitle,
-                $isVerified
+                $isVerified,
+                $coordinatorNoteChanged
             ): void {
                 $row->save();
 
@@ -1146,13 +1189,20 @@ class ElementController extends Controller
                     ]);
                 }
 
+                $verificationNoteDetail = $coordinatorNoteChanged
+                    ? $this->notificationNoteDetail(
+                        (string) ($row->pernyataan ?? ''),
+                        (string) ($row->verify_note ?? '')
+                    )
+                    : null;
+
                 $this->emitActivityNotification(
                     $user,
                     $slug,
                     $moduleNotificationTitle,
                     $moduleSubtopicTitle,
-                    (string) ($row->pernyataan ?? ''),
-                    $isVerified ? 'verify' : 'verify_reset',
+                    $verificationNoteDetail ?? (string) ($row->pernyataan ?? ''),
+                    $verificationNoteDetail !== null ? 'verify_with_note' : ($isVerified ? 'verify' : 'verify_reset'),
                     (int) $row->id
                 );
             });
@@ -1388,8 +1438,75 @@ class ElementController extends Controller
             'verify_reset' => 'Reset Verifikasi',
             'qa_verify' => 'Verifikasi QA',
             'qa_verify_reset' => 'Reset QA',
+            'member_note' => 'Catatan Anggota',
+            'coordinator_note' => 'Catatan Koordinator',
+            'save_with_member_note' => 'Isi Data + Catatan',
+            'verify_with_note' => 'Verifikasi + Catatan',
             default => 'Pembaruan',
         };
+    }
+
+    private function notificationNoteDetail(string $statementTitle, string $noteText): string
+    {
+        $statementLabel = $this->compactNotificationText($statementTitle, 90);
+        if ($statementLabel === '') {
+            $statementLabel = 'Pernyataan';
+        }
+
+        $noteLabel = $this->compactNotificationText($noteText, 140);
+        if ($noteLabel === '') {
+            return $statementLabel;
+        }
+
+        return $statementLabel.' - Catatan: '.$noteLabel;
+    }
+
+    private function shouldEmitMemberLevelNoteNotification(array $user): bool
+    {
+        $role = Str::lower(trim((string) ($user['role'] ?? '')));
+
+        return $role !== ''
+            && !in_array($role, ['administrator', 'admin', 'superadmin', 'koordinator', 'qa'], true)
+            && Str::contains($role, ['anggota', 'auditor']);
+    }
+
+    private function changedMemberLevelNoteSummary(object $row): string
+    {
+        if (!method_exists($row, 'isDirty')) {
+            return '';
+        }
+
+        $parts = [];
+        foreach (range(1, 5) as $level) {
+            $field = 'grad_l'.$level.'_catatan';
+            if (!$row->isDirty($field)) {
+                continue;
+            }
+
+            $note = $this->compactNotificationText((string) ($row->{$field} ?? ''), 70);
+            if ($note === '') {
+                continue;
+            }
+
+            $parts[] = 'Level '.$level.': '.$note;
+        }
+
+        return implode('; ', $parts);
+    }
+
+    private function compactNotificationText(string $text, int $limit): string
+    {
+        $normalized = preg_replace('/\s+/', ' ', trim($text));
+        $normalized = is_string($normalized) ? trim($normalized) : trim($text);
+        if ($normalized === '') {
+            return '';
+        }
+
+        if (Str::length($normalized) <= $limit) {
+            return $normalized;
+        }
+
+        return rtrim((string) Str::substr($normalized, 0, max(1, $limit - 10))).' (ringkas)';
     }
 
     private function compactNotificationTitle(string $moduleSubtopicTitle, string $moduleNotificationTitle): string

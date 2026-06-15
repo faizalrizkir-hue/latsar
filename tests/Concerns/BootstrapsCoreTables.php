@@ -161,6 +161,7 @@ trait BootstrapsCoreTables
                 $table->longText('doc_file_ids')->nullable();
                 $table->longText('level_validation_state')->nullable();
                 $table->text('verify_note')->nullable();
+                $table->text('member_note_to_coordinator')->nullable();
                 $table->boolean('qa_verified')->default(false);
                 $table->string('qa_verified_by', 100)->nullable();
                 $table->timestamp('qa_verified_at')->nullable();

@@ -26,6 +26,7 @@
         $isVerifikator = (bool) ($canVerify ?? false);
         $isQaVerifier = (bool) ($canQaVerify ?? false);
         $canSeeVerifyNoteTab = $isAnggotaTim || $isVerifikator;
+        $supportsMemberNoteToCoordinator = (bool) ($supportsMemberNoteToCoordinator ?? false);
         $statementLevelHintMap = is_array($statementLevelHintMap ?? null) ? $statementLevelHintMap : [];
         $moduleInfoLevels = collect($moduleInfoLevels ?? []);
         $elementInfoIconMap = [
@@ -119,6 +120,31 @@
                     <tbody>
                         @php
                             $activeDmsFiles = collect($dmsFiles ?? [])->values();
+                            $normalizeDocFilterText = function ($value, string $fallback): string {
+                                $text = trim((string) $value);
+
+                                return $text !== '' ? $text : $fallback;
+                            };
+                            $docFilterTypes = $activeDmsFiles
+                                ->map(fn ($file) => $normalizeDocFilterText($file['type'] ?? '', 'Tanpa Jenis'))
+                                ->unique(fn ($type) => \Illuminate\Support\Str::lower($type))
+                                ->sort(fn ($a, $b) => strnatcasecmp((string) $a, (string) $b))
+                                ->values();
+                            $docFilterTags = $activeDmsFiles
+                                ->map(fn ($file) => $normalizeDocFilterText($file['tag'] ?? '', 'Tanpa Sub Jenis'))
+                                ->unique(fn ($tag) => \Illuminate\Support\Str::lower($tag))
+                                ->sort(fn ($a, $b) => strnatcasecmp((string) $a, (string) $b))
+                                ->values();
+                            $docFilterYears = $activeDmsFiles
+                                ->map(function ($file) {
+                                    $year = $file['year'] ?? '';
+
+                                    return is_numeric($year) ? (string) ((int) $year) : trim((string) $year);
+                                })
+                                ->filter(fn ($year) => $year !== '')
+                                ->unique()
+                                ->sortDesc()
+                                ->values();
                             $editLogsByRow = collect($editLogs ?? [])
                                 ->groupBy(function ($log) {
                                     return (int) ($log->row_id ?? 0);
@@ -267,6 +293,10 @@
                                 $editLockedByValidation = $isVerified && !$hasEditableLevelField;
                                 $verifyNoteText = trim((string) ($row->verify_note ?? ''));
                                 $hasVerifyNote = $verifyNoteText !== '';
+                                $memberNoteToCoordinatorText = $supportsMemberNoteToCoordinator
+                                    ? trim((string) data_get($row, 'member_note_to_coordinator', ''))
+                                    : '';
+                                $hasMemberNoteToCoordinator = $memberNoteToCoordinatorText !== '';
                                 $rowEditLogs = collect($editLogsByRow->get((int) $row->id, []))
                                     ->sortByDesc(function ($log) {
                                         return (string) ($log->created_at ?? '');
@@ -482,7 +512,8 @@
                                                         $levelPaneId = 'edit-level-note-'.$row->id;
                                                         $verifyNotePaneId = 'edit-verify-note-'.$row->id;
                                                         $groupedPickedDmsFiles = $activeDmsFiles
-                                                            ->groupBy(fn ($file) => trim((string) ($file['type'] ?? 'Tanpa Jenis')));
+                                                            ->groupBy(fn ($file) => $normalizeDocFilterText($file['type'] ?? '', 'Tanpa Jenis'))
+                                                            ->sortKeysUsing(fn ($a, $b) => strnatcasecmp((string) $a, (string) $b));
                                                         $totalActiveDmsDocs = (int) $activeDmsFiles->count();
                                                         $levelPickedDocs = $activeDmsFiles
                                                             ->filter(fn ($file) => in_array((string) ($file['id'] ?? ''), $currentPickedDocIdStrings, true))
@@ -529,17 +560,55 @@
 
                                                                     <div class="keg-doc-dd-panel" data-doc-dd-panel hidden>
                                                                         <div class="keg-doc-dd-topbar" data-doc-dd-topbar>
-                                                                            <input
-                                                                                type="search"
-                                                                                class="keg-doc-dd-search keg-field"
-                                                                                placeholder="Cari nama dokumen..."
-                                                                                data-doc-dd-search
-                                                                                @if ($groupedPickedDmsFiles->isEmpty())
-                                                                                    disabled
-                                                                                @endif>
-                                                                            <div class="keg-doc-dd-total" title="Jumlah total dokumen aktif DMS">
-                                                                                <span class="keg-doc-dd-total-label">Total</span>
-                                                                                <strong class="keg-doc-dd-total-value">{{ $totalActiveDmsDocs }}</strong>
+                                                                            <div class="keg-doc-dd-toolrow">
+                                                                                <div class="keg-doc-dd-search-wrap">
+                                                                                    <input
+                                                                                        type="search"
+                                                                                        class="keg-doc-dd-search keg-field"
+                                                                                        placeholder="Cari nama, nomor, atau berkas..."
+                                                                                        data-doc-dd-search
+                                                                                        @if ($groupedPickedDmsFiles->isEmpty())
+                                                                                            disabled
+                                                                                        @endif>
+                                                                                </div>
+                                                                                <div class="keg-doc-dd-total" title="Jumlah dokumen yang tampil dari total dokumen aktif DMS">
+                                                                                    <span class="keg-doc-dd-total-label">Tampil</span>
+                                                                                    <strong class="keg-doc-dd-total-value" data-doc-dd-visible-count>{{ $totalActiveDmsDocs }}</strong>
+                                                                                    <span class="keg-doc-dd-total-separator">/</span>
+                                                                                    <span class="keg-doc-dd-total-max">{{ $totalActiveDmsDocs }}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div class="keg-doc-dd-filterbar" aria-label="Filter dokumen pendukung">
+                                                                                <label class="keg-doc-dd-filter">
+                                                                                    <span>Jenis</span>
+                                                                                    <select class="keg-doc-dd-filter-select" data-doc-dd-type-filter @if ($groupedPickedDmsFiles->isEmpty()) disabled @endif>
+                                                                                        <option value="">Semua jenis</option>
+                                                                                        @foreach ($docFilterTypes as $docFilterType)
+                                                                                            <option value="{{ $docFilterType }}">{{ $docFilterType }}</option>
+                                                                                        @endforeach
+                                                                                    </select>
+                                                                                </label>
+                                                                                <label class="keg-doc-dd-filter">
+                                                                                    <span>Sub Jenis</span>
+                                                                                    <select class="keg-doc-dd-filter-select" data-doc-dd-tag-filter @if ($groupedPickedDmsFiles->isEmpty()) disabled @endif>
+                                                                                        <option value="">Semua sub jenis</option>
+                                                                                        @foreach ($docFilterTags as $docFilterTag)
+                                                                                            <option value="{{ $docFilterTag }}">{{ $docFilterTag }}</option>
+                                                                                        @endforeach
+                                                                                    </select>
+                                                                                </label>
+                                                                                <label class="keg-doc-dd-filter">
+                                                                                    <span>Tahun</span>
+                                                                                    <select class="keg-doc-dd-filter-select" data-doc-dd-year-filter @if ($groupedPickedDmsFiles->isEmpty()) disabled @endif>
+                                                                                        <option value="">Semua tahun</option>
+                                                                                        @foreach ($docFilterYears as $docFilterYear)
+                                                                                            <option value="{{ $docFilterYear }}">{{ $docFilterYear }}</option>
+                                                                                        @endforeach
+                                                                                    </select>
+                                                                                </label>
+                                                                                <button type="button" class="keg-doc-dd-reset" data-doc-dd-reset @if ($groupedPickedDmsFiles->isEmpty()) disabled @endif>
+                                                                                    Reset
+                                                                                </button>
                                                                             </div>
                                                                         </div>
                                                                         @if ($groupedPickedDmsFiles->isEmpty())
@@ -549,7 +618,7 @@
                                                                                 <div class="keg-doc-dd-group">
                                                                                     <div class="keg-doc-dd-group-head">Jenis: {{ $docType }}</div>
 
-                                                                                    @foreach ($typedFiles->groupBy(fn ($file) => trim((string) ($file['tag'] ?? 'Tanpa Sub Jenis'))) as $docTag => $taggedFiles)
+                                                                                    @foreach ($typedFiles->groupBy(fn ($file) => $normalizeDocFilterText($file['tag'] ?? '', 'Tanpa Sub Jenis'))->sortKeysUsing(fn ($a, $b) => strnatcasecmp((string) $a, (string) $b)) as $docTag => $taggedFiles)
                                                                                         @php
                                                                                             $docTagText = trim((string) $docTag) !== '' ? trim((string) $docTag) : 'Tanpa Sub Jenis';
                                                                                             $docTagKey = \Illuminate\Support\Str::lower($docTagText);
@@ -568,12 +637,18 @@
                                                                                                 @foreach ($taggedFiles as $file)
                                                                                                     @php
                                                                                                         $isSelectedOption = in_array((string) ($file['id'] ?? ''), $currentPickedDocIdStrings, true);
-                                                                                                        $searchText = \Illuminate\Support\Str::lower(trim((string) ($file['label'] ?? '').' '.(string) $docType.' '.(string) $docTagText));
+                                                                                                        $docYearText = is_numeric($file['year'] ?? null)
+                                                                                                            ? (string) ((int) $file['year'])
+                                                                                                            : trim((string) ($file['year'] ?? ''));
+                                                                                                        $searchText = \Illuminate\Support\Str::lower(trim((string) ($file['label'] ?? '').' '.(string) $docType.' '.(string) $docTagText.' '.$docYearText));
                                                                                                     @endphp
                                                                                                     <div
                                                                                                         class="keg-doc-dd-option {{ $isSelectedOption ? 'is-selected' : '' }} {{ $isVerified ? 'is-disabled' : '' }}"
                                                                                                         data-doc-dd-option
-                                                                                                        data-doc-dd-option-text="{{ $searchText }}">
+                                                                                                        data-doc-dd-option-text="{{ $searchText }}"
+                                                                                                        data-doc-dd-type="{{ $docType }}"
+                                                                                                        data-doc-dd-tag="{{ $docTagText }}"
+                                                                                                        data-doc-dd-year="{{ $docYearText }}">
                                                                                                         <label class="keg-doc-dd-option-main">
                                                                                                             <input
                                                                                                                 type="checkbox"
@@ -586,6 +661,13 @@
                                                                                                             <span class="keg-doc-dd-file-icon" aria-hidden="true"></span>
                                                                                                             <span class="keg-doc-dd-option-copy">
                                                                                                                 <span class="keg-doc-dd-option-label">{{ $file['label'] }}</span>
+                                                                                                                <span class="keg-doc-dd-option-meta">
+                                                                                                                    <span>{{ $docType }}</span>
+                                                                                                                    <span>{{ $docTagText }}</span>
+                                                                                                                    @if ($docYearText !== '')
+                                                                                                                        <span>{{ $docYearText }}</span>
+                                                                                                                    @endif
+                                                                                                                </span>
                                                                                                             </span>
                                                                                                         </label>
                                                                                                         <span class="keg-doc-dd-selected-mark" aria-hidden="true"></span>
@@ -688,6 +770,27 @@
                                                                     </div>
                                                                 @endfor
                                                             </div>
+                                                            @if($supportsMemberNoteToCoordinator)
+                                                                <div class="keg-member-note-card mt-3">
+                                                                    <label class="form-label mb-1" for="member-note-to-coordinator-{{ $row->id }}">
+                                                                        Catatan (Opsional) kepada Koordinator Tim
+                                                                    </label>
+                                                                    <div class="small keg-field-hint mb-2">
+                                                                        Isi jika ada konteks tambahan, kendala, atau hal yang perlu diperhatikan koordinator saat verifikasi.
+                                                                    </div>
+                                                                    <textarea
+                                                                        id="member-note-to-coordinator-{{ $row->id }}"
+                                                                        name="member_note_to_coordinator"
+                                                                        class="form-control keg-field"
+                                                                        rows="3"
+                                                                        maxlength="1000"
+                                                                        placeholder="Contoh: dokumen pendukung utama ada pada berkas nomor ..., bagian yang perlu dicek ada di halaman ..."
+                                                                        @if ($isVerified)
+                                                                            disabled
+                                                                            title="Data sudah terverifikasi dan catatan anggota tidak dapat diubah."
+                                                                        @endif>{{ data_get($row, 'member_note_to_coordinator', '') }}</textarea>
+                                                                </div>
+                                                            @endif
                                                                 </div>
                                                             </div>
 
@@ -812,6 +915,25 @@
                                                                             </div>
                                                                         </div>
                                                                     </div>
+
+                                                                    @if ($isVerifikator && $supportsMemberNoteToCoordinator)
+                                                                        <div class="keg-member-note-card is-readonly mt-3">
+                                                                            <div class="keg-member-note-head">
+                                                                                <div>
+                                                                                    <div class="form-label mb-0">Catatan Anggota kepada Koordinator Tim</div>
+                                                                                    <div class="small keg-field-hint">Konteks tambahan dari pengisi data untuk membantu proses verifikasi.</div>
+                                                                                </div>
+                                                                                <span class="keg-form-step-pill {{ $hasMemberNoteToCoordinator ? 'is-done' : '' }}">
+                                                                                    {{ $hasMemberNoteToCoordinator ? 'Ada catatan' : 'Kosong' }}
+                                                                                </span>
+                                                                            </div>
+                                                                            @if ($hasMemberNoteToCoordinator)
+                                                                                <div class="keg-member-note-readonly">{!! nl2br(e($memberNoteToCoordinatorText)) !!}</div>
+                                                                            @else
+                                                                                <div class="keg-level-docs-empty mt-2">Anggota tidak menambahkan catatan untuk koordinator.</div>
+                                                                            @endif
+                                                                        </div>
+                                                                    @endif
 
                                                                     @if ($isVerifikator)
                                                                         <form method="POST" action="{{ route('elements.store', $slug) }}" class="mt-3">
@@ -1538,7 +1660,7 @@
                 }
                 if (searchInput) {
                     searchInput.value = '';
-                    filterDocDropdown(dropdown, '');
+                    filterDocDropdown(dropdown);
                 }
 
                 dropdown._docDdCloseTimer = setTimeout(() => {
@@ -1603,7 +1725,8 @@
                 clearDocDropdownCloseTimer(dropdown);
                 dropdown.classList.remove('is-closing');
                 panel.removeAttribute('hidden');
-                filterDocDropdown(dropdown, searchInput ? searchInput.value : '');
+                rebuildDocDropdownTagFilter(dropdown);
+                filterDocDropdown(dropdown, searchInput ? searchInput.value : undefined);
                 updateDocDropdownStickyOffsets(dropdown);
                 requestAnimationFrame(() => {
                     dropdown.classList.add('is-open');
@@ -1616,6 +1739,123 @@
                 }
             }
 
+            function normalizeDocDropdownFilterValue(value) {
+                return String(value || '').trim().toLowerCase();
+            }
+
+            function sortDocDropdownValues(values) {
+                return Array.from(values).sort((a, b) => String(a).localeCompare(String(b), 'id', {
+                    numeric: true,
+                    sensitivity: 'base',
+                }));
+            }
+
+            function rebuildDocDropdownTagFilter(dropdown) {
+                if (!dropdown) {
+                    return;
+                }
+
+                const tagSelect = dropdown.querySelector('[data-doc-dd-tag-filter]');
+                if (!tagSelect) {
+                    return;
+                }
+
+                const typeValue = normalizeDocDropdownFilterValue(dropdown.querySelector('[data-doc-dd-type-filter]')?.value);
+                const currentTag = tagSelect.value;
+                const tagMap = new Map();
+                dropdown.querySelectorAll('[data-doc-dd-option]').forEach((option) => {
+                    const optionType = normalizeDocDropdownFilterValue(option.getAttribute('data-doc-dd-type'));
+                    if (typeValue && optionType !== typeValue) {
+                        return;
+                    }
+
+                    const tag = String(option.getAttribute('data-doc-dd-tag') || '').trim();
+                    if (!tag) {
+                        return;
+                    }
+                    tagMap.set(normalizeDocDropdownFilterValue(tag), tag);
+                });
+
+                tagSelect.innerHTML = '';
+                const allOption = document.createElement('option');
+                allOption.value = '';
+                allOption.textContent = 'Semua sub jenis';
+                tagSelect.appendChild(allOption);
+
+                let hasCurrentTag = currentTag === '';
+                sortDocDropdownValues(tagMap.values()).forEach((tag) => {
+                    const option = document.createElement('option');
+                    option.value = tag;
+                    option.textContent = tag;
+                    if (normalizeDocDropdownFilterValue(currentTag) === normalizeDocDropdownFilterValue(tag)) {
+                        option.selected = true;
+                        hasCurrentTag = true;
+                    }
+                    tagSelect.appendChild(option);
+                });
+
+                if (!hasCurrentTag) {
+                    tagSelect.value = '';
+                }
+            }
+
+            function syncDocDropdownFilterControls(dropdown, visibleCount, optionCount) {
+                if (!dropdown) {
+                    return;
+                }
+
+                const visibleCountNode = dropdown.querySelector('[data-doc-dd-visible-count]');
+                if (visibleCountNode) {
+                    visibleCountNode.textContent = String(Math.max(0, visibleCount));
+                }
+
+                const searchInput = dropdown.querySelector('[data-doc-dd-search]');
+                const typeSelect = dropdown.querySelector('[data-doc-dd-type-filter]');
+                const tagSelect = dropdown.querySelector('[data-doc-dd-tag-filter]');
+                const yearSelect = dropdown.querySelector('[data-doc-dd-year-filter]');
+                const resetBtn = dropdown.querySelector('[data-doc-dd-reset]');
+                const hasActiveFilter = !!(
+                    normalizeDocDropdownFilterValue(searchInput?.value)
+                    || normalizeDocDropdownFilterValue(typeSelect?.value)
+                    || normalizeDocDropdownFilterValue(tagSelect?.value)
+                    || normalizeDocDropdownFilterValue(yearSelect?.value)
+                );
+
+                if (resetBtn) {
+                    resetBtn.disabled = optionCount <= 0 || !hasActiveFilter;
+                }
+            }
+
+            function resetDocDropdownFilters(dropdown) {
+                if (!dropdown) {
+                    return;
+                }
+
+                const searchInput = dropdown.querySelector('[data-doc-dd-search]');
+                const typeSelect = dropdown.querySelector('[data-doc-dd-type-filter]');
+                const tagSelect = dropdown.querySelector('[data-doc-dd-tag-filter]');
+                const yearSelect = dropdown.querySelector('[data-doc-dd-year-filter]');
+
+                if (searchInput) {
+                    searchInput.value = '';
+                }
+                if (typeSelect) {
+                    typeSelect.value = '';
+                }
+                if (yearSelect) {
+                    yearSelect.value = '';
+                }
+                rebuildDocDropdownTagFilter(dropdown);
+                if (tagSelect) {
+                    tagSelect.value = '';
+                }
+                filterDocDropdown(dropdown);
+                updateDocDropdownStickyOffsets(dropdown);
+                if (searchInput && !searchInput.disabled) {
+                    searchInput.focus();
+                }
+            }
+
             function filterDocDropdown(dropdown, queryText) {
                 if (!dropdown) {
                     return;
@@ -1623,14 +1863,26 @@
 
                 const options = Array.from(dropdown.querySelectorAll('[data-doc-dd-option]'));
                 if (!options.length) {
+                    syncDocDropdownFilterControls(dropdown, 0, 0);
                     return;
                 }
 
-                const query = (queryText || '').trim().toLowerCase();
+                const searchInput = dropdown.querySelector('[data-doc-dd-search]');
+                const querySource = typeof queryText === 'string' ? queryText : (searchInput ? searchInput.value : '');
+                const query = normalizeDocDropdownFilterValue(querySource);
+                const typeFilter = normalizeDocDropdownFilterValue(dropdown.querySelector('[data-doc-dd-type-filter]')?.value);
+                const tagFilter = normalizeDocDropdownFilterValue(dropdown.querySelector('[data-doc-dd-tag-filter]')?.value);
+                const yearFilter = normalizeDocDropdownFilterValue(dropdown.querySelector('[data-doc-dd-year-filter]')?.value);
                 let visibleCount = 0;
                 options.forEach((option) => {
-                    const text = String(option.getAttribute('data-doc-dd-option-text') || '').toLowerCase();
-                    const matched = !query || text.includes(query);
+                    const text = normalizeDocDropdownFilterValue(option.getAttribute('data-doc-dd-option-text'));
+                    const type = normalizeDocDropdownFilterValue(option.getAttribute('data-doc-dd-type'));
+                    const tag = normalizeDocDropdownFilterValue(option.getAttribute('data-doc-dd-tag'));
+                    const year = normalizeDocDropdownFilterValue(option.getAttribute('data-doc-dd-year'));
+                    const matched = (!query || text.includes(query))
+                        && (!typeFilter || type === typeFilter)
+                        && (!tagFilter || tag === tagFilter)
+                        && (!yearFilter || year === yearFilter);
                     option.hidden = !matched;
                     if (matched) {
                         visibleCount += 1;
@@ -1651,6 +1903,7 @@
                 if (empty) {
                     empty.hidden = visibleCount > 0;
                 }
+                syncDocDropdownFilterControls(dropdown, visibleCount, options.length);
             }
 
             function updateDocDropdownSelection(dropdown) {
@@ -1944,19 +2197,20 @@
                 }
                 scope.querySelectorAll('[data-doc-dd]').forEach((dropdown) => {
                     updateDocDropdownSelection(dropdown);
-                    filterDocDropdown(dropdown, '');
 
                     const panel = dropdown.querySelector('[data-doc-dd-panel]');
                     const toggle = dropdown.querySelector('[data-doc-dd-toggle]');
                     const searchInput = dropdown.querySelector('[data-doc-dd-search]');
+                    if (searchInput) {
+                        searchInput.value = '';
+                    }
+                    rebuildDocDropdownTagFilter(dropdown);
+                    filterDocDropdown(dropdown);
                     if (panel) {
                         panel.setAttribute('hidden', 'hidden');
                     }
                     if (toggle) {
                         toggle.setAttribute('aria-expanded', 'false');
-                    }
-                    if (searchInput) {
-                        searchInput.value = '';
                     }
                     dropdown.classList.remove('is-open');
                     dropdown.classList.remove('is-closing');
@@ -2854,6 +3108,14 @@
                     return;
                 }
 
+                const docDdReset = event.target.closest('[data-doc-dd-reset]');
+                if (docDdReset) {
+                    event.preventDefault();
+                    const dropdown = docDdReset.closest('[data-doc-dd]');
+                    resetDocDropdownFilters(dropdown);
+                    return;
+                }
+
                 const docDdToggle = event.target.closest('[data-doc-dd-toggle]');
                 if (docDdToggle) {
                     event.preventDefault();
@@ -2931,6 +3193,17 @@
                 if (docDdCheck) {
                     const dropdown = docDdCheck.closest('[data-doc-dd]');
                     updateDocDropdownSelection(dropdown);
+                }
+
+                const docDdFilter = event.target.closest('[data-doc-dd-type-filter], [data-doc-dd-tag-filter], [data-doc-dd-year-filter]');
+                if (docDdFilter) {
+                    const dropdown = docDdFilter.closest('[data-doc-dd]');
+                    if (docDdFilter.matches('[data-doc-dd-type-filter]')) {
+                        rebuildDocDropdownTagFilter(dropdown);
+                    }
+                    filterDocDropdown(dropdown);
+                    updateDocDropdownStickyOffsets(dropdown);
+                    return;
                 }
 
                 const editForm = event.target.closest('form[data-edit-row-form]');
